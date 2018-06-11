@@ -49,6 +49,8 @@ sub process_file {
 
     # analysis
 
+    my %verb;
+
     # foreach my $key (sort { $data{$a} <=> $data{$b} } keys %data) {
     # foreach my $key (sort keys %data) {
     foreach my $key (sort order_keys keys %data) {
@@ -57,6 +59,8 @@ sub process_file {
         # REQUIRED:
         my $module = $json->{'module'}; # elide this - redundant
         my $function = $json->{'function'};
+
+$verb{$function}++;
 
         # complex name structures:
         my $cell_id = $json->{'cell_id'}{'name'};
@@ -85,6 +89,10 @@ sub process_file {
         my $xkey = $key;
         $xkey =~ s/::[0-9]*$//;
         print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment), $endl);
+    }
+
+    foreach my $item (sort { $verb{$a} <=> $verb{$b} } keys %verb) {
+        print(join(' ', $verb{$item}, $item), $endl);
     }
 }
 
@@ -144,23 +152,25 @@ sub snarf {
 my $notes = << '_eof_';
 
 {
-    'function' => 'start_cell',
+    'trace_header' => { 'trace_type' => 'Trace', 'event_id' => 1, 'thread_id' => 0 },
     'module' => 'nalcell.rs',
+    'function' => 'start_cell',
+
     'comment' => 'starting cell agent',
-    'cell_id' => {
-        'name' => 'C:2',
-        'uuid' => { 'uuid' => [ '12816193326460985473', 0 ] }
-    },
-    'trace_header' => { 'trace_type' => 'Trace', 'event_id' => 1, 'thread_id' => 0 }
+    'cell_id' => { 'uuid' => { 'uuid' => [ '12816193326460985473', 0 ] }, 'name' => 'C:2' }
 }
+
+# --
 
 THDR - "trace_header":{"thread_id":[0-9]*,"event_id":[0-9]*,"trace_type":"Trace"},
 FCN - "module":"[^"]*","function":"[^"]*",
 COMMENT - "comment":"[^"]*"
 
-CELLID - "cell_id":{"name":"C:[0-9]*","uuid":{"uuid":\[[0-9]*,0\]}},
-VMID - "vm_id":{"name":"VM:C:[0-9]*+vm[0-9]*","uuid":{"uuid":[[0-9]*,0]}},
-SENDER - "sender_id":{"name":"Sender:C:[0-9]*+VM:C:[0-9]*+vm[0-9]*","uuid":{"uuid":[[0-9]*,0]}},
+UUID - {"name":"[^"]*","uuid":{"uuid":\[[0-9]*,0\]}},
+
+CELLID - "cell_id":UUID,
+VMID - "vm_id":UUID,
+SENDER - "sender_id":UUID,
 
 PORT - "port_no":{"v":[0-9]*},"is_border":[a-z]*
 
@@ -174,5 +184,19 @@ PORT - "port_no":{"v":[0-9]*},"is_border":[a-z]*
 "C:[0-9]*"
 "VM:C:[0-9]*+vm[0-9]*"
 "Sender:C:[0-9]*+VM:C:[0-9]*+vm[0-9]*"
+
+# --
+
+90 process_discoverd_msg
+27 process_stack_treed_msg
+27 port_connected
+10 start_packet_engine
+10 start_cell
+10 listen_port
+10 listen_pe
+10 listen_ca
+
+10 listen_uptree
+5 listen_uptree
 
 _eof_
