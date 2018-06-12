@@ -3,9 +3,17 @@
 
 use strict;
 
+no if $] >= 5.018, warnings => "experimental::smartmatch";
+
 use lib '/Users/bjackson/perl5/lib/perl5';
 use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
+# use JSON::MaybeXS;
+# $json = $json->ascii([$enable])
+# $json = $json->latin1([$enable])
+# $json = $json->utf8([$enable])
+# $json = $json->relaxed([$enable])
+# $json = $json->canonical([$enable])
 
 my $debug;
 
@@ -81,6 +89,7 @@ $verb{$function}++;
         my $is_border = $json->{'is_border'};
         my $port_id = '';
         if (defined $port_no) {
+            # is_bool($is_border)
             my $fx = $is_border eq 'true';
             $port_id = (($fx) ? 'FX:' : 'v').$port_no;
         }
@@ -100,22 +109,54 @@ sub construct_key {
     my ($json, $lineno) = @_;
     my $thread_id = $json->{'trace_header'}{'thread_id'};
     my $event_id = $json->{'trace_header'}{'event_id'};
+    $event_id = e_massage($event_id);
     my $key = join('::', $thread_id, $event_id, $lineno);
     return $key;
 }
 
+# incompatible interface change!!
+sub e_massage {
+    my ($event_id) = @_;
+    return $event_id unless ref($event_id); # old : scalar / number
+
+    my $xxx = join('.', @{$event_id}); # new : seq of number (array)
+    return $xxx;
+}
+
 # ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
 sub order_keys($$) {
     my ($left, $right) = @_;
     my ($l1, $l2, $l3) = split('::', $left);
     my ($r1, $r2, $r3) = split('::', $right);
 
     return $l1 - $r1 unless $l1 == $r1;
-    return $l2 - $r2 unless $l2 == $r2;
+    if ($l2 =~ m/\./) {
+        my $xx = order_numseq($l2, $r2);
+        return $xx unless $xx == 0;
+    }
+    else {
+        return $l2 - $r2 unless $l2 == $r2;
+    }
     return $l3 - $r3;
+}
 
-    # return $left cmp $right; # lexically
-    # return $left <=> $right; # numerically
+sub order_numseq($$) {
+    my ($left, $right) = @_;
+    return $left ~~ $right;
+}
+
+sub order_numseqx($$) {
+    my ($left, $right) = @_;
+    my @l = split('\.', $left);
+    my @r = split('\.', $right);
+    foreach my $item (@l) {
+        my $other = shift @r;
+        return $item = $other unless $item == $other;
+    }
+    return 0;
+    # return $left cmp $right;
 }
 
 sub inhale {
