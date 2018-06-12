@@ -53,6 +53,8 @@ sub do_analyze {
     my ($href) = @_;
     my %verb;
 
+    my $last_thread = '-1';;
+
     foreach my $key (sort order_keys keys %{$href}) {
         my $json = $href->{$key};
 
@@ -89,10 +91,19 @@ sub do_analyze {
 
         # re-hack key for output
         my $xkey = $key;
-        $xkey =~ s/::[0-9]*$//;
-        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment), $endl);
+        # $xkey =~ s/::[0-9]*$//;
+        $xkey =~ s/::.*$/::/;
+        if ($xkey eq $last_thread) {
+            $xkey = '';
+        }
+        else {
+            print($endl);
+            $last_thread = $xkey;
+        }
+        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment, ';'));
     }
 
+    print($endl);
     # dump histogram of verbs
     foreach my $item (sort { $verb{$a} <=> $verb{$b} } keys %verb) {
         print(join(' ', $verb{$item}, $item), $endl);
