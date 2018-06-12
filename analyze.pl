@@ -1,19 +1,16 @@
 #!/usr/bin/perl -w
 # analyze xx.json
 
-use strict;
+# TODO :
+# duplicate key
+# is_bool
+# JSON::MaybeXS
 
-no if $] >= 5.018, warnings => "experimental::smartmatch";
+use strict;
 
 use lib '/Users/bjackson/perl5/lib/perl5';
 use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
-# use JSON::MaybeXS;
-# $json = $json->ascii([$enable])
-# $json = $json->latin1([$enable])
-# $json = $json->utf8([$enable])
-# $json = $json->relaxed([$enable])
-# $json = $json->canonical([$enable])
 
 my $debug;
 
@@ -26,10 +23,9 @@ if ( $#ARGV < 1 ) {
 
 foreach my $file (@ARGV) {
     print($file, $endl);
-    process_file($file);
+    my $href = process_file($file);
+    do_analyze($href);
 }
-
-## print Dumper $json;
 
 exit 0;
 
@@ -45,31 +41,28 @@ sub process_file {
         $lineno++;
         my $json = decode_json($body);
         my $key = construct_key($json, $lineno);
-        ## print(join(' ', 'insert:', $key), $endl);
         if (defined $data{$key}) {
             print(join(' ', 'duplicate key', $key), $endl);
-            ## print Dumper $json;
-            ## print Dumper $data{$key};
-            # exit 1;
         }
         $data{$key} = $json;
     }
+    return \%data;
+}
 
-    # analysis
-
+sub do_analyze {
+    my ($href) = @_;
     my %verb;
 
-    # foreach my $key (sort { $data{$a} <=> $data{$b} } keys %data) {
-    # foreach my $key (sort keys %data) {
-    foreach my $key (sort order_keys keys %data) {
-        my $json = $data{$key};
+    foreach my $key (sort order_keys keys %{$href}) {
+        my $json = $href->{$key};
 
         # REQUIRED:
         my $module = $json->{'module'}; # elide this - redundant
         my $function = $json->{'function'};
 
-$verb{$function}++;
+        $verb{$function}++;
 
+        # OPTIONAL:
         # complex name structures:
         my $cell_id = $json->{'cell_id'}{'name'};
         $cell_id = '' unless defined $cell_id;
@@ -94,12 +87,13 @@ $verb{$function}++;
             $port_id = (($fx) ? 'FX:' : 'v').$port_no;
         }
 
-        # re-hack key
+        # re-hack key for output
         my $xkey = $key;
         $xkey =~ s/::[0-9]*$//;
         print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment), $endl);
     }
 
+    # dump histogram of verbs
     foreach my $item (sort { $verb{$a} <=> $verb{$b} } keys %verb) {
         print(join(' ', $verb{$item}, $item), $endl);
     }
@@ -133,7 +127,7 @@ sub order_keys($$) {
 
     return $l1 - $r1 unless $l1 == $r1;
     if ($l2 =~ m/\./) {
-        my $xx = order_numseq($l2, $r2);
+        my $xx = order_numseq_basic($l2, $r2);
         return $xx unless $xx == 0;
     }
     else {
@@ -142,21 +136,19 @@ sub order_keys($$) {
     return $l3 - $r3;
 }
 
-sub order_numseq($$) {
-    my ($left, $right) = @_;
-    return $left ~~ $right;
-}
-
-sub order_numseqx($$) {
+sub order_numseq_basic($$) {
     my ($left, $right) = @_;
     my @l = split('\.', $left);
     my @r = split('\.', $right);
-    foreach my $item (@l) {
-        my $other = shift @r;
-        return $item = $other unless $item == $other;
+    my $l_len = $#l;
+    my $r_len = $#r;
+    my $len_cmp = $l_len <=> $r_len;
+    my $scan = ($len_cmp < 0) ? $l_len : $r_len; # pick shorter one
+    for my $i ( 0 .. $scan ) {
+        my $val_cmp = $l[$i] <=> $r[$i];
+        return $val_cmp unless $val_cmp == 0;
     }
-    return 0;
-    # return $left cmp $right;
+    return $len_cmp;
 }
 
 sub inhale {
@@ -165,27 +157,6 @@ sub inhale {
     my @body = <FD>;
     close(FD);
     return @body;
-}
-
-# this function allows for multi-line json entries
-# UNUSED
-sub snarf {
-    my ($fname) = @_;
-    open FD, '<'.$fname or die $!;
-    my $body = '';
-    while (<FD>) {
-        chomp;
-        ## next if /^#/;
-        ## s|#.*||; # remove trailing comment
-        s|^[ 	]*||; # space, tab
-        s|[ 	]*$||;
-        next if /^$/;
-        my $line = $_;
-        $body .= $line;
-    }
-
-    my @records = split('}{', $body);
-    return @records;
 }
 
 # --
@@ -239,5 +210,57 @@ PORT - "port_no":{"v":[0-9]*},"is_border":[a-z]*
 
 10 listen_uptree
 5 listen_uptree
+
+# --
+
+# use JSON::MaybeXS;
+# $json = $json->ascii([$enable])
+# $json = $json->latin1([$enable])
+# $json = $json->utf8([$enable])
+# $json = $json->relaxed([$enable])
+# $json = $json->canonical([$enable])
+
+# --
+
+dotest('1.1', '1.1');
+dotest('1.1.1', '1.1.2');
+dotest('1.1.2', '1.1.1');
+dotest('1.1', '1.1.1');
+dotest('1.1.1', '1.1');
+exit 0;
+
+sub dotest {
+    my ($v1, $v2) = @_;
+    my $xcmd = order_numseq_basic($v1, $v2);
+    print(join(' ', $xcmd, $v1, $v2), $endl);
+}
+
+no if $] >= 5.018, warnings => "experimental::smartmatch";
+
+sub order_numseq_smartmatch($$) {
+    my ($left, $right) = @_;
+    return $left ~~ $right;
+}
+
+# this function allows for multi-line json entries
+# UNUSED
+sub snarf {
+    my ($fname) = @_;
+    open FD, '<'.$fname or die $!;
+    my $body = '';
+    while (<FD>) {
+        chomp;
+        ## next if /^#/;
+        ## s|#.*||; # remove trailing comment
+        s|^[ 	]*||; # space, tab
+        s|[ 	]*$||;
+        next if /^$/;
+        my $line = $_;
+        $body .= $line;
+    }
+
+    my @records = split('}{', $body);
+    return @records;
+}
 
 _eof_
