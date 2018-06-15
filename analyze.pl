@@ -16,7 +16,7 @@ my $debug;
 
 my $endl = "\n";
 
-if ( $#ARGV < 1 ) {
+if ( $#ARGV < 0 ) {
     print("usage: analyze xx.json ...", $endl);
     exit -1
 }
