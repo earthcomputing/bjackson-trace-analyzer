@@ -14,16 +14,17 @@ use Data::Dumper;
 
 my $debug;
 my %jschema;
+my %keyset;
 
 my $endl = "\n";
 
 if ( $#ARGV < 0 ) {
-    print("usage: analyze xx.json ...", $endl);
+    print('usage: analyze xx.json ...', $endl);
     exit -1
 }
 
 foreach my $file (@ARGV) {
-    print($file, $endl);
+    print($endl, $file, $endl);
     my $href = process_file($file);
     do_analyze($href);
 }
@@ -43,10 +44,7 @@ sub process_file {
         $lineno++;
         my $json = decode_json($body);
         walk_structure('', $json);
-        my $key = construct_key($json, $lineno);
-        if (defined $data{$key}) {
-            print(join(' ', 'duplicate key', $key), $endl);
-        }
+        my $key = construct_key($json, $lineno); # $json->{'trace_header'}
         $data{$key} = $json;
     }
     return \%data;
@@ -61,37 +59,41 @@ sub do_analyze {
     foreach my $key (sort order_keys keys %{$href}) {
         my $json = $href->{$key};
 
-        # REQUIRED:
+        # REQUIRED/SHOULD:
+        # my $trace_header = $json->{'trace_header'}
         my $module = $json->{'module'}; # elide this - redundant
         my $function = $json->{'function'};
-
-        $verb{$function}++;
-
-        # OPTIONAL:
         # complex name structures:
         my $cell_id = $json->{'cell_id'}{'name'};
         $cell_id = '' unless defined $cell_id;
 
+        $verb{join('$', $module, $function)}++;
+
+# --
+
+        # OPTIONAL:
+        my $comment = $json->{'comment'};
+        $comment = '' unless defined $comment;
+
+        # complex name structures:
         my $vm_id = $json->{'vm_id'}{'name'};
         $vm_id = '' unless defined $vm_id;
 
         my $sender_id = $json->{'sender_id'}{'name'};
         $sender_id = '' unless defined $sender_id;
 
-        # junk
-        my $comment = $json->{'comment'};
-        $comment = '' unless defined $comment;
+## port_connected
+        my $is_border = $json->{'is_border'}; # cell has port=of-entry ??
 
         # suggest changing this ??
         my $port_no = $json->{'port_no'}{'v'};
-        my $is_border = $json->{'is_border'};
         my $port_id = '';
         if (defined $port_no) {
-            # is_bool($is_border)
             my $fx = $is_border eq 'true';
             $port_id = (($fx) ? 'FX:' : 'v').$port_no;
         }
 
+## output
         # re-hack key for output
         my $xkey = $key;
         # $xkey =~ s/::[0-9]*$//;
@@ -105,12 +107,9 @@ sub do_analyze {
         }
         print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment, ';'));
     }
+    print($endl); # terminate last entry
 
-    print($endl);
-    # dump histogram of verbs
-    foreach my $item (sort { $verb{$a} <=> $verb{$b} } keys %verb) {
-        print(join(' ', $verb{$item}, $item), $endl);
-    }
+    dump_histo('VERBS:', \%verb);
 }
 
 sub construct_key {
@@ -147,6 +146,11 @@ sub order_keys($$) {
     else {
         return $l2 - $r2 unless $l2 == $r2;
     }
+
+    # only need 3rd when duplicate:
+    my $basic_key = join('::', $l1, $l2);
+    print(join(' ', 'WARNING: duplicate key', $basic_key), $endl);
+
     return $l3 - $r3;
 }
 
@@ -167,7 +171,7 @@ sub order_numseq_basic($$) {
 
 sub inhale {
     my ($file) = @_;
-    open(FD, "<".$file) or die $!;
+    open(FD, '<'.$file) or die $!;
     my @body = <FD>;
     close(FD);
     return @body;
@@ -185,6 +189,7 @@ sub walk_structure {
         my $jtype = ' : OBJECT { '.join(' ', sort keys $json).' }';
         $jschema{$path.$jtype}++;
         foreach my $tag (keys $json) {
+$keyset{$tag}++;
             my $nested = $path.'/'.$tag;
             ## $jschema{$nested}++;
             walk_structure($nested, $json->{$tag});
@@ -213,12 +218,19 @@ sub walk_structure {
     exit 0;
 }
 
-sub dump_schema {
+# by frequency, descending
+sub dump_histo {
+    my ($hdr, $href) = @_;
     print($endl);
-    print('SCHEMA:', $endl);
-    foreach my $path (sort { $jschema{$b} <=> $jschema{$a} } keys %jschema) {
-        print(join(' ', $jschema{$path}, $path), $endl);
+    print($hdr, $endl);
+    foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
+        print(join(' ', $href->{$item}, $item), $endl);
     }
+}
+
+sub dump_schema {
+    dump_histo('SCHEMA:', \%jschema);
+    dump_histo('KEYSET:', \%keyset);
 }
 
 # --
@@ -324,5 +336,63 @@ sub snarf {
     my @records = split('}{', $body);
     return @records;
 }
+
+# --
+
+3888 uuid
+2128 name
+1254 v
+746 function
+746 thread_id
+746 trace_header
+746 event_id
+746 trace_type
+746 cell_id
+746 module
+572 msg_type
+570 tree_id
+414 port_nos
+312 sender_id
+293 direction
+293 msg_count
+293 tree_map
+293 msg
+293 payload
+293 header
+186 index
+120 comment
+115 id
+114 new_tree_id
+114 var_name
+114 send_eqn
+114 value
+114 recv_eqn
+114 save_eqn
+114 xtnd_eqn
+114 parent_tree_id
+114 gvm_eqn
+114 var_type
+114 variables
+72 fwd_index
+69 allowed_trees
+54 is_border
+54 port_no
+48 body
+46 image
+46 trees
+46 parent_list
+36 my_index
+23 containers
+23 vms
+23 NocMasterAgent
+23 NocAgentMaster
+23 tree_name
+23 required_config
+23 deploy_tree_id
+23 params
+23 cell_config
+23 manifest
+23 deployment_tree
+19 vm_id
 
 _eof_
