@@ -13,6 +13,7 @@ use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
 
 my $debug;
+my %jschema;
 
 my $endl = "\n";
 
@@ -27,6 +28,7 @@ foreach my $file (@ARGV) {
     do_analyze($href);
 }
 
+dump_schema();
 exit 0;
 
 # --
@@ -40,6 +42,7 @@ sub process_file {
     foreach my $body (@records) {
         $lineno++;
         my $json = decode_json($body);
+        walk_structure('', $json);
         my $key = construct_key($json, $lineno);
         if (defined $data{$key}) {
             print(join(' ', 'duplicate key', $key), $endl);
@@ -168,6 +171,54 @@ sub inhale {
     my @body = <FD>;
     close(FD);
     return @body;
+}
+
+# accumulate $jschema
+# JSON::is_bool
+sub walk_structure {
+    my ($path, $json) = @_;
+    my $rkind = ref($json);
+    $jschema{$path}++ unless $rkind;
+    return unless $rkind;
+    if ($rkind eq 'HASH') {
+        # special case: include type
+        my $jtype = ' : OBJECT { '.join(' ', sort keys $json).' }';
+        $jschema{$path.$jtype}++;
+        foreach my $tag (keys $json) {
+            my $nested = $path.'/'.$tag;
+            ## $jschema{$nested}++;
+            walk_structure($nested, $json->{$tag});
+        }
+        return;
+    }
+    if ($rkind eq 'ARRAY') {
+        my @ary = @{$json};
+        # special case: include type
+        my $jtype = ' : ARRAY len='.($#ary+1);
+        $jschema{$path.$jtype}++;
+        foreach my $val (@ary) {
+            my $nested = $path.'[]';
+            ## $jschema{$nested}++;
+            walk_structure($nested, $val);
+        }
+        return;
+    }
+    if ($rkind eq 'JSON::PP::Boolean') {
+        # special case: include type
+        $jschema{$path.' : BOOLEAN'}++;
+        return;
+    }
+
+    print(join(' ', 'unknown object type:', $rkind), $endl);
+    exit 0;
+}
+
+sub dump_schema {
+    print($endl);
+    print('SCHEMA:', $endl);
+    foreach my $path (sort { $jschema{$b} <=> $jschema{$a} } keys %jschema) {
+        print(join(' ', $jschema{$path}, $path), $endl);
+    }
 }
 
 # --
