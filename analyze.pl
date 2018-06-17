@@ -13,6 +13,7 @@ use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
 
 my $debug;
+my $dump_tables;
 my %jschema;
 my %keyset;
 
@@ -54,7 +55,7 @@ sub do_analyze {
     my ($href) = @_;
     my %verb;
 
-    my $last_thread = '-1';;
+    my $last_thread = '-1';
 
     foreach my $key (sort order_keys keys %{$href}) {
         my $json = $href->{$key};
@@ -93,6 +94,23 @@ sub do_analyze {
             $port_id = (($fx) ? 'FX:' : 'v').$port_no;
         }
 
+## listen_pe_loop, send_msg
+        my $tree_id = $json->{'tree_id'}{'name'};
+        $tree_id = '' unless defined $tree_id;
+
+        my $port_nos = $json->{'port_nos'}; ## array of port names (vXX)
+        my $port_list = build_port_list($port_nos);
+        ## FIXME
+
+## forward
+        my $msg_type = $json->{'msg_type'};
+        $msg_type = '' unless defined $msg_type;
+
+## listen_pe_loop
+        my $msg = $json->{'msg'};
+        my $summary = summarize_msg($msg);
+        ## FIXME
+
 ## output
         # re-hack key for output
         my $xkey = $key;
@@ -105,11 +123,40 @@ sub do_analyze {
             print($endl);
             $last_thread = $xkey;
         }
-        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $port_id, $comment, ';'));
+        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $tree_id, $msg_type, $port_id, $port_list, $summary, $comment, ';'));
     }
     print($endl); # terminate last entry
 
     dump_histo('VERBS:', \%verb);
+}
+
+# SEQ OF OBJECT { v }
+sub build_port_list {
+    my ($port_nos) = @_;
+    return '' unless defined $port_nos;
+    return join(':', map { 'v'.$_->{'v'} } @{$port_nos});
+}
+
+sub summarize_msg {
+    my ($msg) = @_;
+    return '' unless defined $msg;
+
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+
+    # /msg/header/direction
+    # /msg/header/msg_type
+    # /msg/header/sender_id
+    my $direction = $header->{'direction'};
+    my $msg_type = $header->{'msg_type'};
+    my $sender_id = $header->{'sender_id'}{'name'};
+
+    # /msg/payload/gvm_eqn
+    # /msg/payload/manifest
+    my $has_gvm = defined($payload->{'gvm_eqn'}) ? 'gvm' : '';
+    my $has_manifest = defined($payload->{'manifest'}) ? 'manifest' : '';
+
+    return join(':', $sender_id, $msg_type, $direction, $has_gvm, $has_manifest);
 }
 
 sub construct_key {
@@ -149,7 +196,7 @@ sub order_keys($$) {
 
     # only need 3rd when duplicate:
     my $basic_key = join('::', $l1, $l2);
-    print(join(' ', 'WARNING: duplicate key', $basic_key), $endl);
+    print STDERR (join(' ', 'WARNING: duplicate key', $basic_key), $endl);
 
     return $l3 - $r3;
 }
@@ -221,6 +268,8 @@ $keyset{$tag}++;
 # by frequency, descending
 sub dump_histo {
     my ($hdr, $href) = @_;
+    return unless $dump_tables; # 
+
     print($endl);
     print($hdr, $endl);
     foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
