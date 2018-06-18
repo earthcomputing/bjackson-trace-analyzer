@@ -1,0 +1,186 @@
+
+--
+
+VERBS:
+
+cellagent.rs$listen_pe
+cellagent.rs$listen_pe_loop
+cellagent.rs$listen_uptree
+cellagent.rs$send_msg
+nalcell.rs$start_cell
+nalcell.rs$start_packet_engine
+packet_engine.rs$forward
+packet_engine.rs$listen_ca
+packet_engine.rs$listen_port
+
+--
+
+SCHEMA:
+
+    OBJECT { trace_header module function cell_id - comment }
+    OBJECT { trace_header module function cell_id - comment sender_id vm_id }
+    OBJECT { trace_header module function cell_id - is_border port_no }
+    OBJECT { trace_header module function cell_id - msg }
+    OBJECT { trace_header module function cell_id - msg port_nos tree_id }
+    OBJECT { trace_header module function cell_id - msg_type port_nos tree_id }
+
+--
+
+METADATA:
+
+    /trace_header/thread_id : NUMBER
+    /trace_header/event_id[] : SEQ OF NUMBER
+    /trace_header/trace_type : STRING # Trace, Debug
+    /module : STRING
+    /function : STRING
+    /cell_id : NAME_TYPE
+
+--
+
+FORM #1: OBJECT { trace_header module function cell_id - comment }
+
+    /comment : STRING
+
+packet_engine.rs$listen_ca - "Starting listen CA"
+cellagent.rs$listen_pe - "Starting listen PE"
+packet_engine.rs$listen_port - "Starting listen ports"
+nalcell.rs$start_cell - "starting cell agent"
+nalcell.rs$start_packet_engine - "starting packet engine"
+
+--
+
+FORM #2: OBJECT { trace_header module function cell_id - comment sender_id vm_id }
+
+    /comment : STRING
+    /sender_id : NAME_TYPE
+    /vm_id : NAME_TYPE
+
+cellagent.rs$listen_uptree - "Start listening to VM"
+
+"sender_id":{"name":"Sender:C:0+VM:C:0+vm1", ... },
+"vm_id":{"name":"VM:C:0+vm1", ... }
+
+--
+
+FORM #3: OBJECT { trace_header module function cell_id - is_border port_no }
+
+    /is_border : BOOLEAN
+    /port_no/v : NUMBER
+
+cellagent.rs$port_connected
+
+--
+
+FORM #4: OBJECT { trace_header module function cell_id - msg }
+
+    /msg : OBJECT { header payload }
+
+cellagent.rs$listen_pe_loop
+
+--
+
+FORM #5: OBJECT { trace_header module function cell_id - tree_id port_nos - msg }
+
+    /port_nos[] : SEQ OF OBJECT { v }
+    /port_nos[]/v : NUMBER
+    /tree_id : NAME_TYPE
+    /msg : OBJECT { header payload }
+
+cellagent.rs$listen_pe_loop
+cellagent.rs$send_msg
+
+--
+
+FORM #6: OBJECT { trace_header module function cell_id - tree_id port_nos - msg_type }
+
+    /msg_type : STRING # Application, DiscoverD, Manifest, StackTree, StackTreeD
+    /port_nos[] : SEQ OF OBJECT { v }
+    /port_nos[]/v : NUMBER
+    /tree_id : NAME_TYPE
+
+packet_engine.rs$forward
+
+tree_id":{"name":"C:2","uuid":{"uuid":[12816193326460985473,0]}}}
+tree_id":{"name":"C:2+NocAgentDeploy","uuid":{"uuid":[3209807718288657190,0]}}}
+tree_id":{"name":"C:2+NocAgentMaster","uuid":{"uuid":[15368753812235211625,0]}}}
+tree_id":{"name":"C:2+NocMasterAgent","uuid":{"uuid":[16856829065935478237,0]}}}
+tree_id":{"name":"C:2+NocMasterDeploy","uuid":{"uuid":[3305191050194686021,0]}}}
+
+--
+
+    /msg : OBJECT { header payload }
+    /msg/header : OBJECT { direction msg_count msg_type sender_id tree_map }
+    /msg/header/direction : STRING # Leafward, Rootward
+    /msg/header/msg_count : NUMBER
+    /msg/header/msg_type : STRING # StackTree, Manifest, StackTreeD, Application, DiscoverD
+    /msg/header/sender_id : NAME_TYPE
+    /msg/header/tree_map : OBJECT {  }
+    /msg/header/tree_map : OBJECT { NocAgentMaster NocMasterAgent }
+    /msg/header/tree_map/NocAgentMaster : NAME_TYPE
+    /msg/header/tree_map/NocMasterAgent : NAME_TYPE
+
+    /msg/payload : OBJECT { tree_id - body }
+    /msg/payload : OBJECT { tree_id - my_index }
+    /msg/payload : OBJECT { tree_id - fwd_index index }
+    /msg/payload : OBJECT { deploy_tree_id - manifest tree_name }
+    /msg/payload : OBJECT { parent_tree_id - gvm_eqn index new_tree_id }
+
+    /msg/payload/body
+    /msg/payload/fwd_index
+    /msg/payload/index
+    /msg/payload/my_index
+
+    /msg/payload/deploy_tree_id : NAME_TYPE
+    /msg/payload/new_tree_id : NAME_TYPE
+    /msg/payload/parent_tree_id : NAME_TYPE
+    /msg/payload/tree_id : NAME_TYPE
+    /msg/payload/tree_name : OBJECT { name }
+    /msg/payload/tree_name/name : STRING
+
+    /msg/payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+    /msg/payload/gvm_eqn/recv_eqn
+    /msg/payload/gvm_eqn/save_eqn
+    /msg/payload/gvm_eqn/send_eqn
+    /msg/payload/gvm_eqn/xtnd_eqn
+    /msg/payload/gvm_eqn/variables : ARRAY len=1
+    /msg/payload/gvm_eqn/variables[] : OBJECT { value var_name var_type }
+    /msg/payload/gvm_eqn/variables[]/value
+    /msg/payload/gvm_eqn/variables[]/var_name
+    /msg/payload/gvm_eqn/variables[]/var_type
+
+    /msg/payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
+    /msg/payload/manifest/allowed_trees[]/name
+    /msg/payload/manifest/cell_config
+    /msg/payload/manifest/deployment_tree/name
+    /msg/payload/manifest/id
+    /msg/payload/manifest/allowed_trees : ARRAY len=2
+    /msg/payload/manifest/allowed_trees[] : OBJECT { name }
+    /msg/payload/manifest/deployment_tree : OBJECT { name }
+    /msg/payload/manifest/trees : ARRAY len=1
+    /msg/payload/manifest/trees[] : OBJECT { id parent_list }
+    /msg/payload/manifest/trees[]/parent_list : ARRAY len=1
+    /msg/payload/manifest/trees[]/id
+    /msg/payload/manifest/trees[]/parent_list[]
+    /msg/payload/manifest/vms : ARRAY len=1
+    /msg/payload/manifest/vms[] : OBJECT { allowed_trees containers id image required_config trees }
+    /msg/payload/manifest/vms[]/id
+    /msg/payload/manifest/vms[]/image
+    /msg/payload/manifest/vms[]/required_config
+    /msg/payload/manifest/vms[]/allowed_trees : ARRAY len=2
+    /msg/payload/manifest/vms[]/allowed_trees[] : OBJECT { name }
+    /msg/payload/manifest/vms[]/allowed_trees[]/name
+    /msg/payload/manifest/vms[]/containers : ARRAY len=1
+    /msg/payload/manifest/vms[]/containers[] : OBJECT { allowed_trees id image params }
+    /msg/payload/manifest/vms[]/containers[]/id
+    /msg/payload/manifest/vms[]/containers[]/image
+    /msg/payload/manifest/vms[]/containers[]/allowed_trees : ARRAY len=2
+    /msg/payload/manifest/vms[]/containers[]/allowed_trees[] : OBJECT { name }
+    /msg/payload/manifest/vms[]/containers[]/allowed_trees[]/name
+    /msg/payload/manifest/vms[]/containers[]/params : ARRAY len=0
+    /msg/payload/manifest/vms[]/trees : ARRAY len=1
+    /msg/payload/manifest/vms[]/trees[] : OBJECT { id parent_list }
+    /msg/payload/manifest/vms[]/trees[]/id
+    /msg/payload/manifest/vms[]/trees[]/parent_list[]
+    /msg/payload/manifest/vms[]/trees[]/parent_list : ARRAY len=1
+
+--
