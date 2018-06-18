@@ -4,9 +4,10 @@
 VERBS:
 
 cellagent.rs$listen_pe
-cellagent.rs$listen_pe_loop
 cellagent.rs$listen_uptree
-cellagent.rs$send_msg
+cellagent.rs$port_connected
+datacenter.rs$initialize
+nalcell.rs$new
 nalcell.rs$start_cell
 nalcell.rs$start_packet_engine
 packet_engine.rs$forward
@@ -17,28 +18,30 @@ packet_engine.rs$listen_port
 
 SCHEMA:
 
-    OBJECT { trace_header module function cell_id - comment }
-    OBJECT { trace_header module function cell_id - comment sender_id vm_id }
-    OBJECT { trace_header module function cell_id - is_border port_no }
-    OBJECT { trace_header module function cell_id - msg }
-    OBJECT { trace_header module function cell_id - msg port_nos tree_id }
-    OBJECT { trace_header module function cell_id - msg_type port_nos tree_id }
+    OBJECT { trace_header module function - cell_id comment }
+    OBJECT { trace_header module function - cell_id comment sender_id vm_id }
+    OBJECT { trace_header module function - cell_id is_border port_no }
+    OBJECT { trace_header module function - cell_id msg }
+    OBJECT { trace_header module function - cell_id msg port_nos tree_id }
+    OBJECT { trace_header module function - cell_id msg_type port_nos tree_id }
+    OBJECT { trace_header module function - left_cell left_port link_id rite_cell rite_port }
+    OBJECT { trace_header module function - cell_number comment }
 
 --
 
 METADATA:
 
-    /trace_header/thread_id : NUMBER
-    /trace_header/event_id[] : SEQ OF NUMBER
-    /trace_header/trace_type : STRING # Trace, Debug
     /module : STRING
     /function : STRING
-    /cell_id : NAME_TYPE
+    /trace_header/trace_type : STRING # Trace, Debug
+    /trace_header/thread_id : NUMBER
+    /trace_header/event_id[] : SEQ OF NUMBER
 
 --
 
-FORM #1: OBJECT { trace_header module function cell_id - comment }
+FORM #1: OBJECT { trace_header module function - cell_id comment }
 
+    /cell_id : NAME_TYPE
     /comment : STRING
 
 packet_engine.rs$listen_ca - "Starting listen CA"
@@ -49,8 +52,9 @@ nalcell.rs$start_packet_engine - "starting packet engine"
 
 --
 
-FORM #2: OBJECT { trace_header module function cell_id - comment sender_id vm_id }
+FORM #2: OBJECT { trace_header module function - cell_id comment sender_id vm_id }
 
+    /cell_id : NAME_TYPE
     /comment : STRING
     /sender_id : NAME_TYPE
     /vm_id : NAME_TYPE
@@ -62,8 +66,9 @@ cellagent.rs$listen_uptree - "Start listening to VM"
 
 --
 
-FORM #3: OBJECT { trace_header module function cell_id - is_border port_no }
+FORM #3: OBJECT { trace_header module function - cell_id is_border port_no }
 
+    /cell_id : NAME_TYPE
     /is_border : BOOLEAN
     /port_no/v : NUMBER
 
@@ -71,28 +76,31 @@ cellagent.rs$port_connected
 
 --
 
-FORM #4: OBJECT { trace_header module function cell_id - msg }
+FORM #4: OBJECT { trace_header module function - cell_id msg }
 
+    /cell_id : NAME_TYPE
     /msg : OBJECT { header payload }
 
 cellagent.rs$listen_pe_loop
 
 --
 
-FORM #5: OBJECT { trace_header module function cell_id - tree_id port_nos - msg }
+FORM #5: OBJECT { trace_header module function - cell_id msg port_nos tree_id }
 
+    /cell_id : NAME_TYPE
+    /msg : OBJECT { header payload }
     /port_nos[] : SEQ OF OBJECT { v }
     /port_nos[]/v : NUMBER
     /tree_id : NAME_TYPE
-    /msg : OBJECT { header payload }
 
 cellagent.rs$listen_pe_loop
 cellagent.rs$send_msg
 
 --
 
-FORM #6: OBJECT { trace_header module function cell_id - tree_id port_nos - msg_type }
+FORM #6: OBJECT { trace_header module function - cell_id msg_type port_nos tree_id }
 
+    /cell_id : NAME_TYPE
     /msg_type : STRING # Application, DiscoverD, Manifest, StackTree, StackTreeD
     /port_nos[] : SEQ OF OBJECT { v }
     /port_nos[]/v : NUMBER
@@ -100,11 +108,35 @@ FORM #6: OBJECT { trace_header module function cell_id - tree_id port_nos - msg_
 
 packet_engine.rs$forward
 
-tree_id":{"name":"C:2","uuid":{"uuid":[12816193326460985473,0]}}}
-tree_id":{"name":"C:2+NocAgentDeploy","uuid":{"uuid":[3209807718288657190,0]}}}
-tree_id":{"name":"C:2+NocAgentMaster","uuid":{"uuid":[15368753812235211625,0]}}}
-tree_id":{"name":"C:2+NocMasterAgent","uuid":{"uuid":[16856829065935478237,0]}}}
-tree_id":{"name":"C:2+NocMasterDeploy","uuid":{"uuid":[3305191050194686021,0]}}}
+tree_id":{"name":"C:2",...},
+tree_id":{"name":"C:2+NocAgentDeploy",...},
+tree_id":{"name":"C:2+NocAgentMaster",...},
+tree_id":{"name":"C:2+NocMasterAgent",...},
+tree_id":{"name":"C:2+NocMasterDeploy",...},
+
+--
+
+FORM #7: OBJECT { trace_header module function - link_id left_cell left_port rite_cell rite_port }
+
+    /link_id : NAME_TYPE
+    /left_cell : NAME_TYPE
+    /left_port/v : NUMBER
+    /rite_cell : NAME_TYPE
+    /rite_port/v : NUMBER
+
+--
+
+FORM #8: OBJECT { trace_header module function - cell_number comment }
+
+    /cell_number : NUMBER
+    /comment : STRING
+
+--
+
+NAME_TYPE:
+
+    /.../name
+    /.../uuid/uuid[] : SEQ 2 OF NUMBER
 
 --
 
@@ -137,50 +169,83 @@ tree_id":{"name":"C:2+NocMasterDeploy","uuid":{"uuid":[3305191050194686021,0]}}}
     /msg/payload/tree_name : OBJECT { name }
     /msg/payload/tree_name/name : STRING
 
-    /msg/payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
-    /msg/payload/gvm_eqn/recv_eqn
-    /msg/payload/gvm_eqn/save_eqn
-    /msg/payload/gvm_eqn/send_eqn
-    /msg/payload/gvm_eqn/xtnd_eqn
-    /msg/payload/gvm_eqn/variables : ARRAY len=1
-    /msg/payload/gvm_eqn/variables[] : OBJECT { value var_name var_type }
-    /msg/payload/gvm_eqn/variables[]/value
-    /msg/payload/gvm_eqn/variables[]/var_name
-    /msg/payload/gvm_eqn/variables[]/var_type
+--
 
-    /msg/payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
-    /msg/payload/manifest/allowed_trees[]/name
-    /msg/payload/manifest/cell_config
-    /msg/payload/manifest/deployment_tree/name
-    /msg/payload/manifest/id
-    /msg/payload/manifest/allowed_trees : ARRAY len=2
-    /msg/payload/manifest/allowed_trees[] : OBJECT { name }
-    /msg/payload/manifest/deployment_tree : OBJECT { name }
-    /msg/payload/manifest/trees : ARRAY len=1
-    /msg/payload/manifest/trees[] : OBJECT { id parent_list }
-    /msg/payload/manifest/trees[]/parent_list : ARRAY len=1
-    /msg/payload/manifest/trees[]/id
-    /msg/payload/manifest/trees[]/parent_list[]
-    /msg/payload/manifest/vms : ARRAY len=1
-    /msg/payload/manifest/vms[] : OBJECT { allowed_trees containers id image required_config trees }
-    /msg/payload/manifest/vms[]/id
-    /msg/payload/manifest/vms[]/image
-    /msg/payload/manifest/vms[]/required_config
-    /msg/payload/manifest/vms[]/allowed_trees : ARRAY len=2
-    /msg/payload/manifest/vms[]/allowed_trees[] : OBJECT { name }
-    /msg/payload/manifest/vms[]/allowed_trees[]/name
-    /msg/payload/manifest/vms[]/containers : ARRAY len=1
-    /msg/payload/manifest/vms[]/containers[] : OBJECT { allowed_trees id image params }
-    /msg/payload/manifest/vms[]/containers[]/id
-    /msg/payload/manifest/vms[]/containers[]/image
-    /msg/payload/manifest/vms[]/containers[]/allowed_trees : ARRAY len=2
-    /msg/payload/manifest/vms[]/containers[]/allowed_trees[] : OBJECT { name }
-    /msg/payload/manifest/vms[]/containers[]/allowed_trees[]/name
-    /msg/payload/manifest/vms[]/containers[]/params : ARRAY len=0
-    /msg/payload/manifest/vms[]/trees : ARRAY len=1
-    /msg/payload/manifest/vms[]/trees[] : OBJECT { id parent_list }
-    /msg/payload/manifest/vms[]/trees[]/id
-    /msg/payload/manifest/vms[]/trees[]/parent_list[]
-    /msg/payload/manifest/vms[]/trees[]/parent_list : ARRAY len=1
+    /.../gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+    /.../gvm_eqn/recv_eqn
+    /.../gvm_eqn/save_eqn
+    /.../gvm_eqn/send_eqn
+    /.../gvm_eqn/xtnd_eqn
+    /.../gvm_eqn/variables : ARRAY len=1
+    /.../gvm_eqn/variables[] : OBJECT { value var_name var_type }
+    /.../gvm_eqn/variables[]/value
+    /.../gvm_eqn/variables[]/var_name
+    /.../gvm_eqn/variables[]/var_type
+
+--
+
+    /.../manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
+    /.../manifest/allowed_trees[]/name
+    /.../manifest/cell_config
+    /.../manifest/deployment_tree/name
+    /.../manifest/id
+    /.../manifest/allowed_trees : ARRAY len=2
+    /.../manifest/allowed_trees[] : OBJECT { name }
+    /.../manifest/deployment_tree : OBJECT { name }
+    /.../manifest/trees : ARRAY len=1
+    /.../manifest/trees[] : OBJECT { id parent_list }
+    /.../manifest/trees[]/parent_list : ARRAY len=1
+    /.../manifest/trees[]/id
+    /.../manifest/trees[]/parent_list[]
+    /.../manifest/vms : ARRAY len=1
+    /.../manifest/vms[] : OBJECT { allowed_trees containers id image required_config trees }
+    /.../manifest/vms[]/id
+    /.../manifest/vms[]/image
+    /.../manifest/vms[]/required_config
+    /.../manifest/vms[]/allowed_trees : ARRAY len=2
+    /.../manifest/vms[]/allowed_trees[] : OBJECT { name }
+    /.../manifest/vms[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers : ARRAY len=1
+    /.../manifest/vms[]/containers[] : OBJECT { allowed_trees id image params }
+    /.../manifest/vms[]/containers[]/id
+    /.../manifest/vms[]/containers[]/image
+    /.../manifest/vms[]/containers[]/allowed_trees : ARRAY len=2
+    /.../manifest/vms[]/containers[]/allowed_trees[] : OBJECT { name }
+    /.../manifest/vms[]/containers[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers[]/params : ARRAY len=0
+    /.../manifest/vms[]/trees : ARRAY len=1
+    /.../manifest/vms[]/trees[] : OBJECT { id parent_list }
+    /.../manifest/vms[]/trees[]/id
+    /.../manifest/vms[]/trees[]/parent_list[]
+    /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
+
+--
+
+KEYSET:
+
+856 uuid
+428 name
+261 module
+261 event_id
+261 thread_id
+261 function
+261 trace_header
+261 trace_type
+228 cell_id
+198 v
+141 msg_type
+141 port_nos
+141 tree_id
+80 comment
+27 is_border
+27 port_no
+20 cell_number
+13 link_id
+13 rite_port
+13 rite_cell
+13 left_cell
+13 left_port
+10 sender_id
+10 vm_id
 
 --
