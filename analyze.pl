@@ -13,7 +13,8 @@ use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
 
 my $debug;
-my $dump_tables;
+my $dump_tables; # = 1;
+
 my %jschema;
 my %keyset;
 
@@ -111,6 +112,10 @@ sub do_analyze {
         my $summary = summarize_msg($msg);
         ## FIXME
 
+## initialize
+        my $link_id = $json->{'link_id'}{'name'};
+        $link_id = '' unless defined $link_id;
+
 ## output
         # re-hack key for output
         my $xkey = $key;
@@ -123,7 +128,7 @@ sub do_analyze {
             print($endl);
             $last_thread = $xkey;
         }
-        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $tree_id, $msg_type, $port_id, $port_list, $summary, $comment, ';'));
+        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $msg_type, 'tree='.$tree_id, $port_id, $port_list, 'msg='.$summary, $comment, $link_id, ';'));
     }
     print($endl); # terminate last entry
 
@@ -134,7 +139,7 @@ sub do_analyze {
 sub build_port_list {
     my ($port_nos) = @_;
     return '' unless defined $port_nos;
-    return join(':', map { 'v'.$_->{'v'} } @{$port_nos});
+    return '['.join(',', map { 'v'.$_->{'v'} } @{$port_nos}).']';
 }
 
 sub summarize_msg {
@@ -156,7 +161,7 @@ sub summarize_msg {
     my $has_gvm = defined($payload->{'gvm_eqn'}) ? 'gvm' : '';
     my $has_manifest = defined($payload->{'manifest'}) ? 'manifest' : '';
 
-    return join(':', $sender_id, $msg_type, $direction, $has_gvm, $has_manifest);
+    return join('%%', $msg_type, $sender_id, $direction, $has_gvm, $has_manifest);
 }
 
 sub construct_key {
@@ -236,7 +241,7 @@ sub walk_structure {
         my $jtype = ' : OBJECT { '.join(' ', sort keys $json).' }';
         $jschema{$path.$jtype}++;
         foreach my $tag (keys $json) {
-$keyset{$tag}++;
+            $keyset{$tag}++;
             my $nested = $path.'/'.$tag;
             ## $jschema{$nested}++;
             walk_structure($nested, $json->{$tag});

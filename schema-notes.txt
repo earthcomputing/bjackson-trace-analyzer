@@ -4,8 +4,10 @@
 VERBS:
 
 cellagent.rs$listen_pe
+cellagent.rs$listen_pe_loop
 cellagent.rs$listen_uptree
 cellagent.rs$port_connected
+cellagent.rs$send_msg
 datacenter.rs$initialize
 nalcell.rs$new
 nalcell.rs$start_cell
@@ -74,6 +76,17 @@ FORM #3: OBJECT { trace_header module function - cell_id is_border port_no }
 
 cellagent.rs$port_connected
 
+{
+    "cell_id": { "name": "C:2", },
+    "is_border": true,
+    "port_no": { "v": 2 },
+}
+{
+    "cell_id": { "name": "C:8", },
+    "is_border": false,
+    "port_no": { "v": 3 },
+}   
+
 --
 
 FORM #4: OBJECT { trace_header module function - cell_id msg }
@@ -124,12 +137,26 @@ FORM #7: OBJECT { trace_header module function - link_id left_cell left_port rit
     /rite_cell : NAME_TYPE
     /rite_port/v : NUMBER
 
+datacenter.rs$initialize
+
+{
+    "left_cell": { "name": "C:4", },
+    "left_port": { "v": 2 },
+    "link_id": { "name": "C:4+P:2+C:9+P:2", },
+    "rite_cell": { "name": "C:9", },
+    "rite_port": { "v": 2 },
+}
+
 --
 
 FORM #8: OBJECT { trace_header module function - cell_number comment }
 
     /cell_number : NUMBER
     /comment : STRING
+
+datacenter.rs$initialize - Starting border cell
+datacenter.rs$initialize - Starting interior cell
+nalcell.rs$new - Setting up ports
 
 --
 
