@@ -25,6 +25,12 @@ if ( $#ARGV < 0 ) {
     exit -1
 }
 
+# FIXME
+my $dotfile = '/tmp/complex.dot';
+open(DOT, '>'.$dotfile) or die $!;
+print DOT ('digraph G {', $endl);
+print DOT ('rankdir=LR', $endl);
+
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
     print($endl, $file, $endl);
@@ -32,6 +38,8 @@ foreach my $file (@ARGV) {
     do_analyze($href);
 }
 
+print DOT ('}', $endl);
+close(DOT);
 dump_schema();
 exit 0;
 
@@ -119,6 +127,7 @@ sub do_analyze {
 ## initialize
         my $link_id = $body->{'link_id'}{'name'};
         $link_id = '' unless defined $link_id;
+        add_edge($link_id);
 
 ## output
         # re-hack key for output
@@ -137,6 +146,14 @@ sub do_analyze {
     print($endl); # terminate last entry
 
     dump_histo('VERBS:', \%verb);
+}
+
+# C:0+P:1+C:1+P:1
+sub add_edge {
+    my ($link_id) = @_;
+    return unless $link_id;
+    my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
+    printf DOT ("C%d:p%d -> C%d:p%d\n", $lc, $lp, $rc, $rp);
 }
 
 # SEQ OF OBJECT { v }
