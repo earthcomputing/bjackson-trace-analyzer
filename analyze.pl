@@ -26,6 +26,7 @@ if ( $#ARGV < 0 ) {
 }
 
 foreach my $file (@ARGV) {
+    if ($file eq '-dump') { $dump_tables = 1; next; }
     print($endl, $file, $endl);
     my $href = process_file($file);
     do_analyze($href);
@@ -46,7 +47,8 @@ sub process_file {
         $lineno++;
         my $json = decode_json($body);
         walk_structure('', $json);
-        my $key = construct_key($json, $lineno); # $json->{'trace_header'}
+        # my $key = construct_key($json->{'trace_header'}, $lineno);
+        my $key = construct_key($json->{'header'}, $lineno);
         $data{$key} = $json;
     }
     return \%data;
@@ -60,13 +62,15 @@ sub do_analyze {
 
     foreach my $key (sort order_keys keys %{$href}) {
         my $json = $href->{$key};
+        my $body_type = $json->{'body_type'};
+        my $body = $json->{'body'};
 
         # REQUIRED/SHOULD:
         # my $trace_header = $json->{'trace_header'}
-        my $module = $json->{'module'}; # elide this - redundant
-        my $function = $json->{'function'};
+        my $module = $body->{'module'}; # elide this - redundant
+        my $function = $body->{'function'};
         # complex name structures:
-        my $cell_id = $json->{'cell_id'}{'name'};
+        my $cell_id = $body->{'cell_id'}{'name'};
         $cell_id = '' unless defined $cell_id;
 
         $verb{join('$', $module, $function)}++;
@@ -74,21 +78,21 @@ sub do_analyze {
 # --
 
         # OPTIONAL:
-        my $comment = $json->{'comment'};
+        my $comment = $body->{'comment'};
         $comment = '' unless defined $comment;
 
         # complex name structures:
-        my $vm_id = $json->{'vm_id'}{'name'};
+        my $vm_id = $body->{'vm_id'}{'name'};
         $vm_id = '' unless defined $vm_id;
 
-        my $sender_id = $json->{'sender_id'}{'name'};
+        my $sender_id = $body->{'sender_id'}{'name'};
         $sender_id = '' unless defined $sender_id;
 
 ## port_connected
-        my $is_border = $json->{'is_border'}; # cell has port=of-entry ??
+        my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
 
         # suggest changing this ??
-        my $port_no = $json->{'port_no'}{'v'};
+        my $port_no = $body->{'port_no'}{'v'};
         my $port_id = '';
         if (defined $port_no) {
             my $fx = $is_border eq 'true';
@@ -96,24 +100,24 @@ sub do_analyze {
         }
 
 ## listen_pe_loop, send_msg
-        my $tree_id = $json->{'tree_id'}{'name'};
+        my $tree_id = $body->{'tree_id'}{'name'};
         $tree_id = '' unless defined $tree_id;
 
-        my $port_nos = $json->{'port_nos'}; ## array of port names (vXX)
+        my $port_nos = $body->{'port_nos'}; ## array of port names (vXX)
         my $port_list = build_port_list($port_nos);
         ## FIXME
 
 ## forward
-        my $msg_type = $json->{'msg_type'};
+        my $msg_type = $body->{'msg_type'};
         $msg_type = '' unless defined $msg_type;
 
 ## listen_pe_loop
-        my $msg = $json->{'msg'};
+        my $msg = $body->{'msg'};
         my $summary = summarize_msg($msg);
         ## FIXME
 
 ## initialize
-        my $link_id = $json->{'link_id'}{'name'};
+        my $link_id = $body->{'link_id'}{'name'};
         $link_id = '' unless defined $link_id;
 
 ## output
@@ -165,9 +169,9 @@ sub summarize_msg {
 }
 
 sub construct_key {
-    my ($json, $lineno) = @_;
-    my $thread_id = $json->{'trace_header'}{'thread_id'};
-    my $event_id = $json->{'trace_header'}{'event_id'};
+    my ($hdr, $lineno) = @_;
+    my $thread_id = $hdr->{'thread_id'};
+    my $event_id = $hdr->{'event_id'};
     $event_id = e_massage($event_id);
     my $key = join('::', $thread_id, $event_id, $lineno);
     return $key;
@@ -178,7 +182,7 @@ sub e_massage {
     my ($event_id) = @_;
     return $event_id unless ref($event_id); # old : scalar / number
 
-    my $xxx = join('.', @{$event_id}); # new : seq of number (array)
+    my $xxx = join('.', 'v', @{$event_id}); # new : seq of number (array)
     return $xxx;
 }
 
@@ -214,7 +218,8 @@ sub order_numseq_basic($$) {
     my $r_len = $#r;
     my $len_cmp = $l_len <=> $r_len;
     my $scan = ($len_cmp < 0) ? $l_len : $r_len; # pick shorter one
-    for my $i ( 0 .. $scan ) {
+    # skip 'v' prefix
+    for my $i ( 1 .. $scan ) {
         my $val_cmp = $l[$i] <=> $r[$i];
         return $val_cmp unless $val_cmp == 0;
     }
@@ -448,5 +453,35 @@ sub snarf {
 23 manifest
 23 deployment_tree
 19 vm_id
+
+# --
+
+{
+    "trace_body": {
+        "cell_number": 2,
+        "function": "initialize",
+        "module": "datacenter.rs"
+    },
+    "trace_body_type": "border_cell_start",
+    "trace_header": {
+        "event_id": [ 1 ],
+        "thread_id": 0,
+        "trace_type": "Trace"
+    }
+}
+
+{
+    "trace_header": {
+        "thread_id": 0,
+        "event_id": [ 1 ],
+        "module": "datacenter.rs"
+        "function": "initialize",
+        "kind": "Trace",
+        "format": "border_cell_start",
+    },
+    "body": {
+        "cell_number": 2,
+    },
+}
 
 _eof_
