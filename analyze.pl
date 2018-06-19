@@ -103,8 +103,9 @@ sub do_analyze {
         my $port_no = $body->{'port_no'}{'v'};
         my $port_id = '';
         if (defined $port_no) {
-            my $fx = $is_border eq 'true';
+            my $fx = $is_border; #  eq 'true';
             $port_id = (($fx) ? 'FX:' : 'v').$port_no;
+            border_port($cell_id, $port_no) if $fx;
         }
 
 ## listen_pe_loop, send_msg
@@ -153,7 +154,14 @@ sub add_edge {
     my ($link_id) = @_;
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    printf DOT ("C%d:p%d -> C%d:p%d\n", $lc, $lp, $rc, $rp);
+    printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d\"]\n", $lc, $lp, $rc, $rp, $lp, $rp);
+}
+
+sub border_port {
+    my ($cell_id, $port_no) = @_;
+    my ($tag, $c) = split(':', $cell_id);
+    printf DOT ("Internet -> C%d:p%d [label=\"p%d\"]\n", $c, $port_no, $port_no);
+
 }
 
 # SEQ OF OBJECT { v }
