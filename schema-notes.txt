@@ -36,6 +36,7 @@ METADATA:
     /module : STRING
     /function : STRING
     /trace_header/trace_type : STRING # Trace, Debug
+    /trace_body_type
     /trace_header/thread_id : NUMBER
     /trace_header/event_id[] : SEQ OF NUMBER
 

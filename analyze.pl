@@ -55,7 +55,6 @@ sub process_file {
         $lineno++;
         my $json = decode_json($body);
         walk_structure('', $json);
-        # my $key = construct_key($json->{'trace_header'}, $lineno);
         my $key = construct_key($json->{'header'}, $lineno);
         $data{$key} = $json;
     }
@@ -70,71 +69,21 @@ sub do_analyze {
 
     foreach my $key (sort order_keys keys %{$href}) {
         my $json = $href->{$key};
-        my $body_type = $json->{'body_type'};
         my $body = $json->{'body'};
 
         # REQUIRED/SHOULD:
-        # my $trace_header = $json->{'trace_header'}
+        my $header = $json->{'header'};
         my $module = $body->{'module'}; # elide this - redundant
         my $function = $body->{'function'};
-        # complex name structures:
-        my $cell_id = $body->{'cell_id'}{'name'};
-        $cell_id = '' unless defined $cell_id;
+        my $kind = $header->{'trace_type'};
+        my $format = $json->{'body_type'};
 
         $verb{join('$', $module, $function)}++;
 
-# --
-
-        # OPTIONAL:
-        my $comment = $body->{'comment'};
-        $comment = '' unless defined $comment;
-
-        # complex name structures:
-        my $vm_id = $body->{'vm_id'}{'name'};
-        $vm_id = '' unless defined $vm_id;
-
-        my $sender_id = $body->{'sender_id'}{'name'};
-        $sender_id = '' unless defined $sender_id;
-
-## port_connected
-        my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
-
-        # suggest changing this ??
-        my $port_no = $body->{'port_no'}{'v'};
-        my $port_id = '';
-        if (defined $port_no) {
-            my $fx = $is_border; #  eq 'true';
-            $port_id = (($fx) ? 'FX:' : 'v').$port_no;
-            border_port($cell_id, $port_no) if $fx;
-        }
-
-## listen_pe_loop, send_msg
-        my $tree_id = $body->{'tree_id'}{'name'};
-        $tree_id = '' unless defined $tree_id;
-
-        my $port_nos = $body->{'port_nos'}; ## array of port names (vXX)
-        my $port_list = build_port_list($port_nos);
-        ## FIXME
-
-## forward
-        my $msg_type = $body->{'msg_type'};
-        $msg_type = '' unless defined $msg_type;
-
-## listen_pe_loop
-        my $msg = $body->{'msg'};
-        my $summary = summarize_msg($msg);
-        ## FIXME
-
-## initialize
-        my $link_id = $body->{'link_id'}{'name'};
-        $link_id = '' unless defined $link_id;
-        add_edge($link_id);
-
-## output
         # re-hack key for output
         my $xkey = $key;
-        # $xkey =~ s/::[0-9]*$//;
-        $xkey =~ s/::.*$/::/;
+        # $xkey =~ s/::[0-9]*$//; # remove lineno
+        $xkey =~ s/::.*$/::/; # only retain thread_id
         if ($xkey eq $last_thread) {
             $xkey = '';
         }
@@ -142,11 +91,241 @@ sub do_analyze {
             print($endl);
             $last_thread = $xkey;
         }
-        print(join(' ', $xkey, $function, $cell_id, $vm_id, $sender_id, $msg_type, 'tree='.$tree_id, $port_id, $port_list, 'msg='.$summary, $comment, $link_id, ';'));
+        print(join(' ', $xkey, $function, ''));
+        dispatch($module, $function, $kind, $format, $json);
     }
     print($endl); # terminate last entry
 
     dump_histo('VERBS:', \%verb);
+}
+
+my @mformats = qw(
+    'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
+    'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
+    'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
+    'datacenter.rs$$initialize$$Trace$$border_cell_start'
+    'datacenter.rs$$initialize$$Trace$$connect_link'
+    'datacenter.rs$$initialize$$Trace$$interior_cell_start'
+    'nalcell.rs$$new$$Trace$$nalcell_port_setup'
+    'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
+    'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
+    'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
+    'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
+    'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
+);
+
+# 'initialize datacenter.rs$$initialize$$Trace$$border_cell_start'
+## /cell_number : NUMBER
+sub meth_border_cell_start {
+    my ($body) = @_;
+    my $cell_number = $body->{'cell_number'};
+    print(join(' ', $cell_number, ';'));
+}
+
+# 'nalcell.rs$$new$$Trace$$nalcell_port_setup'
+sub meth_nalcell_port_setup {
+    my ($body) = @_;
+    my $cell_number = $body->{'cell_number'};
+    print(join(' ', $cell_number, ';'));
+}
+
+# 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
+sub meth_nal_cellstart_ca {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
+sub meth_nalcell_start_pe {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
+sub meth_ca_listen_pe {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
+sub meth_ca_send_msg {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
+    my $port_no = $body->{'port_no'}{'v'};
+
+    my $port_id = '';
+    if (defined $port_no) {
+        my $is_border = $is_border; #  eq 'true';
+        $port_id = (($is_border) ? 'FX:' : 'v').$port_no;
+        border_port($cell_id, $port_no) if $is_border;
+    }
+    print(join(' ', $cell_id, $port_id, ';'));
+}
+
+# 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
+sub meth_ca_listen_vm {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    my $sender_id = $body->{'sender_id'}{'name'};
+    $sender_id = '' unless defined $sender_id;
+    my $vm_id = $body->{'vm_id'}{'name'};
+    $vm_id = '' unless defined $vm_id;
+    print(join(' ', $cell_id, $sender_id, $vm_id, ';'));
+}
+
+# 'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
+sub meth_listen_ca {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
+sub meth_pe_forward_leafward {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    my $tree_id = $body->{'tree_id'}{'name'};
+    $tree_id = '' unless defined $tree_id;
+    my $port_nos = $body->{'port_nos'}; ## array of port names (vXX)
+    my $port_list = build_port_list($port_nos);
+    my $msg_type = $body->{'msg_type'};
+    $msg_type = '' unless defined $msg_type;
+    print(join(' ', $cell_id, 'tree='.$tree_id, $port_list, $msg_type, ';'));
+}
+
+# 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
+sub meth_pe_msg_from_ca {
+    my ($body) = @_;
+    # complex name structures:
+    my $cell_id = $body->{'cell_id'}{'name'};
+    $cell_id = '' unless defined $cell_id;
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'datacenter.rs$$initialize$$Trace$$interior_cell_start'
+sub meth_interior_cell_start {
+    my ($body) = @_;
+    my $cell_number = $body->{'cell_number'};
+    print(join(' ', $cell_number, ';'));
+}
+
+# 'datacenter.rs$$initialize$$Trace$$connect_link'
+sub meth_connect_link {
+    my ($body) = @_;
+    # complex name structures:
+    my $left_cell = $body->{'left_cell'}{'name'};
+    $left_cell = '' unless defined $left_cell;
+    my $left_port = $body->{'left_port'}{'v'};
+    my $rite_cell = $body->{'rite_cell'}{'name'};
+    $rite_cell = '' unless defined $rite_cell;
+    my $rite_port = $body->{'rite_port'}{'v'};
+    my $link_id = $body->{'link_id'}{'name'};
+    $link_id = '' unless defined $link_id;
+    add_edge($link_id);
+    print(join(' ', $link_id, ';'));
+}
+
+# ''
+sub meth_xx {
+    my ($body) = @_;
+    my $xx = 0;
+    print(join(' ', $xx, ';'));
+}
+
+sub dispatch {
+    my ($module, $function, $kind, $format, $json) = @_;
+    my $methkey = join('$$', $module, $function, $kind, $format);
+    my $body = $json->{'body'};
+
+    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$border_cell_start') {
+        meth_border_cell_start($body);
+        return;
+    }
+
+    if ($methkey eq 'nalcell.rs$$new$$Trace$$nalcell_port_setup') {
+        meth_nalcell_port_setup($body);
+        return;
+    }
+
+    if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') {
+        meth_nal_cellstart_ca($body);
+        return;
+    }
+
+    if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') {
+        meth_nalcell_start_pe($body);
+        return;
+    }
+
+    if ($methkey eq 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe') {
+        meth_ca_listen_pe($body);
+        return;
+    }
+
+    if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') {
+        meth_ca_send_msg($body);
+        return;
+    }
+
+    if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') {
+        meth_ca_listen_vm($body);
+        return;
+    }
+
+    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') {
+        meth_listen_ca($body);
+        return;
+    }
+
+    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') {
+        meth_pe_forward_leafward($body);
+        return;
+    }
+
+    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') {
+        meth_pe_msg_from_ca($body);
+        return;
+    }
+
+    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$interior_cell_start') {
+        meth_interior_cell_start($body);
+        return;
+    }
+
+    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$connect_link') {
+        meth_connect_link($body);
+        return;
+    }
+
+    print($endl);
+    print(join(' ', $methkey), $endl);
+    print Dumper $body;
+    print($endl);
+    exit 0;
+
+## listen_pe_loop
+    my $msg = $body->{'msg'};
+    my $summary = summarize_msg($msg);
+
+    # print(join(' ', $cell_id, $msg_type, 'tree='.$tree_id, $port_list, 'msg='.$summary, $comment, $link_id, ';'));
 }
 
 # C:0+P:1+C:1+P:1
@@ -482,13 +661,13 @@ sub snarf {
 # --
 
 {
-    "trace_body": {
+    "body": {
         "cell_number": 2,
         "function": "initialize",
         "module": "datacenter.rs"
     },
-    "trace_body_type": "border_cell_start",
-    "trace_header": {
+    "body_type": "border_cell_start",
+    "header": {
         "event_id": [ 1 ],
         "thread_id": 0,
         "trace_type": "Trace"
