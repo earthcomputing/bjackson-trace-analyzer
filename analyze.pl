@@ -109,6 +109,12 @@ sub do_analyze {
     dump_histo('VERBS:', \%verb);
 }
 
+sub nametype {
+    my ($nameref) = @_;
+    my $id = $nameref->{'name'}; $id = '' unless defined $id;
+    return $id;
+}
+
 # 24 distinct top-level forms (38 verbs)
 my @mformats = qw(
     'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
@@ -156,22 +162,22 @@ my @mformats = qw(
 # 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
 sub meth_ca_got_tcp_application_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, ';'));
+    print(join(' ', $cell_id, $tree_id, $summary, ';'));
 }
 
 # 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
 sub meth_ca_got_from_uptree {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     my $direction = $body->{'direction'};
     my $msg_type = $body->{'msg_type'};
     my $tcp_msg = $body->{'tcp_msg'};
-    my $allowed_tree = $body->{'allowed_tree'}{'name'}; $allowed_tree = '' unless defined $allowed_tree;
+    my $tree_id = nametype($body->{'tree_id'});
+    my $allowed_tree = nametype($body->{'allowed_tree'});
     print(join(' ', $cell_id, $direction, $msg_type, $tcp_msg, $allowed_tree, ';'));
 }
 
@@ -179,8 +185,8 @@ sub meth_ca_got_from_uptree {
 # 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg'
 sub meth_ca_process_stack_tree_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $new_tree_id = $body->{'new_tree_id'}{'name'}; $new_tree_id = '' unless defined $new_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -191,8 +197,8 @@ sub meth_ca_process_stack_tree_msg {
 # 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
 sub meth_ca_process_application_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $save = $body->{'save'};
     my $msg = $body->{'msg'};
@@ -204,16 +210,16 @@ sub meth_ca_process_application_msg {
 # 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
 sub meth_ca_process_stack_tree_d_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
 # 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
 sub meth_ca_forward_saved_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     my $msg_type = $body->{'msg_type'};
-# port_nos
+    my $port_list = build_port_list($body->{'port_nos'});
 # FIXME
     print(join(' ', $cell_id, $msg_type, ';'));
 }
@@ -221,8 +227,8 @@ sub meth_ca_forward_saved_msg {
 # 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
 sub meth_ca_get_saved_msgs {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $no_saved_msgs = $body->{'no_saved_msgs'};
     print(join(' ', $cell_id, $tree_id, $no_saved_msgs, ';'));
 }
@@ -230,10 +236,10 @@ sub meth_ca_get_saved_msgs {
 # 'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
 sub meth_ca_forward_stack_tree_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $msg_type = $body->{'msg_type'};
-# port_nos
+    my $port_list = build_port_list($body->{'port_nos'});
 # FIXME
     print(join(' ', $cell_id, $tree_id, $msg_type, ';'));
 }
@@ -241,8 +247,8 @@ sub meth_ca_forward_stack_tree_msg {
 # 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
 sub meth_ca_process_manifest_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -253,8 +259,8 @@ sub meth_ca_process_manifest_msg {
 # 'cellagent.rs$$deploy$$Debug$$ca_deploy'
 sub meth_ca_deploy {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $deployment_tree_id = $body->{'deployment_tree_id'}{'name'}; $deployment_tree_id = '' unless defined $deployment_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $deployment_tree_id = nametype($body->{'deployment_tree_id'});
 # tree_vm_map_keys
 # FIXME
     print(join(' ', $cell_id, $deployment_tree_id, ';'));
@@ -263,8 +269,8 @@ sub meth_ca_deploy {
 # 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
 sub meth_ca_add_saved_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
 # FIXME
     print(join(' ', $cell_id, $tree_id, ';'));
@@ -273,8 +279,8 @@ sub meth_ca_add_saved_msg {
 # 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
 sub meth_ca_got_manifest_tcp_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $deploy_tree_id = $body->{'deploy_tree_id'}{'name'}; $deploy_tree_id = '' unless defined $deploy_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $deploy_tree_id = nametype($body->{'deploy_tree_id'});
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
 # FIXME
@@ -285,8 +291,8 @@ sub meth_ca_got_manifest_tcp_msg {
 # 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
 sub meth_ca_save_stack_tree_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -298,8 +304,8 @@ sub meth_ca_save_stack_tree_msg {
 # 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
 sub meth_ca_got_stack_tree_tcp_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $new_tree_id = $body->{'new_tree_id'}{'name'}; $new_tree_id = '' unless defined $new_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
 # entry
@@ -310,9 +316,9 @@ sub meth_ca_got_stack_tree_tcp_msg {
 # 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
 sub meth_ca_stack_tree {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $base_tree_id = $body->{'base_tree_id'}{'name'}; $base_tree_id = '' unless defined $base_tree_id;
-    my $new_tree_id = $body->{'new_tree_id'}{'name'}; $new_tree_id = '' unless defined $new_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $base_tree_id = nametype($body->{'base_tree_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
 # base_tree_map_keys
 # base_tree_map_values
 # FIXME
@@ -322,8 +328,8 @@ sub meth_ca_stack_tree {
 # 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
 sub meth_ca_process_discover_d_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -334,8 +340,8 @@ sub meth_ca_process_discover_d_msg {
 # 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
 sub meth_ca_save_discover_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
 # FIXME
@@ -345,8 +351,8 @@ sub meth_ca_save_discover_msg {
 # 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
 sub meth_ca_process_discover_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $new_tree_id = $body->{'new_tree_id'}{'name'}; $new_tree_id = '' unless defined $new_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -357,16 +363,16 @@ sub meth_ca_process_discover_msg {
 # 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
 sub meth_ca_update_base_tree_map {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $base_tree_id = $body->{'cell_id'}{'name'}; $base_tree_id = '' unless defined $cell_id;
-    my $stacked_tree_id = $body->{'stacked_tree_id'}{'name'}; $stacked_tree_id = '' unless defined $stacked_tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $base_tree_id = nametype($body->{'base_tree_id'});
+    my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 }
 
 # 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
 sub meth_ca_got_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
 # FIXME
@@ -375,8 +381,8 @@ sub meth_ca_got_msg {
 # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
 sub meth_ca_send_msg2 {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    # port_nos
+    my $cell_id = nametype($body->{'cell_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
     # tree_id
     my $msg = $body->{'msg'};
     my $summary = summarize_msg($msg);
@@ -386,16 +392,16 @@ sub meth_ca_send_msg2 {
 # 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
 sub meth_ca_get_base_tree_id {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     print(join(' ', $cell_id, $tree_id, ';'));
 }
 
 # 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
 sub meth_ca_updated_traph_entry {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $base_tree_id = $body->{'base_tree_id'}{'name'}; $base_tree_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $base_tree_id = nametype($body->{'base_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, ';'));
 # 'entry' => {
 #    'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
@@ -412,8 +418,8 @@ sub meth_ca_updated_traph_entry {
 # 'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
 sub meth_ca_update_traph {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $base_tree_id = $body->{'base_tree_id'}{'name'}; $base_tree_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $base_tree_id = nametype($body->{'base_tree_id'});
     my $port_no = $body->{'port_number'}{'port_no'}{'v'};
     my $hops = $body->{'hops'};
     my $other_index = $body->{'other_index'};
@@ -443,28 +449,28 @@ sub meth_nalcell_port_setup {
 # 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
 sub meth_nal_cellstart_ca {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
 # 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
 sub meth_nalcell_start_pe {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
 # 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
 sub meth_ca_listen_pe {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
 # 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
 sub meth_ca_send_msg {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
     my $port_no = $body->{'port_no'}{'v'};
 
@@ -480,26 +486,25 @@ sub meth_ca_send_msg {
 # 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
 sub meth_ca_listen_vm {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $sender_id = $body->{'sender_id'}{'name'}; $sender_id = '' unless defined $sender_id;
-    my $vm_id = $body->{'vm_id'}{'name'}; $vm_id = '' unless defined $vm_id;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $sender_id = nametype($body->{'sender_id'});
+    my $vm_id = nametype($body->{'vm_id'});
     print(join(' ', $cell_id, $sender_id, $vm_id, ';'));
 }
 
 # 'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
 sub meth_listen_ca {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
 # 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
 sub meth_pe_forward_leafward {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
-    my $tree_id = $body->{'tree_id'}{'name'}; $tree_id = '' unless defined $tree_id;
-    my $port_nos = $body->{'port_nos'}; ## array of port names (vXX)
-    my $port_list = build_port_list($port_nos);
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
     my $msg_type = $body->{'msg_type'}; $msg_type = '' unless defined $msg_type;
     print(join(' ', $cell_id, $msg_type, 'tree='.$tree_id, $port_list, ';'));
 }
@@ -507,7 +512,7 @@ sub meth_pe_forward_leafward {
 # 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
 sub meth_pe_msg_from_ca {
     my ($body) = @_;
-    my $cell_id = $body->{'cell_id'}{'name'}; $cell_id = '' unless defined $cell_id;
+    my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
 }
 
