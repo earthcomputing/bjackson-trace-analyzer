@@ -14,6 +14,10 @@ use Data::Dumper;
 my $debug;
 my $dump_tables; # = 1;
 
+# link name map : 'Cx:py' -> 'link#z';
+my $max_link = 0;
+my %link_table;
+
 my %jschema;
 my %keyset;
 
@@ -30,6 +34,10 @@ open(DOT, '>'.$dotfile) or die $!;
 print DOT ('digraph G {', $endl);
 print DOT ('rankdir=LR', $endl);
 
+my $csvfile = '/tmp/events.csv';
+open(CSV, '>'.$csvfile) or die $!;
+## print CSV ('header,col1', $endl);
+
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
     print($endl, $file, $endl);
@@ -39,6 +47,9 @@ foreach my $file (@ARGV) {
 
 print DOT ('}', $endl);
 close(DOT);
+
+close(CSV);
+
 dump_schema();
 exit 0;
 
@@ -102,7 +113,7 @@ sub do_analyze {
             $last_thread = $xkey;
         }
         print(join(' ', $xkey, $function, ''));
-        dispatch($module, $function, $kind, $format, $json);
+        dispatch($key, $module, $function, $kind, $format, $json);
     }
     print($endl); # terminate last entry
 
@@ -375,13 +386,23 @@ sub meth_ca_got_msg {
 
 # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
 sub meth_ca_send_msg2 {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
     my $port_list = build_port_list($body->{'port_nos'});
     my $summary = summarize_msg($body->{'msg'});
-# tree_id
-# FIXME
-    print(join(' ', $cell_id, $port_list, $summary, ';'));
+    print(join(' ', $cell_id, $tree_id, $port_list, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $msg_type = $body->{'msg'}{'header'}{'msg_type'};
+    my $port_nos = $body->{'port_nos'};
+    my $c = $cell_id; $c =~ s/C://;
+    my $event_code = ec_fromkey($key);
+    foreach my $item (@{$port_nos}) {
+        my $p = $item->{'v'};;
+        my $link = get_link_name($c, $p);
+        print CSV (join(' ', $event_code, $cell_id, $msg_type.'>'.$link), $endl) if defined $link;
+    }
 }
 
 # 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
@@ -503,12 +524,22 @@ sub meth_listen_ca {
 
 # 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
 sub meth_pe_forward_leafward {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $port_list = build_port_list($body->{'port_nos'});
     my $msg_type = $body->{'msg_type'};
     print(join(' ', $cell_id, $msg_type, $port_list, 'tree='.$tree_id, ';'));
+
+    ## Spreadsheet Coding:
+    my $port_nos = $body->{'port_nos'};
+    my $c = $cell_id; $c =~ s/C://;
+    my $event_code = ec_fromkey($key);
+    foreach my $item (@{$port_nos}) {
+        my $p = $item->{'v'};;
+        my $link = get_link_name($c, $p);
+        print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+    }
 }
 
 # 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
@@ -539,7 +570,7 @@ sub meth_xx {
 }
 
 sub dispatch {
-    my ($module, $function, $kind, $format, $json) = @_;
+    my ($key, $module, $function, $kind, $format, $json) = @_;
     my $methkey = join('$$', $module, $function, $kind, $format);
     my $body = $json->{'body'};
 
@@ -566,7 +597,7 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg') { meth_ca_process_manifest_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg') { meth_ca_process_stack_tree_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg2($body); return; }
+    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg2($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body); return; }
@@ -584,7 +615,7 @@ sub dispatch {
     if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca') { meth_nal_cellstart_ca($body); return; } ## 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
     if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
 
-    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body); return; }
+    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
     if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ## 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
@@ -602,7 +633,8 @@ sub add_edge {
     my ($link_id) = @_;
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d\"]\n", $lc, $lp, $rc, $rp, $lp, $rp);
+    my $link_name = link_table_entry($lc, $lp, $rc, $rp);
+    printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
 }
 
 sub border_port {
@@ -610,8 +642,25 @@ sub border_port {
     my ($tag, $c) = split(':', $cell_id);
     my $port_index = $port_no;
     $port_index =~ s/[^\d]//g;
-    printf DOT ("Internet -> C%d:p%d [label=\"p%d\"]\n", $c, $port_index, $port_index);
+    my $link_name = link_table_entry(-1, 0, $c, $port_index);
+    printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
 
+}
+
+sub get_link_name {
+    my ($c, $p) = @_;
+    my $k = 'C'.$c.':p'.$p;
+    return $link_table{$k};
+}
+
+sub link_table_entry {
+    my ($lc, $lp, $rc, $rp) = @_;
+    my $k1 = 'C'.$lc.':p'.$lp; $k1 = 'Internet' if $lc == -1;
+    my $k2 = 'C'.$rc.':p'.$rp;
+
+    my $link_name = 'link#'.$max_link; $max_link++;
+    $link_table{$k1} = $link_name;
+    $link_table{$k2} = $link_name;
 }
 
 # SEQ OF OBJECT { v }
@@ -650,6 +699,12 @@ sub construct_key {
     $event_id = e_massage($event_id);
     my $key = join('::', $thread_id, $event_id, $lineno);
     return $key;
+}
+
+sub ec_fromkey {
+    my ($key) = @_;
+    my ($l1, $l2, $l3) = split('::', $key);
+    return $l3; # aka lineno
 }
 
 # incompatible interface change!!
