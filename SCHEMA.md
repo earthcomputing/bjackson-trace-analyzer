@@ -354,3 +354,97 @@ KEYSET:
 10	up_tree_name
 
 --
+
+Spreadsheet Coding:
+
+For each sent message:
+    show which link it goes out on as an entry in the sending cell's column, e.g., DiscoverD>link1.
+For each received message:
+    show as an entry in the receiving cell's the link it came in on, e.g., link1<DiscoverD.
+
+Distinguish between packet engine (->) and cell agent (>)
+
+ensure a receive appears at least one row below the corresponding send.
+
+--
+
+    send_msg C:0 C:0+Connected [v0,v1,v2,v3,v4,v5,v6,v7] Discover%%Sender:C:0+CellAgent%%Leafward%%gvm%% ;
+
+Discover>link#0       # table(C0:p1)
+Discover>link#8       # table(C0:p2)
+Discover>       # table(C0:p0)
+Discover>       # table(C0:p3)
+Discover>       # table(C0:p4)
+Discover>       # table(C0:p5)
+Discover>       # table(C0:p6)
+Discover>       # table(C0:p7)
+
+ forward C:2 Discover [v1] tree=C:2 ;
+ forward C:2 DiscoverD [v1] tree=C:1 ;
+ forward C:2 Discover [] tree=C:1 ;
+ forward C:2 DiscoverD [v1] tree=C:0 ;
+ forward C:2 Discover [] tree=C:0 ;
+ forward C:2 DiscoverD [v1] tree=C:6 ;
+
+C:2 Discover<-link#1    # table(C2:p1)
+C:2 DiscoverD<-link#1   # table(C2:p1)
+C:2 DiscoverD<-link#1   # table(C2:p1)
+C:2 DiscoverD<-link#1   # table(C2:p1)
+
+
+LINK-TABLE:
+
+    C0:p1 -> C1:p1 [label="p1:p1, link#0"]
+    C1:p2 -> C2:p1 [label="p2:p1, link#1"]
+    C1:p3 -> C6:p1 [label="p3:p1, link#2"]
+    C3:p1 -> C4:p1 [label="p1:p1, link#3"]
+    C5:p1 -> C6:p2 [label="p1:p2, link#4"]
+    C6:p3 -> C7:p1 [label="p3:p1, link#5"]
+    C7:p3 -> C8:p1 [label="p3:p1, link#6"]
+    C8:p2 -> C9:p1 [label="p2:p1, link#7"]
+    C0:p2 -> C5:p2 [label="p2:p2, link#8"]
+    C2:p3 -> C3:p2 [label="p3:p2, link#9"]
+    C2:p4 -> C7:p4 [label="p4:p4, link#10"]
+    C3:p3 -> C8:p3 [label="p3:p3, link#11"]
+    C4:p2 -> C9:p2 [label="p2:p2, link#12"]
+    Internet -> C2:p2 [label="p2, link#13"]
+
+--
+
+Change to header format :
+
+https://github.com/earthcomputing/${repo}.git
+1529618416 (20180621-150016 PDT)
+
+{
+    "header": {
+##      "repo": "CellAgent",
+        "module": "main.rs",
+##      "function": "MAIN",
+        "format": "trace_schema",
+        "trace_type": "Trace"
+        "thread_id": 0,
+        "event_id": [ 1 ],
+##      "epoch": 1529618416,
+    }
+    "body": {
+        "schema_version": "0.1",
+        "build_info": "...."
+    },
+}
+
+{
+    "body": {
+        "epoch": "1529623107",
+        "schema_version": "0.1"
+    },
+    "header": {
+        "event_id": [ 1 ],
+        "format": "trace_schema",
+        "function": "main",
+        "module": "main.rs",
+        "repo": "CellAgent",
+        "thread_id": 0,
+        "trace_type": "Trace"
+    }
+}
