@@ -123,6 +123,8 @@ sub portdesc {
 
 # 24 distinct top-level forms (38 verbs)
 my @mformats = qw(
+    'noc.rs$$initialize$$Trace$$trace_schema'
+
     'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
     'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
     'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
@@ -166,6 +168,13 @@ my @mformats = qw(
     'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
     'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
 );
+
+# 'noc.rs$$initialize$$Trace$$trace_schema'
+sub meth_START {
+    my ($body) = @_;
+    my $schema_version = $body->{'schema_version'};
+    print(join(' ', 'schema_version='.$schema_version, ';'));
+}
 
 # 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
 sub meth_ca_got_tcp_application_msg {
@@ -533,6 +542,10 @@ sub dispatch {
     my ($module, $function, $kind, $format, $json) = @_;
     my $methkey = join('$$', $module, $function, $kind, $format);
     my $body = $json->{'body'};
+
+    # This indicates subsystem startup - i.e. break in seq of messages
+    if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body); return; }
+    if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body); return; }
 
     if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
