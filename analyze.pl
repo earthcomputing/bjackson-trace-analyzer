@@ -164,8 +164,7 @@ sub meth_ca_got_tcp_application_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
+    my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $summary, ';'));
 }
 
@@ -188,10 +187,8 @@ sub meth_ca_process_stack_tree_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $new_tree_id = nametype($body->{'new_tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $new_tree_id, $port_no, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $new_tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
@@ -201,10 +198,8 @@ sub meth_ca_process_application_msg {
     my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
     my $save = $body->{'save'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, $port_no, $save, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $port_no, $save, $summary, ';'));
 }
 
 # 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
@@ -220,8 +215,7 @@ sub meth_ca_forward_saved_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $msg_type = $body->{'msg_type'};
     my $port_list = build_port_list($body->{'port_nos'});
-# FIXME
-    print(join(' ', $cell_id, $msg_type, ';'));
+    print(join(' ', $cell_id, $msg_type, $port_list, ';'));
 }
 
 # 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
@@ -240,8 +234,7 @@ sub meth_ca_forward_stack_tree_msg {
     my $tree_id = nametype($body->{'tree_id'});
     my $msg_type = $body->{'msg_type'};
     my $port_list = build_port_list($body->{'port_nos'});
-# FIXME
-    print(join(' ', $cell_id, $tree_id, $msg_type, ';'));
+    print(join(' ', $cell_id, $tree_id, $msg_type, $port_list, ';'));
 }
 
 # 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
@@ -250,10 +243,8 @@ sub meth_ca_process_manifest_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, $port_no, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$deploy$$Debug$$ca_deploy'
@@ -272,8 +263,7 @@ sub meth_ca_add_saved_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
-# FIXME
-    print(join(' ', $cell_id, $tree_id, ';'));
+    print(join(' ', $cell_id, $tree_id, $no_saved, ';'));
 }
 
 # 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
@@ -281,12 +271,9 @@ sub meth_ca_got_manifest_tcp_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $deploy_tree_id = nametype($body->{'deploy_tree_id'});
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $deploy_tree_id, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $deploy_tree_id, $summary, ';'));
 }
-
 
 # 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
 sub meth_ca_save_stack_tree_msg {
@@ -294,23 +281,19 @@ sub meth_ca_save_stack_tree_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 }
-
 
 # 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
 sub meth_ca_got_stack_tree_tcp_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $new_tree_id = nametype($body->{'new_tree_id'});
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
+    my $summary = summarize_msg($body->{'msg'});
 # entry
 # FIXME
-    print(join(' ', $cell_id, $new_tree_id, ';'));
+    print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
 }
 
 # 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
@@ -331,10 +314,8 @@ sub meth_ca_process_discover_d_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, $port_no, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
@@ -342,10 +323,8 @@ sub meth_ca_save_discover_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $tree_id, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $summary, ';'));
 }
 
 # 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
@@ -354,10 +333,8 @@ sub meth_ca_process_discover_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $new_tree_id = nametype($body->{'new_tree_id'});
     my $port_no = $body->{'port_no'}{'v'};
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
-    print(join(' ', $cell_id, $new_tree_id, $port_no, ';'));
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $new_tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
@@ -373,9 +350,8 @@ sub meth_ca_update_base_tree_map {
 sub meth_ca_got_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
-# FIXME
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $summary, ';'));
 }
 
 # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
@@ -383,10 +359,10 @@ sub meth_ca_send_msg2 {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $port_list = build_port_list($body->{'port_nos'});
-    # tree_id
-    my $msg = $body->{'msg'};
-    my $summary = summarize_msg($msg);
+    my $summary = summarize_msg($body->{'msg'});
+# tree_id
 # FIXME
+    print(join(' ', $cell_id, $port_list, $summary, ';'));
 }
 
 # 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
@@ -402,7 +378,6 @@ sub meth_ca_updated_traph_entry {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $base_tree_id = nametype($body->{'base_tree_id'});
-    print(join(' ', $cell_id, $base_tree_id, ';'));
 # 'entry' => {
 #    'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
 #    'mask' => { 'mask' => 1 },
@@ -413,6 +388,7 @@ sub meth_ca_updated_traph_entry {
 #    'tree_uuid' => { 'uuid' => [ '2677185697179700845', 0 ] }
 # },
 # FIXME
+    print(join(' ', $cell_id, $base_tree_id, ';'));
 }
 
 # 'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
@@ -431,7 +407,6 @@ sub meth_ca_update_traph {
 }
 
 # 'initialize datacenter.rs$$initialize$$Trace$$border_cell_start'
-## /cell_number : NUMBER
 sub meth_border_cell_start {
     my ($body) = @_;
     my $cell_number = $body->{'cell_number'};
@@ -471,12 +446,11 @@ sub meth_ca_listen_pe {
 sub meth_ca_send_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
-    my $port_no = $body->{'port_no'}{'v'};
 
     my $port_id = '';
+    my $port_no = $body->{'port_no'}{'v'};
     if (defined $port_no) {
-        my $is_border = $is_border; #  eq 'true';
+        my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
         $port_id = (($is_border) ? 'FX:' : 'v').$port_no;
         border_port($cell_id, $port_no) if $is_border;
     }
@@ -532,6 +506,7 @@ sub meth_connect_link {
     my $rite_port = $body->{'rite_port'}{'v'};
     my $link_id = $body->{'link_id'}{'name'}; $link_id = '' unless defined $link_id;
     add_edge($link_id);
+#FIXME?
     print(join(' ', $link_id, ';'));
 }
 
