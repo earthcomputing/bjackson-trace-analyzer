@@ -1,163 +1,39 @@
 
---
+VERBS: 33
 
-VERBS:
-
-cellagent.rs$listen_pe
-cellagent.rs$listen_pe_loop
-cellagent.rs$listen_uptree
-cellagent.rs$port_connected
-cellagent.rs$send_msg
-datacenter.rs$initialize
-nalcell.rs$new
-nalcell.rs$start_cell
-nalcell.rs$start_packet_engine
-packet_engine.rs$forward
-packet_engine.rs$listen_ca
-packet_engine.rs$listen_port
-
---
-
-SCHEMA:
-
-    OBJECT { trace_header module function - cell_id comment }
-    OBJECT { trace_header module function - cell_id comment sender_id vm_id }
-    OBJECT { trace_header module function - cell_id is_border port_no }
-    OBJECT { trace_header module function - cell_id msg }
-    OBJECT { trace_header module function - cell_id msg port_nos tree_id }
-    OBJECT { trace_header module function - cell_id msg_type port_nos tree_id }
-    OBJECT { trace_header module function - left_cell left_port link_id rite_cell rite_port }
-    OBJECT { trace_header module function - cell_number comment }
-
---
-
-METADATA:
-
-    /module : STRING
-    /function : STRING
-    /trace_header/trace_type : STRING # Trace, Debug
-    /trace_body_type
-    /trace_header/thread_id : NUMBER
-    /trace_header/event_id[] : SEQ OF NUMBER
-
---
-
-FORM #1: OBJECT { trace_header module function - cell_id comment }
-
-    /cell_id : NAME_TYPE
-    /comment : STRING
-
-packet_engine.rs$listen_ca - "Starting listen CA"
-cellagent.rs$listen_pe - "Starting listen PE"
-packet_engine.rs$listen_port - "Starting listen ports"
-nalcell.rs$start_cell - "starting cell agent"
-nalcell.rs$start_packet_engine - "starting packet engine"
-
---
-
-FORM #2: OBJECT { trace_header module function - cell_id comment sender_id vm_id }
-
-    /cell_id : NAME_TYPE
-    /comment : STRING
-    /sender_id : NAME_TYPE
-    /vm_id : NAME_TYPE
-
-cellagent.rs$listen_uptree - "Start listening to VM"
-
-"sender_id":{"name":"Sender:C:0+VM:C:0+vm1", ... },
-"vm_id":{"name":"VM:C:0+vm1", ... }
-
---
-
-FORM #3: OBJECT { trace_header module function - cell_id is_border port_no }
-
-    /cell_id : NAME_TYPE
-    /is_border : BOOLEAN
-    /port_no/v : NUMBER
-
-cellagent.rs$port_connected
-
-{
-    "cell_id": { "name": "C:2", },
-    "is_border": true,
-    "port_no": { "v": 2 },
-}
-{
-    "cell_id": { "name": "C:8", },
-    "is_border": false,
-    "port_no": { "v": 3 },
-}   
-
---
-
-FORM #4: OBJECT { trace_header module function - cell_id msg }
-
-    /cell_id : NAME_TYPE
-    /msg : OBJECT { header payload }
-
-cellagent.rs$listen_pe_loop
-
---
-
-FORM #5: OBJECT { trace_header module function - cell_id msg port_nos tree_id }
-
-    /cell_id : NAME_TYPE
-    /msg : OBJECT { header payload }
-    /port_nos[] : SEQ OF OBJECT { v }
-    /port_nos[]/v : NUMBER
-    /tree_id : NAME_TYPE
-
-cellagent.rs$listen_pe_loop
-cellagent.rs$send_msg
-
---
-
-FORM #6: OBJECT { trace_header module function - cell_id msg_type port_nos tree_id }
-
-    /cell_id : NAME_TYPE
-    /msg_type : STRING # Application, DiscoverD, Manifest, StackTree, StackTreeD
-    /port_nos[] : SEQ OF OBJECT { v }
-    /port_nos[]/v : NUMBER
-    /tree_id : NAME_TYPE
-
-packet_engine.rs$forward
-
-tree_id":{"name":"C:2",...},
-tree_id":{"name":"C:2+NocAgentDeploy",...},
-tree_id":{"name":"C:2+NocAgentMaster",...},
-tree_id":{"name":"C:2+NocMasterAgent",...},
-tree_id":{"name":"C:2+NocMasterDeploy",...},
-
---
-
-FORM #7: OBJECT { trace_header module function - link_id left_cell left_port rite_cell rite_port }
-
-    /link_id : NAME_TYPE
-    /left_cell : NAME_TYPE
-    /left_port/v : NUMBER
-    /rite_cell : NAME_TYPE
-    /rite_port/v : NUMBER
-
-datacenter.rs$initialize
-
-{
-    "left_cell": { "name": "C:4", },
-    "left_port": { "v": 2 },
-    "link_id": { "name": "C:4+P:2+C:9+P:2", },
-    "rite_cell": { "name": "C:9", },
-    "rite_port": { "v": 2 },
-}
-
---
-
-FORM #8: OBJECT { trace_header module function - cell_number comment }
-
-    /cell_number : NUMBER
-    /comment : STRING
-
-datacenter.rs$initialize - Starting border cell
-datacenter.rs$initialize - Starting interior cell
-nalcell.rs$new - Setting up ports
+685	cellagent.rs$get_base_tree_id
+582	cellagent.rs$update_traph
+333	cellagent.rs$listen_pe_loop
+266	cellagent.rs$send_msg
+148	cellagent.rs$update_base_tree_map
+90	cellagent.rs$process_discover_msg
+90	cellagent.rs$add_saved_discover
+31	cellagent.rs$stack_tree
+30	cellagent.rs$add_saved_stack_tree
+27	cellagent.rs$process_stack_tree_msg
+27	cellagent.rs$port_connected
+21	cellagent.rs$add_saved_msg
+18	cellagent.rs$process_stack_treed_msg
+18	cellagent.rs$process_application_msg
+18	cellagent.rs$get_saved_msgs
+10	cellagent.rs$tcp_application
+10	cellagent.rs$process_manifest_msg
+10	cellagent.rs$listen_uptree_loop
+10	cellagent.rs$listen_uptree
+10	cellagent.rs$listen_pe
+10	cellagent.rs$deploy
+9	cellagent.rs$process_discoverd_msg
+6	cellagent.rs$forward_saved
+4	cellagent.rs$tcp_stack_tree
+3	cellagent.rs$forward_stack_tree
+2	cellagent.rs$tcp_manifest
+23	datacenter.rs$initialize
+10	nalcell.rs$new
+10	nalcell.rs$start_cell
+10	nalcell.rs$start_packet_engine
+603	packet_engine.rs$forward
+10	packet_engine.rs$listen_ca
+10	packet_engine.rs$listen_port
 
 --
 
@@ -168,112 +44,313 @@ NAME_TYPE:
 
 --
 
-    /msg : OBJECT { header payload }
-    /msg/header : OBJECT { direction msg_count msg_type sender_id tree_map }
-    /msg/header/direction : STRING # Leafward, Rootward
-    /msg/header/msg_count : NUMBER
-    /msg/header/msg_type : STRING # StackTree, Manifest, StackTreeD, Application, DiscoverD
-    /msg/header/sender_id : NAME_TYPE
-    /msg/header/tree_map : OBJECT {  }
-    /msg/header/tree_map : OBJECT { NocAgentMaster NocMasterAgent }
-    /msg/header/tree_map/NocAgentMaster : NAME_TYPE
-    /msg/header/tree_map/NocMasterAgent : NAME_TYPE
+PORT_DESC:
 
-    /msg/payload : OBJECT { tree_id - body }
-    /msg/payload : OBJECT { tree_id - my_index }
-    /msg/payload : OBJECT { tree_id - fwd_index index }
-    /msg/payload : OBJECT { deploy_tree_id - manifest tree_name }
-    /msg/payload : OBJECT { parent_tree_id - gvm_eqn index new_tree_id }
-
-    /msg/payload/body
-    /msg/payload/fwd_index
-    /msg/payload/index
-    /msg/payload/my_index
-
-    /msg/payload/deploy_tree_id : NAME_TYPE
-    /msg/payload/new_tree_id : NAME_TYPE
-    /msg/payload/parent_tree_id : NAME_TYPE
-    /msg/payload/tree_id : NAME_TYPE
-    /msg/payload/tree_name : OBJECT { name }
-    /msg/payload/tree_name/name : STRING
+    /.../ : OBJECT { v }
+    /.../v : NUMBER
 
 --
 
-    /.../gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+SCHEMA:
+
+    : OBJECT { header body }
+
+TRACE-METADATA:
+
+    /header : OBJECT { module function trace_type format thread_id event_id }
+
+    /header/module : STRING
+    /header/function : STRING
+    /header/trace_type : STRING # Trace, Debug
+    /header/format : STRING
+    /header/thread_id : NUMBER
+    /header/event_id[] : SEQ OF NUMBER
+
+NOTE : Need to add 'emiter_repo' (topic) and emiter_epoch' (lifetime hint) to header
+
+    /header/emiter_repo : STRING
+    /header/emiter_epoch : NUMBER
+
+BASE-FORMS:
+
+685	/body : OBJECT { cell_id tree_id }
+606	/body : OBJECT { cell_id msg_type port_nos tree_id }
+333	/body : OBJECT { cell_id msg }
+291	/body : OBJECT { cell_id base_tree_id entry }
+291	/body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
+266	/body : OBJECT { cell_id msg port_nos tree_id }
+148	/body : OBJECT { cell_id base_tree_id stacked_tree_id }
+117	/body : OBJECT { cell_id msg new_tree_id port_no }
+100	/body : OBJECT { cell_id msg tree_id }
+68	/body : OBJECT { cell_id }
+51	/body : OBJECT { cell_id msg no_saved tree_id }
+31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+27	/body : OBJECT { cell_id is_border port_no }
+19	/body : OBJECT { cell_id msg port_no tree_id }
+18	/body : OBJECT { cell_id no_saved_msgs tree_id }
+18	/body : OBJECT { cell_id msg port_no save tree_id }
+10	/body : OBJECT { cell_id sender_id vm_id }
+10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
+10	/body : OBJECT { cell_id allowed_tree direction msg_type tcp_msg }
+6	/body : OBJECT { cell_id msg_type port_nos }
+4	/body : OBJECT { cell_id entry msg new_tree_id }
+2	/body : OBJECT { cell_id deploy_tree_id msg }
+20	/body : OBJECT { cell_number }
+13	/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
+
+--
+
+    /body/cell_id : NAMETYPE
+    /body/base_tree_id : NAMETYPE
+    /body/deploy_tree_id : NAMETYPE
+    /body/deployment_tree_id : NAMETYPE
+    /body/left_cell : NAMETYPE
+    /body/link_id : NAMETYPE
+    /body/new_tree_id : NAMETYPE
+    /body/rite_cell : NAMETYPE
+    /body/sender_id : NAMETYPE
+    /body/stacked_tree_id : NAMETYPE
+    /body/tree_id : NAMETYPE
+    /body/vm_id : NAMETYPE
+
+    /body/tree_vm_map_keys[] : SEQ OF NAMETYPE
+
+    /body/direction : STRING # Leafward, Rootward
+    /body/msg_type : STRING # Application, DiscoverD, Manifest, StackTree, StackTreeD
+    /body/port_status : STRING # Parent, Child, Pruned
+    /body/tcp_msg : STRING # "Hello From Master", "Reply from Container:VM:C:0+vm1+2"
+
+    /body/is_border : BOOLEAN
+    /body/save : BOOLEAN
+
+    /body/cell_number : NUMBER
+    /body/hops : NUMBER
+    /body/no_saved : NUMBER
+    /body/no_saved_msgs : NUMBER
+    /body/other_index : NUMBER
+
+    /body/port_no : PORT_DESC
+    /body/left_port : PORT_DESC
+    /body/rite_port : PORT_DESC
+
+    /body/port_nos[] : SEQ OF PORT_DESC
+
+10	/body/up_tree_name
+
+90	/body/children[] : SEQ OF OBJECT { port_no }
+90	/body/children[]/port_no : PORT_DESC
+
+291	/body/port_number : OBJECT { port_no }
+291	/body/port_number/port_no : PORT_DESC
+
+10	/body/allowed_tree : OBJECT { name }
+10	/body/allowed_tree/name
+
+370	/body/base_tree_map_keys[] : NAMETYPE
+740	/body/base_tree_map_values[]/uuid/uuid[] : SEQ 2 OF NUMBER
+
+--
+
+    /body/entry : OBJECT { index inuse mask may_send other_indices parent tree_uuid }
+
+    /.../entry/index
+    /.../entry/inuse : BOOLEAN
+    /.../entry/mask : OBJECT { mask }
+    /.../entry/mask/mask
+    /.../entry/may_send : BOOLEAN
+    /.../entry/other_indices : ARRAY len=8
+    /.../entry/other_indices[]
+    /.../entry/parent : PORT_DESC
+    /.../entry/tree_uuid/uuid[] : SEQ 2 OF NUMBER
+
+--
+
+    /body/gvm : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+
+    /.../gvm/recv_eqn
+    /.../gvm/save_eqn
+    /.../gvm/send_eqn
+    /.../gvm/variables : ARRAY len=0
+    /.../gvm/xtnd_eqn
+
+--
+
+    /body/msg : OBJECT { header payload }
+
+    /body/msg/header : OBJECT { direction msg_count msg_type sender_id tree_map }
+
+    /.../header/direction
+    /.../header/msg_count
+    /.../header/msg_type
+    /.../header/sender_id : NAMETYPE
+    /.../header/tree_map : OBJECT {  }
+    /.../header/tree_map : OBJECT { NocAgentMaster NocMasterAgent }
+    /.../header/tree_map/NocAgentMaster : NAMETYPE
+    /.../header/tree_map/NocMasterAgent : NAMETYPE
+
+PAYLOAD-FORMS:
+
+    /.../payload : OBJECT { body tree_id }
+    /.../payload : OBJECT { deploy_tree_id manifest tree_name }
+    /.../payload : OBJECT { fwd_index index tree_id }
+    /.../payload : OBJECT { gvm_eqn hops index path sending_cell_id tree_id }
+    /.../payload : OBJECT { gvm_eqn index new_tree_id parent_tree_id }
+    /.../payload : OBJECT { my_index tree_id }
+
+--
+
+    /.../payload/deploy_tree_id : NAMETYPE
+    /.../payload/new_tree_id : NAMETYPE
+    /.../payload/parent_tree_id : NAMETYPE
+    /.../payload/sending_cell_id : NAMETYPE
+    /.../payload/tree_id : NAMETYPE
+    /.../payload/tree_name : OBJECT { name }
+    /.../payload/tree_name/name
+
+    /.../payload/body
+    /.../payload/fwd_index
+    /.../payload/hops
+    /.../payload/index
+    /.../payload/my_index
+
+    /.../payload/path : OBJECT { port_number }
+    /.../payload/path/port_number : OBJECT { port_no }
+    /.../payload/path/port_number/port_no : PORT_DESC
+
+--
+
+    /.../payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+
     /.../gvm_eqn/recv_eqn
     /.../gvm_eqn/save_eqn
     /.../gvm_eqn/send_eqn
-    /.../gvm_eqn/xtnd_eqn
-    /.../gvm_eqn/variables : ARRAY len=1
-    /.../gvm_eqn/variables[] : OBJECT { value var_name var_type }
+    /.../gvm_eqn/variables[] : SEQ OF OBJECT { value var_name var_type }
     /.../gvm_eqn/variables[]/value
     /.../gvm_eqn/variables[]/var_name
     /.../gvm_eqn/variables[]/var_type
+    /.../gvm_eqn/xtnd_eqn
 
 --
 
-    /.../manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
+    /payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
+
+    /.../manifest/allowed_trees[] : SEQ OF OBJECT { name }
     /.../manifest/allowed_trees[]/name
     /.../manifest/cell_config
+    /.../manifest/deployment_tree : OBJECT { name }
     /.../manifest/deployment_tree/name
     /.../manifest/id
-    /.../manifest/allowed_trees : ARRAY len=2
-    /.../manifest/allowed_trees[] : OBJECT { name }
-    /.../manifest/deployment_tree : OBJECT { name }
-    /.../manifest/trees : ARRAY len=1
-    /.../manifest/trees[] : OBJECT { id parent_list }
-    /.../manifest/trees[]/parent_list : ARRAY len=1
+    /.../manifest/trees[] : SEQ OF OBJECT { id parent_list }
     /.../manifest/trees[]/id
+    /.../manifest/trees[]/parent_list : ARRAY len=1
     /.../manifest/trees[]/parent_list[]
-    /.../manifest/vms : ARRAY len=1
-    /.../manifest/vms[] : OBJECT { allowed_trees containers id image required_config trees }
+    /.../manifest/vms[] : SEQ OF OBJECT { allowed_trees containers id image required_config trees }
+    /.../manifest/vms[]/allowed_trees[] : SEQ OF OBJECT { name }
+    /.../manifest/vms[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers[] : SEQ OF OBJECT { allowed_trees id image params }
+    /.../manifest/vms[]/containers[]/allowed_trees[] : SEQ OF OBJECT { name }
+    /.../manifest/vms[]/containers[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers[]/id
+    /.../manifest/vms[]/containers[]/image
+    /.../manifest/vms[]/containers[]/params : ARRAY len=0
     /.../manifest/vms[]/id
     /.../manifest/vms[]/image
     /.../manifest/vms[]/required_config
-    /.../manifest/vms[]/allowed_trees : ARRAY len=2
-    /.../manifest/vms[]/allowed_trees[] : OBJECT { name }
-    /.../manifest/vms[]/allowed_trees[]/name
-    /.../manifest/vms[]/containers : ARRAY len=1
-    /.../manifest/vms[]/containers[] : OBJECT { allowed_trees id image params }
-    /.../manifest/vms[]/containers[]/id
-    /.../manifest/vms[]/containers[]/image
-    /.../manifest/vms[]/containers[]/allowed_trees : ARRAY len=2
-    /.../manifest/vms[]/containers[]/allowed_trees[] : OBJECT { name }
-    /.../manifest/vms[]/containers[]/allowed_trees[]/name
-    /.../manifest/vms[]/containers[]/params : ARRAY len=0
-    /.../manifest/vms[]/trees : ARRAY len=1
-    /.../manifest/vms[]/trees[] : OBJECT { id parent_list }
+    /.../manifest/vms[]/trees[] : SEQ OF OBJECT { id parent_list }
     /.../manifest/vms[]/trees[]/id
-    /.../manifest/vms[]/trees[]/parent_list[]
     /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
+    /.../manifest/vms[]/trees[]/parent_list[]
 
 --
 
 KEYSET:
 
-856 uuid
-428 name
-261 module
-261 event_id
-261 thread_id
-261 function
-261 trace_header
-261 trace_type
-228 cell_id
-198 v
-141 msg_type
-141 port_nos
-141 tree_id
-80 comment
-27 is_border
-27 port_no
-20 cell_number
-13 link_id
-13 rite_port
-13 rite_cell
-13 left_cell
-13 left_port
-10 sender_id
-10 vm_id
+18775	uuid
+9530	name
+4054	header
+4039	v
+3210	body
+3144	module
+3144	trace_type
+3144	thread_id
+3144	format
+3144	event_id
+3144	function
+3111	cell_id
+2520	tree_id
+1532	msg_type
+1028	port_no
+920	direction
+920	sender_id
+915	index
+910	tree_map
+910	payload
+910	msg_count
+910	msg
+878	port_nos
+875	xtnd_eqn
+875	send_eqn
+875	recv_eqn
+875	variables
+875	save_eqn
+761	base_tree_id
+757	hops
+757	port_number
+590	mask
+584	gvm_eqn
+466	path
+466	sending_cell_id
+295	inuse
+295	entry
+295	may_send
+295	tree_uuid
+295	parent
+295	other_indices
+291	other_index
+291	port_status
+291	gvm
+291	children
+270	new_tree_id
+189	my_index
+175	id
+148	stacked_tree_id
+118	var_name
+118	var_type
+118	value
+118	parent_tree_id
+105	allowed_trees
+70	image
+70	parent_list
+70	trees
+51	no_saved
+37	deploy_tree_id
+36	fwd_index
+35	NocAgentMaster
+35	cell_config
+35	deployment_tree
+35	NocMasterAgent
+35	containers
+35	required_config
+35	tree_name
+35	manifest
+35	params
+35	vms
+31	base_tree_map_keys
+31	base_tree_map_values
+27	is_border
+20	cell_number
+18	save
+18	no_saved_msgs
+13	rite_cell
+13	link_id
+13	rite_port
+13	left_cell
+13	left_port
+10	deployment_tree_id
+10	allowed_tree
+10	vm_id
+10	tree_vm_map_keys
+10	tcp_msg
+10	up_tree_name
 
 --
