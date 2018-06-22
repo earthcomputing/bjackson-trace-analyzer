@@ -92,11 +92,14 @@ sub do_analyze {
         my $header = $json->{'header'};
         my $body = $json->{'body'};
 
+
         # REQUIRED/SHOULD:
+        my $repo = $header->{'repo'}; # UNUSED
         my $module = $header->{'module'}; # elide this - redundant
         my $function = $header->{'function'};
         my $kind = $header->{'trace_type'};
         my $format = $header->{'format'};
+        my $epoch = $header->{'epoch'}; # UNUSED
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
         $verb{join('$', $module, $function)}++;
@@ -182,9 +185,11 @@ my @mformats = qw(
 
 # 'noc.rs$$initialize$$Trace$$trace_schema'
 sub meth_START {
-    my ($body) = @_;
+    my ($body, $header) = @_;
+    my $repo = $header->{'repo'};
+    my $epoch = $header->{'epoch'};
     my $schema_version = $body->{'schema_version'};
-    print(join(' ', 'schema_version='.$schema_version, ';'));
+    print(join(' ', $repo, 'schema_version='.$schema_version, $epoch, ';'));
 }
 
 # 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
@@ -399,7 +404,7 @@ sub meth_ca_send_msg2 {
     my $c = $cell_id; $c =~ s/C://;
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};;
+        my $p = $item->{'v'};
         my $link = get_link_name($c, $p);
         print CSV (join(' ', $event_code, $cell_id, $msg_type.'>'.$link), $endl) if defined $link;
     }
@@ -419,10 +424,10 @@ sub meth_ca_updated_traph_entry {
     my $cell_id = nametype($body->{'cell_id'});
     my $base_tree_id = nametype($body->{'base_tree_id'});
 # 'entry' => {
+#    'parent' => { 'v' => 0 },
 #    'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
 #    'mask' => { 'mask' => 1 },
 #    'inuse' => BOOLEAN
-#    'parent' => { 'v' => 0 },
 #    'index' => 0,
 #    'may_send' => $VAR1->{'entry'}{'inuse'},
 #    'tree_uuid' => { 'uuid' => [ '2677185697179700845', 0 ] }
@@ -562,6 +567,67 @@ sub meth_connect_link {
     print(join(' ', $link_id, ';'));
 }
 
+# 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
+sub meth_pe_packet_from_ca {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
+    print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = 9999;
+    my $link = get_link_name($c, $p);
+    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+}
+
+# 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
+sub meth_pe_process_packet {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
+    my $port_no = portdesc($body->{'port_no'});
+#    'entry' => {
+#        'parent' => { 'v' => 0 },
+#        'inuse' : BOOLEAN
+#        'may_send' => $VAR1->{'entry'}{'inuse'},
+#        'mask' => { 'mask' => 1 },
+#        'index' => 0,
+#        'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+#        'tree_uuid'
+#    },
+    my $entry = $body->{'entry'};
+    my $parent = portdesc($entry->{'parent'});
+    print(join(' ', $cell_id, $msg_type, $tree_id, $port_no, 'parent='.$parent, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = $body->{'port_no'}{'v'};
+    my $link = get_link_name($c, $p);
+    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+}
+
+# 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
+sub meth_pe_forward_rootward {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
+    my $port_no = portdesc($body->{'parent_port'});
+    print(join(' ', $cell_id, $msg_type, $tree_id, $port_no, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = $body->{'parent_port'}{'v'};
+    my $link = get_link_name($c, $p);
+    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+}
+
 # ''
 sub meth_xx {
     my ($body) = @_;
@@ -573,10 +639,12 @@ sub dispatch {
     my ($key, $module, $function, $kind, $format, $json) = @_;
     my $methkey = join('$$', $module, $function, $kind, $format);
     my $body = $json->{'body'};
+    my $header = $json->{'header'};
 
     # This indicates subsystem startup - i.e. break in seq of messages
-    if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body); return; }
-    if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body); return; }
+    if ($methkey eq 'main.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
+    if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
+    if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
 
     if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
@@ -616,10 +684,13 @@ sub dispatch {
     if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
 
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
+    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward') { meth_pe_forward_rootward($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
+    if ($methkey eq 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca') { meth_pe_packet_from_ca($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ## 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
     if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_msg_from_ca($body); return; }
+    if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
     print($endl);
     print(join(' ', $methkey), $endl);
