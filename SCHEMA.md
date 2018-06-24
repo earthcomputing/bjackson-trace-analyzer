@@ -1,5 +1,6 @@
 
 VERBS: 33
+=========
 
 685	cellagent.rs$get_base_tree_id
 582	cellagent.rs$update_traph
@@ -35,43 +36,39 @@ VERBS: 33
 10	packet_engine.rs$listen_ca
 10	packet_engine.rs$listen_port
 
---
-
 NAME_TYPE:
+==========
 
-    /.../name
+    /.../name : STRING
     /.../uuid/uuid[] : SEQ 2 OF NUMBER
 
---
-
 PORT_DESC:
+==========
 
     /.../ : OBJECT { v }
     /.../v : NUMBER
 
---
-
 SCHEMA:
+=======
 
     : OBJECT { header body }
 
 TRACE-METADATA:
+===============
 
-    /header : OBJECT { module function trace_type format thread_id event_id }
+    /header : OBJECT { repo module function trace_type format - thread_id event_id - epoch }
 
+    /header/repo : STRING
     /header/module : STRING
     /header/function : STRING
     /header/trace_type : STRING # Trace, Debug
     /header/format : STRING
     /header/thread_id : NUMBER
     /header/event_id[] : SEQ OF NUMBER
-
-NOTE : Need to add 'emiter_repo' (topic) and emiter_epoch' (lifetime hint) to header
-
-    /header/emiter_repo : STRING
-    /header/emiter_epoch : NUMBER
+    /header/epoch : NUMBER
 
 BASE-FORMS:
+===========
 
 685	/body : OBJECT { cell_id tree_id }
 606	/body : OBJECT { cell_id msg_type port_nos tree_id }
@@ -98,7 +95,7 @@ BASE-FORMS:
 20	/body : OBJECT { cell_number }
 13	/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
 
---
+---
 
     /body/cell_id : NAMETYPE
     /body/base_tree_id : NAMETYPE
@@ -149,7 +146,7 @@ BASE-FORMS:
 370	/body/base_tree_map_keys[] : NAMETYPE
 740	/body/base_tree_map_values[]/uuid/uuid[] : SEQ 2 OF NUMBER
 
---
+---
 
     /body/entry : OBJECT { index inuse mask may_send other_indices parent tree_uuid }
 
@@ -163,7 +160,7 @@ BASE-FORMS:
     /.../entry/parent : PORT_DESC
     /.../entry/tree_uuid/uuid[] : SEQ 2 OF NUMBER
 
---
+---
 
     /body/gvm : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
 
@@ -173,7 +170,7 @@ BASE-FORMS:
     /.../gvm/variables : ARRAY len=0
     /.../gvm/xtnd_eqn
 
---
+---
 
     /body/msg : OBJECT { header payload }
 
@@ -189,6 +186,7 @@ BASE-FORMS:
     /.../header/tree_map/NocMasterAgent : NAMETYPE
 
 PAYLOAD-FORMS:
+==============
 
     /.../payload : OBJECT { body tree_id }
     /.../payload : OBJECT { deploy_tree_id manifest tree_name }
@@ -197,7 +195,7 @@ PAYLOAD-FORMS:
     /.../payload : OBJECT { gvm_eqn index new_tree_id parent_tree_id }
     /.../payload : OBJECT { my_index tree_id }
 
---
+---
 
     /.../payload/deploy_tree_id : NAMETYPE
     /.../payload/new_tree_id : NAMETYPE
@@ -217,7 +215,7 @@ PAYLOAD-FORMS:
     /.../payload/path/port_number : OBJECT { port_no }
     /.../payload/path/port_number/port_no : PORT_DESC
 
---
+---
 
     /.../payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
 
@@ -230,7 +228,7 @@ PAYLOAD-FORMS:
     /.../gvm_eqn/variables[]/var_type
     /.../gvm_eqn/xtnd_eqn
 
---
+---
 
     /payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
 
@@ -261,9 +259,8 @@ PAYLOAD-FORMS:
     /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
     /.../manifest/vms[]/trees[]/parent_list[]
 
---
-
 KEYSET:
+=======
 
 18775	uuid
 9530	name
@@ -353,9 +350,19 @@ KEYSET:
 10	tcp_msg
 10	up_tree_name
 
---
+Datacenter 'Complex' wiring diagram:
+====================================
+
+# 'datacenter.rs$$initialize$$Trace$$connect_link'
+sub meth_connect_link {
+
+# 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
+sub meth_ca_send_msg {
+
+        border_port($cell_id, $port_no) if $is_border;
 
 Spreadsheet Coding:
+===================
 
 For each sent message:
     show which link it goes out on as an entry in the sending cell's column, e.g., DiscoverD>link1.
@@ -366,7 +373,7 @@ Distinguish between packet engine (->) and cell agent (>)
 
 ensure a receive appears at least one row below the corresponding send.
 
---
+---
 
     send_msg C:0 C:0+Connected [v0,v1,v2,v3,v4,v5,v6,v7] Discover%%Sender:C:0+CellAgent%%Leafward%%gvm%% ;
 
@@ -393,6 +400,7 @@ C:2 DiscoverD<-link#1   # table(C2:p1)
 
 
 LINK-TABLE:
+===========
 
     C0:p1 -> C1:p1 [label="p1:p1, link#0"]
     C1:p2 -> C2:p1 [label="p2:p1, link#1"]
@@ -409,42 +417,14 @@ LINK-TABLE:
     C4:p2 -> C9:p2 [label="p2:p2, link#12"]
     Internet -> C2:p2 [label="p2, link#13"]
 
---
+---
 
 Change to header format :
 
 https://github.com/earthcomputing/${repo}.git
 1529618416 (20180621-150016 PDT)
 
-{
-    "header": {
-##      "repo": "CellAgent",
-        "module": "main.rs",
-##      "function": "MAIN",
-        "format": "trace_schema",
-        "trace_type": "Trace"
-        "thread_id": 0,
-        "event_id": [ 1 ],
-##      "epoch": 1529618416,
-    }
-    "body": {
-        "schema_version": "0.1",
-        "build_info": "...."
-    },
-}
-
-{
-    "body": {
-        "epoch": "1529623107",
-        "schema_version": "0.1"
-    },
-    "header": {
-        "event_id": [ 1 ],
-        "format": "trace_schema",
-        "function": "main",
-        "module": "main.rs",
-        "repo": "CellAgent",
-        "thread_id": 0,
-        "trace_type": "Trace"
-    }
+"body": {
+    "schema_version": "0.1",
+    "build_info": "...."
 }
