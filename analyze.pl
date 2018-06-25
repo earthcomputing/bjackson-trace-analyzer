@@ -90,7 +90,9 @@ sub add_msgcode {
 
 sub letter {
     my ($link_no) = @_;
-    return chr($link_no + ord('a') - 1);
+    my $chan = $link_no / 2;
+    my $compass = $link_no % 1;
+    return chr($link_no + ord('a') - 1); # $chan ...) + (($compass) ? '' : "'");
 }
 
 # FIXME
@@ -835,14 +837,17 @@ sub get_link_no {
     return $link_table{$k};
 }
 
+# FIXME
+# should indicate EAST/WEST direction (a, a')
+# could do that with even/odd numbers
 sub link_table_entry {
     my ($lc, $lp, $rc, $rp) = @_;
     my $k1 = 'C'.$lc.':p'.$lp; $k1 = 'Internet' if $lc == -1;
     my $k2 = 'C'.$rc.':p'.$rp;
 
-    my $link_no = $max_link; $max_link++;
+    my $link_no = $max_link; $max_link++; # += 2
     $link_table{$k1} = $link_no;
-    $link_table{$k2} = $link_no;
+    $link_table{$k2} = $link_no; # +1
 }
 
 # SEQ OF OBJECT { v }
