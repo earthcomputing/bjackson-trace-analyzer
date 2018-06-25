@@ -34,9 +34,7 @@ open(DOT, '>'.$dotfile) or die $!;
 print DOT ('digraph G {', $endl);
 print DOT ('rankdir=LR', $endl);
 
-my $csvfile = '/tmp/events.csv';
-open(CSV, '>'.$csvfile) or die $!;
-## print CSV ('header,col1', $endl);
+my @msgqueue;
 
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
@@ -48,10 +46,58 @@ foreach my $file (@ARGV) {
 print DOT ('}', $endl);
 close(DOT);
 
-close(CSV);
-
+msg_sheet();
 dump_schema();
 exit 0;
+
+# --
+
+# link#
+# $dir : cell-xmit, pe-rcv, pe-xmit
+sub add_msgcode {
+    my ($c, $p, $msg_type, $event_code, $dir) = @_;
+    my $link_no = get_link_no($c, $p);
+    return unless $link_no;
+    my ($entity, $action) = split('-', $dir);
+    my $arrow = ($action eq 'xmit') ? '>' : '<';
+    my $tag = ($entity eq 'cell') ? '' : '-';
+    my $code = $msg_type.$arrow.$tag.'link#'.$link_no;
+    my $o = {
+        'event_code' => $event_code,
+        'cell_no' => $c,
+        'link_no' => $link_no,
+        'code' => $code
+    };
+
+    push(@msgqueue, $o);
+}
+
+sub msg_sheet {
+    my $csvfile = '/tmp/events.csv';
+    open(CSV, '>'.$csvfile) or die $!;
+    print CSV (join(',', 'event_code', 'cell_no', 'link_no', 'code'), $endl);
+    foreach my $item (sort order_msgs @msgqueue) {
+        print CSV (join(',', $item->{'event_code'}, $item->{'cell_no'}, $item->{'link_no'}, $item->{'code'}), $endl);
+    }
+    close(CSV);
+}
+
+# ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
+sub order_msgs($$) {
+    my ($left, $right) = @_;
+    my $l1 = $left->{'event_code'};
+    my $r1 = $right->{'event_code'};
+    return $l1 - $r1 unless $l1 == $r1;
+
+    my $l2 = $left->{'link_no'};
+    my $r2 = $right->{'link_no'};
+    return $l2 - $r2 unless $l2 == $r2;
+
+    print STDERR (join(' ', 'WARNING: duplicate event/link?', $l1, $l2), $endl);
+    exit -1;
+}
 
 # --
 
@@ -405,8 +451,7 @@ sub meth_ca_send_msg2 {
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        my $link = get_link_name($c, $p);
-        print CSV (join(' ', $event_code, $cell_id, $msg_type.'>'.$link), $endl) if defined $link;
+        add_msgcode($c, $p, $msg_type, $event_code, 'cell-xmit');
     }
 }
 
@@ -541,9 +586,8 @@ sub meth_pe_forward_leafward {
     my $c = $cell_id; $c =~ s/C://;
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};;
-        my $link = get_link_name($c, $p);
-        print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+        my $p = $item->{'v'};
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-xmit');
     }
 }
 
@@ -579,8 +623,7 @@ sub meth_pe_packet_from_ca {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = 9999;
-    my $link = get_link_name($c, $p);
-    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv');
 }
 
 # 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
@@ -607,8 +650,7 @@ sub meth_pe_process_packet {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'port_no'}{'v'};
-    my $link = get_link_name($c, $p);
-    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv');
 }
 
 # 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
@@ -624,8 +666,7 @@ sub meth_pe_forward_rootward {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'parent_port'}{'v'};
-    my $link = get_link_name($c, $p);
-    print CSV (join(' ', $event_code, $cell_id, $msg_type.'<-'.$link), $endl) if defined $link;
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-xmit');
 }
 
 # ''
@@ -696,7 +737,7 @@ sub dispatch {
     print(join(' ', $methkey), $endl);
     print Dumper $body;
     print($endl);
-    exit 0;
+    exit -1;
 }
 
 # C:0+P:1+C:1+P:1
@@ -704,7 +745,8 @@ sub add_edge {
     my ($link_id) = @_;
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    my $link_name = link_table_entry($lc, $lp, $rc, $rp);
+    my $link_no = link_table_entry($lc, $lp, $rc, $rp);
+    my $link_name = 'link#'.$link_no;
     printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
 }
 
@@ -713,12 +755,13 @@ sub border_port {
     my ($tag, $c) = split(':', $cell_id);
     my $port_index = $port_no;
     $port_index =~ s/[^\d]//g;
-    my $link_name = link_table_entry(-1, 0, $c, $port_index);
+    my $link_no = link_table_entry(-1, 0, $c, $port_index);
+    my $link_name = 'link#'.$link_no;
     printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
 
 }
 
-sub get_link_name {
+sub get_link_no {
     my ($c, $p) = @_;
     my $k = 'C'.$c.':p'.$p;
     return $link_table{$k};
@@ -729,9 +772,10 @@ sub link_table_entry {
     my $k1 = 'C'.$lc.':p'.$lp; $k1 = 'Internet' if $lc == -1;
     my $k2 = 'C'.$rc.':p'.$rp;
 
-    my $link_name = 'link#'.$max_link; $max_link++;
-    $link_table{$k1} = $link_name;
-    $link_table{$k2} = $link_name;
+    my $link_no = $max_link; $max_link++;
+    my $link_name = 'link#'.$link_no;
+    $link_table{$k1} = $link_no;
+    $link_table{$k2} = $link_no;
 }
 
 # SEQ OF OBJECT { v }
@@ -873,7 +917,7 @@ sub walk_structure {
     }
 
     print(join(' ', 'unknown object type:', $rkind), $endl);
-    exit 0;
+    exit -1;
 }
 
 # by frequency, descending
