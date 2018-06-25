@@ -14,8 +14,23 @@ use Data::Dumper;
 my $debug;
 my $dump_tables; # = 1;
 
+my $op_table = {
+    'Application' => 'A',
+    'Discover' => 'D',
+    'DiscoverD' => 'DD',
+    'Manifest' => 'M',
+    'StackTree' => 'S',
+    'StackTreeD' => 'SD'
+};
+
+my $arrow_code = {
+    'cell-xmit' => '>',
+    'pe-rcv' => '<-',
+    'pe-xmit' => '->'
+};
+
 # link name map : 'Cx:py' -> 'link#z';
-my $max_link = 0;
+my $max_link = 1; # avoid 0
 my %link_table;
 
 my %jschema;
@@ -57,11 +72,10 @@ exit 0;
 sub add_msgcode {
     my ($c, $p, $msg_type, $event_code, $dir) = @_;
     my $link_no = get_link_no($c, $p);
-    return unless $link_no;
-    my ($entity, $action) = split('-', $dir);
-    my $arrow = ($action eq 'xmit') ? '>' : '<';
-    my $tag = ($entity eq 'cell') ? '' : '-';
-    my $code = $msg_type.$arrow.$tag.'link#'.$link_no;
+    return unless $link_no; # ugh, issue with 0
+    my $arrow = $arrow_code->{$dir};
+    my $crypt = $op_table->{$msg_type};
+    my $code = $crypt.$arrow.'link#'.$link_no;
     my $o = {
         'event_code' => $event_code,
         'cell_no' => $c,
@@ -72,14 +86,43 @@ sub add_msgcode {
     push(@msgqueue, $o);
 }
 
+# FIXME
+# only supports 60 cells or links
 sub msg_sheet {
     my $csvfile = '/tmp/events.csv';
     open(CSV, '>'.$csvfile) or die $!;
     print CSV (join(',', 'event_code', 'cell_no', 'link_no', 'code'), $endl);
+    my @row = ();
+    my $overwrite = 0;
     foreach my $item (sort order_msgs @msgqueue) {
-        print CSV (join(',', $item->{'event_code'}, $item->{'cell_no'}, $item->{'link_no'}, $item->{'code'}), $endl);
+        my $c = $item->{'cell_no'};
+        my $l = $item->{'link_no'};
+        giveup('more than 60 cells?') if $c > 60;
+        giveup('more than 60 links?') if $l > 60;
+        my $cindex = 1 << $c;
+        my $lindex = 1 << $l;
+        my $has_c = $overwrite & $cindex;
+        my $has_l = $overwrite & $lindex;
+        if ($has_c or $has_l) {
+            $overwrite = 0;
+            foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
+            print CSV (join(',', @row), $endl);
+            @row = ();
+        }
+        else {
+            $overwrite |= $cindex;
+            $overwrite |= $lindex;
+            $row[$c] = $item->{'code'};
+            ## $item->{'event_code'}, $item->{'cell_no'}, $item->{'link_no'}, $item->{'code'}
+        }
     }
     close(CSV);
+}
+
+sub giveup {
+    my ($msg) = @_;
+    print STDERR ($msg, $endl);
+    exit -1;
 }
 
 # ref: "<=>" and "cmp" operators
@@ -95,8 +138,7 @@ sub order_msgs($$) {
     my $r2 = $right->{'link_no'};
     return $l2 - $r2 unless $l2 == $r2;
 
-    print STDERR (join(' ', 'WARNING: duplicate event/link?', $l1, $l2), $endl);
-    exit -1;
+    giveup(join(' ', 'WARNING: duplicate event/link?', $l1, $l2));
 }
 
 # --
@@ -737,7 +779,7 @@ sub dispatch {
     print(join(' ', $methkey), $endl);
     print Dumper $body;
     print($endl);
-    exit -1;
+    giveup('incompatible schema');
 }
 
 # C:0+P:1+C:1+P:1
@@ -916,8 +958,7 @@ sub walk_structure {
         return;
     }
 
-    print(join(' ', 'unknown object type:', $rkind), $endl);
-    exit -1;
+    giveup(join(' ', 'unknown object type:', $rkind));
 }
 
 # by frequency, descending

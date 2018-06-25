@@ -115,7 +115,7 @@ BASE-FORMS:
     /body/tree_vm_map_keys[] : SEQ OF NAMETYPE
 
     /body/direction : STRING # Leafward, Rootward
-    /body/msg_type : STRING # Application, DiscoverD, Manifest, StackTree, StackTreeD
+    /body/msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
     /body/port_status : STRING # Parent, Child, Pruned
     /body/tcp_msg : STRING # "Hello From Master", "Reply from Container:VM:C:0+vm1+2"
 
