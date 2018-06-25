@@ -813,16 +813,16 @@ sub add_edge {
     if ($ALAN) {
         my $cell1_lname = letter($c1_up);
         my $cell2_lname = letter($c2_up);
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $rc, $rc, $cell2_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
         my $link_name = letter($link_no);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
     }
     else {
         my $cell1_lname = 'link#'.$c1_up;
         my $cell2_lname = 'link#'.$c2_up;
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $rc, $rc, $cell2_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
         my $link_name = 'link#'.$link_no;
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
     }
@@ -837,13 +837,13 @@ sub border_port {
     my $link_no = link_table_entry(-1, 0, $c, $port_index);
     if ($ALAN) {
         my $cell_lname = letter($c_up);
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $c, $c, $cell_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
         my $link_name = letter($link_no);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $port_index, $link_name);
     }
     else {
         my $cell_lname = 'link#'.$c_up;
-        printf DOT ("C%d [label=\"C%d  %s\"]\n", $c, $c, $cell_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
         my $link_name = 'link#'.$link_no;
         printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
     }
