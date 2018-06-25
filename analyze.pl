@@ -12,6 +12,7 @@ use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
 
 my $ALAN;
+my $code_filter;
 my $debug;
 my $dump_tables; # = 1;
 
@@ -41,9 +42,11 @@ my %jschema;
 my %keyset;
 
 my $endl = "\n";
+my $dquot = '"';
+my $blank = ' ';
 
 if ( $#ARGV < 0 ) {
-    print('usage: [-dump] [-ALAN] analyze xx.json ...', $endl);
+    print('usage: [-dump] [-ALAN] [-filter=C:2] analyze xx.json ...', $endl);
     exit -1
 }
 
@@ -58,6 +61,7 @@ my @msgqueue;
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
     if ($file eq '-ALAN') { $ALAN = 1; next; }
+    if ($file =~ /-filter=/) { my ($a, $b) = split('=', $file); $code_filter = $b; next; }
     print($endl, $file, $endl);
     my $href = process_file($file);
     do_analyze($href);
@@ -75,14 +79,16 @@ exit 0;
 # link#
 # $dir : cell-snd, pe-rcv, pe-snd
 sub add_msgcode {
-    my ($c, $p, $msg_type, $event_code, $dir) = @_;
+    my ($c, $p, $msg_type, $event_code, $dir, $tree_id) = @_;
     my $link_no = get_link_no($c, $p);
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
-    my $code = ($ALAN) ? $crypt.$arrow.letter($link_no) : $crypt.$arrow.'link#'.$link_no;
+    my $link_code = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
+    my $code = $crypt.$arrow.$link_code.$endl.'('.$tree_id.')'; # $blank
     my $o = {
         'event_code' => $event_code,
+        'tree_id' => $tree_id,
         'cell_no' => $c,
         'link_no' => $link_no,
         'code' => $code
@@ -108,6 +114,8 @@ sub msg_sheet {
     my $c_overwrite = 0;
     my $l_overwrite = 0;
     foreach my $item (sort order_msgs @msgqueue) {
+my $code = $item->{'code'};
+if (defined $code_filter) { next unless $code =~ $code_filter; }
         my $c = $item->{'cell_no'};
         my $l = $item->{'link_no'};
         giveup('more than 60 cells?') if $c > 60;
@@ -128,7 +136,7 @@ sub msg_sheet {
 
         $c_overwrite |= $cindex;
         $l_overwrite |= $lindex;
-        $row[$c] = $item->{'code'};
+        $row[$c] = $dquot.$code.$dquot;
     }
 
     # dangling data:
@@ -511,9 +519,12 @@ sub meth_ca_send_msg2 {
     my $port_nos = $body->{'port_nos'};
     my $c = $cell_id; $c =~ s/C://;
     my $event_code = ec_fromkey($key);
+
+    # this really just adds a msg to the CA=>PE queue
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd');
+        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd', $tree_id); # $tree_id.' '.$port_list);
+#FIXME -bj
     }
 }
 
@@ -607,11 +618,11 @@ sub meth_ca_listen_pe {
 sub meth_ca_send_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
+    my $port_no = portdesc($body->{'port_no'});
+    my $is_border = $body->{'is_border'}; # cell port=of-entry
 
     my $port_id = '';
-    my $port_no = portdesc($body->{'port_no'});
     if (defined $port_no) {
-        my $is_border = $body->{'is_border'}; # cell has port=of-entry ??
         $port_id = (($is_border) ? 'FX:' : '').$port_no;
         border_port($cell_id, $port_no) if $is_border;
     }
@@ -649,7 +660,7 @@ sub meth_pe_forward_leafward {
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd');
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
     }
 }
 
@@ -685,7 +696,7 @@ sub meth_pe_packet_from_ca {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = 9999;
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv');
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
 # 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
@@ -712,7 +723,7 @@ sub meth_pe_process_packet {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'port_no'}{'v'};
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv');
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
 # 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
@@ -728,7 +739,7 @@ sub meth_pe_forward_rootward {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'parent_port'}{'v'};
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd');
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
 }
 
 # ''
