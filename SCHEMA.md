@@ -434,6 +434,28 @@ A generic tool should show all the message flow which would imply including the 
 
 In general, it would be useful to provide a "message hash" in the per-trace info, and also dump out the complete message details in a separate table (report).
 
+Routing Table
+=============
+
+ Index Tree UUID  In Use Send? Parent Mask             Indices
+     0 "358d69e1"  Yes    Yes       0 0000000000000001 [0, 0, 0, 0, 0, 0, 0, 0]
+     1 "b90ffb35"  Yes    Yes       0 0000000000000110 [0, 0, 0, 0, 0, 0, 0, 0]
+     2 "5e3fd12d"  Yes    Yes       0 0000000000000111 [0, 4, 4, 0, 0, 0, 0, 0]
+     3 "f42baa5c"  Yes    Yes       1 0000000000000101 [0, 2, 5, 0, 0, 0, 0, 0]
+     4 "f9a0aead"  Yes    Yes       1 0000000000000101 [0, 3, 6, 0, 0, 0, 0, 0]
+     5 "259238f9"  Yes    Yes       2 0000000000000001 [0, 7, 2, 0, 0, 0, 0, 0]
+     6 "3cb12888"  Yes    Yes       2 0000000000000001 [0, 6, 3, 0, 0, 0, 0, 0]
+     7 "3f93439f"  Yes    Yes       1 0000000000000101 [0, 5, 7, 0, 0, 0, 0, 0]
+     8 "767f7086"  Yes    Yes       1 0000000000000101 [0, 8, 10, 0, 0, 0, 0, 0]
+     9 "b1dc43ed"  Yes    Yes       2 0000000000000001 [0, 10, 8, 0, 0, 0, 0, 0]
+    10 "5ecec45f"  Yes    Yes       1 0000000000000001 [0, 9, 9, 0, 0, 0, 0, 0]
+    11 "7c5d07a6"  Yes    Yes       2 0000000000000001 [0, 11, 11, 0, 0, 0, 0, 0]
+    12 "2c8b871d"  Yes    Yes       2 0000000000000001 [0, 0, 12, 0, 0, 0, 0, 0]
+    13 "2c8b871d"  Yes    Yes       2 0000000000000100 [0, 0, 12, 0, 0, 0, 0, 0]
+    14 "e9ef7cb9"  Yes    No        2 0000000000000001 [0, 0, 14, 0, 0, 0, 0, 0]
+    15 "e9ef7cb9"  Yes    No        2 0000000000000100 [0, 0, 14, 0, 0, 0, 0, 0]
+    16 "d548c82a"  Yes    Yes       2 0000000000000000 [0, 0, 16, 0, 0, 0, 0, 0]
+
 LINK-TABLE:
 ===========
 
