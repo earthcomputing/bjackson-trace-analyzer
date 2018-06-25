@@ -11,6 +11,7 @@ use lib '/Users/bjackson/perl5/lib/perl5';
 use JSON qw( decode_json ); # From CPAN
 use Data::Dumper;
 
+my $ALAN;
 my $debug;
 my $dump_tables; # = 1;
 
@@ -53,6 +54,7 @@ my @msgqueue;
 
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
+    if ($file eq '-ALAN') { $ALAN = 1; next; }
     print($endl, $file, $endl);
     my $href = process_file($file);
     do_analyze($href);
@@ -75,7 +77,7 @@ sub add_msgcode {
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
-    my $code = $crypt.$arrow.'link#'.$link_no;
+    my $code = ($ALAN) ? $crypt.$arrow.letter($link_no) : $crypt.$arrow.'link#'.$link_no;
     my $o = {
         'event_code' => $event_code,
         'cell_no' => $c,
@@ -84,6 +86,11 @@ sub add_msgcode {
     };
 
     push(@msgqueue, $o);
+}
+
+sub letter {
+    my ($link_no) = @_;
+    return chr($link_no + ord('a') - 1);
 }
 
 # FIXME
@@ -102,9 +109,10 @@ sub msg_sheet {
         giveup('more than 60 links?') if $l > 60;
         my $cindex = 1 << $c;
         my $lindex = 1 << $l;
+        # causal relationship - cell-agent queue and link queues are sequential
+        # check if the queue is busy:
         my $has_c = $c_overwrite & $cindex;
         my $has_l = $l_overwrite & $lindex;
-# print CSV (join(' ', $c, $l, $cindex, $lindex, $has_c, $has_l, $c_overwrite, $l_overwrite, $item->{'code'}), $endl);
         if ($has_c or $has_l) {
             $c_overwrite = 0;
             $l_overwrite = 0;
@@ -795,8 +803,14 @@ sub add_edge {
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
     my $link_no = link_table_entry($lc, $lp, $rc, $rp);
-    my $link_name = 'link#'.$link_no;
-    printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
+    if ($ALAN) {
+        my $link_name = letter($link_no);
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
+    }
+    else {
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
+    }
 }
 
 sub border_port {
@@ -805,9 +819,14 @@ sub border_port {
     my $port_index = $port_no;
     $port_index =~ s/[^\d]//g;
     my $link_no = link_table_entry(-1, 0, $c, $port_index);
-    my $link_name = 'link#'.$link_no;
-    printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
-
+    if ($ALAN) {
+        my $link_name = letter($link_no);
+        printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $port_index, $link_name);
+    }
+    else {
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
+    }
 }
 
 sub get_link_no {
@@ -822,7 +841,6 @@ sub link_table_entry {
     my $k2 = 'C'.$rc.':p'.$rp;
 
     my $link_no = $max_link; $max_link++;
-    my $link_name = 'link#'.$link_no;
     $link_table{$k1} = $link_no;
     $link_table{$k2} = $link_no;
 }
