@@ -25,13 +25,16 @@ my $op_table = {
 };
 
 my $arrow_code = {
-    'cell-xmit' => '>',
+    'cell-snd' => '>',
     'pe-rcv' => '<-',
-    'pe-xmit' => '->'
+    'pe-snd' => '->'
 };
 
+my $max_cell = -1;
+my %cell_table;
+
 # link name map : 'Cx:py' -> 'link#z';
-my $max_link = 1; # avoid 0
+my $max_link = 1; # avoid 0 ## 2
 my %link_table;
 
 my %jschema;
@@ -40,7 +43,7 @@ my %keyset;
 my $endl = "\n";
 
 if ( $#ARGV < 0 ) {
-    print('usage: analyze xx.json ...', $endl);
+    print('usage: [-dump] [-ALAN] analyze xx.json ...', $endl);
     exit -1
 }
 
@@ -70,7 +73,7 @@ exit 0;
 # --
 
 # link#
-# $dir : cell-xmit, pe-rcv, pe-xmit
+# $dir : cell-snd, pe-rcv, pe-snd
 sub add_msgcode {
     my ($c, $p, $msg_type, $event_code, $dir) = @_;
     my $link_no = get_link_no($c, $p);
@@ -510,7 +513,7 @@ sub meth_ca_send_msg2 {
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'cell-xmit');
+        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd');
     }
 }
 
@@ -646,7 +649,7 @@ sub meth_pe_forward_leafward {
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'pe-xmit');
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd');
     }
 }
 
@@ -725,7 +728,7 @@ sub meth_pe_forward_rootward {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'parent_port'}{'v'};
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-xmit');
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd');
 }
 
 # ''
@@ -804,12 +807,22 @@ sub add_edge {
     my ($link_id) = @_;
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
+    my $c1_up = cell_table_entry($lc);
+    my $c2_up = cell_table_entry($rc);
     my $link_no = link_table_entry($lc, $lp, $rc, $rp);
     if ($ALAN) {
+        my $cell1_lname = letter($c1_up);
+        my $cell2_lname = letter($c2_up);
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $rc, $rc, $cell2_lname);
         my $link_name = letter($link_no);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
     }
     else {
+        my $cell1_lname = 'link#'.$c1_up;
+        my $cell2_lname = 'link#'.$c2_up;
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $rc, $rc, $cell2_lname);
         my $link_name = 'link#'.$link_no;
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
     }
@@ -820,12 +833,17 @@ sub border_port {
     my ($tag, $c) = split(':', $cell_id);
     my $port_index = $port_no;
     $port_index =~ s/[^\d]//g;
+    my $c_up = cell_table_entry($c);
     my $link_no = link_table_entry(-1, 0, $c, $port_index);
     if ($ALAN) {
+        my $cell_lname = letter($c_up);
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $c, $c, $cell_lname);
         my $link_name = letter($link_no);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $port_index, $link_name);
     }
     else {
+        my $cell_lname = 'link#'.$c_up;
+        printf DOT ("C%d [label=\"C%d  %s\"]\n", $c, $c, $cell_lname);
         my $link_name = 'link#'.$link_no;
         printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
     }
@@ -835,6 +853,20 @@ sub get_link_no {
     my ($c, $p) = @_;
     my $k = 'C'.$c.':p'.$p;
     return $link_table{$k};
+}
+
+# DANGER: shares link allocation responsibility
+sub cell_table_entry {
+    my ($c) = @_;
+    $max_cell = $c if $c > $max_cell;
+    my $p = 0;
+    my $k = 'C'.$c.':p'.$p;
+    return $cell_table{$c} if $cell_table{$c};
+    ## fill in entry
+    my $link_no = $max_link; $max_link++; # += 2
+    $link_table{$k} = $link_no;
+    $cell_table{$c} = $link_no;
+    return $link_no;
 }
 
 # FIXME

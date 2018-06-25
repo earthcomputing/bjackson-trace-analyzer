@@ -404,6 +404,7 @@ Datacenter 'Complex' wiring diagram:
 LINK-TABLE:
 ===========
 
+C0 [label="p0, link#13"]
     C0:p1 -> C1:p1 [label="p1:p1, link#0"]
     C1:p2 -> C2:p1 [label="p2:p1, link#1"]
     C1:p3 -> C6:p1 [label="p3:p1, link#2"]
