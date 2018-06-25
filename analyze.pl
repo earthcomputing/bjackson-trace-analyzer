@@ -91,9 +91,10 @@ sub add_msgcode {
 sub msg_sheet {
     my $csvfile = '/tmp/events.csv';
     open(CSV, '>'.$csvfile) or die $!;
-    print CSV (join(',', 'event_code', 'cell_no', 'link_no', 'code'), $endl);
+    print CSV (join(',', 'event/cell', 0..9), $endl);
     my @row = ();
-    my $overwrite = 0;
+    my $c_overwrite = 0;
+    my $l_overwrite = 0;
     foreach my $item (sort order_msgs @msgqueue) {
         my $c = $item->{'cell_no'};
         my $l = $item->{'link_no'};
@@ -101,21 +102,25 @@ sub msg_sheet {
         giveup('more than 60 links?') if $l > 60;
         my $cindex = 1 << $c;
         my $lindex = 1 << $l;
-        my $has_c = $overwrite & $cindex;
-        my $has_l = $overwrite & $lindex;
+        my $has_c = $c_overwrite & $cindex;
+        my $has_l = $l_overwrite & $lindex;
+# print CSV (join(' ', $c, $l, $cindex, $lindex, $has_c, $has_l, $c_overwrite, $l_overwrite, $item->{'code'}), $endl);
         if ($has_c or $has_l) {
-            $overwrite = 0;
+            $c_overwrite = 0;
+            $l_overwrite = 0;
             foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
-            print CSV (join(',', @row), $endl);
+            print CSV (join(',', $item->{'event_code'}, @row), $endl);
             @row = ();
         }
-        else {
-            $overwrite |= $cindex;
-            $overwrite |= $lindex;
-            $row[$c] = $item->{'code'};
-            ## $item->{'event_code'}, $item->{'cell_no'}, $item->{'link_no'}, $item->{'code'}
-        }
+
+        $c_overwrite |= $cindex;
+        $l_overwrite |= $lindex;
+        $row[$c] = $item->{'code'};
     }
+
+    # dangling data:
+    foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
+    print CSV (join(',', 'last', @row), $endl);
     close(CSV);
 }
 
@@ -206,7 +211,9 @@ sub do_analyze {
         print(join(' ', $xkey, $function, ''));
         dispatch($key, $module, $function, $kind, $format, $json);
     }
-    print($endl); # terminate last entry
+
+    # dangling data:
+    print($endl);
 
     dump_histo('VERBS:', \%verb);
 }
