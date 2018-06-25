@@ -69,6 +69,16 @@ TRACE-METADATA:
     /header/event_id[] : SEQ OF NUMBER
     /header/epoch : NUMBER
 
+For now, trace record parsing is done on a per unique "emitter" basis :
+
+    my $methkey = join('$$', $module, $function, $kind, $format);
+    SHOULD also include $repo
+
+Each trace record SHOULD have a unique "key".  In order to be defensive against bugs, adding a stream sequence number disambiguates things.  The notion here is that a number of independent emitters may be publishing trace records thru the same channel HOWEVER sequential in the channel DOES NOT imply causal ordering.  Ordering by key is a causal guarantee (from the actual emitter).
+
+    my $key = join('::', $thread_id, $event_id, $lineno);
+
+
 BASE-FORMS:
 ===========
 
@@ -363,8 +373,8 @@ Datacenter 'Complex' wiring diagram:
 
             border_port($cell_id, $port_no) if $is_border;
 
-    Spreadsheet Coding:
-    ===================
+Spreadsheet Coding:
+===================
 
     For each sent message:
         show which link it goes out on as an entry in the sending cell's column, e.g., DiscoverD>link1.
@@ -374,6 +384,12 @@ Datacenter 'Complex' wiring diagram:
     Distinguish between packet engine (->) and cell agent (>)
 
     ensure a receive appears at least one row below the corresponding send.
+
+    BONUS points : invent letter names for links and show highly compact/cryptic output (e.g. DD>a)
+
+    Add : cell contest SHOULD include destination tree-id
+
+    BONUS points : allow filtering to simply things, such as focus on C:2
 
 ---
 
@@ -400,6 +416,23 @@ Datacenter 'Complex' wiring diagram:
     C:2 DiscoverD<-link#1   # table(C2:p1)
     C:2 DiscoverD<-link#1   # table(C2:p1)
 
+Alan:
+Aah.  I do see a difference. Discover, DiscoverD, and StackTree list the Connected tree.
+It would be better to show the tree they are for, e.g., C:2 instead of C:2+Connected.
+For stack tree it should show both the parent and new tree.
+I didn’t show that in my spreadsheet because I knew I was only stacking on C:2.
+
+Bill:
+ok, that doesn’t have meaning for me “tree they are for” - there’s only 1 tree-id available in the trace data (I think).
+As for parent/new - I could do that, however I’d like to now what tree we’re sending to (i.e. parent, right?) and I think perhaps ‘new’ really should be recorded in some other way.
+Like perhaps message details (per message type) should be in another report ??
+
+then we had a phone conversation
+
+Result:
+A generic tool should show all the message flow which would imply including the forwarding table index that's in the message meta-data (header).  Deep Packet Inspection (DPI) can pull out the "interesting tree" for display - perhaps among other things.
+
+In general, it would be useful to provide a "message hash" in the per-trace info, and also dump out the complete message details in a separate table (report).
 
 LINK-TABLE:
 ===========
