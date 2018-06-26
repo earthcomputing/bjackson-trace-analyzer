@@ -1,5 +1,5 @@
 
-# Log Messaging Substrate (LMS) - JSON Schema and Notes for Trace Records
+# Log Messaging Substrate (LMS) - JSON Schema and notes for Trace Records
 
     aka Stream Processing System
     Kafka Model (highly scalable)
@@ -191,21 +191,27 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
     /.../manifest/vms[]/trees[]/parent_list[]
 
-
 ## Datacenter 'Complex' wiring diagram:
 
     # 'datacenter.rs$$initialize$$Trace$$connect_link'
     sub meth_connect_link {
 
+        my $link_id = $body->{'link_id'}{'name'};
+        add_edge($link_id);
+
     # 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
     sub meth_ca_send_msg {
 
-            border_port($cell_id, $port_no) if $is_border;
+        my $cell_id = nametype($body->{'cell_id'});
+        my $port_no = portdesc($body->{'port_no'});
+        my $is_border = $body->{'is_border'}; # cell port=of-entry
+        border_port($cell_id, $port_no) if $is_border;
 
 ## Spreadsheet Coding:
 
     For each sent message:
         show which link it goes out on as an entry in the sending cell's column, e.g., DiscoverD>link1.
+
     For each received message:
         show as an entry in the receiving cell's the link it came in on, e.g., link1<DiscoverD.
 
@@ -218,6 +224,120 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     Add : cell contest SHOULD include destination tree-id
 
     BONUS points : allow filtering to simply things, such as focus on C:2
+
+    BONUS points : show unidirectional channel info (a, a')
+
+    Note : happens-before is problematic here so rely upon stream order
+
+---
+
+Ideally, this is an observation point for traffic that's going between the Cell Agent and the Packet Engine (in the 'cell-snd' direction).  At this time it's considered a serialization point - so this is introduces a "happens-before" causal relationship.
+
+Alan and I are currently trying to untangle this a bit.  Alan was thinking that he's debugging what the Cell Agent is doing, and he leverages his simulator's GEV which makes names for things easier.  In a real world production systems (and looking at a "time window" of the telementry stream), we'd need to keep a running translation map for things (think uuid's) to make things more understandable for human beings.  The trick that GIT uses is to just use a few hex digits from the uuid (4 or 5, prefix or suffix), however I suspect being able to associate string tags (e.g. Alice, Bob) might be immensely helpful.
+
+Another idea being kicked around is to hash the msg body here and use that as a "msg ref" value.  A separate report/dump could be consulted if msg details are needed.  It's really not worth it to start doing deep packet inspection all over the place in order to show some useful values - that's really a code/debugging notion that really isn't useful in the streaming world.  Think  Wireshark rather than program printf's.
+
+    # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
+    sub meth_ca_send_msg2 {
+
+        my $cell_id = nametype($body->{'cell_id'});
+        my $tree_id = nametype($body->{'tree_id'});
+        my $port_list = build_port_list($body->{'port_nos'});
+        my $summary = summarize_msg($body->{'msg'});
+
+        ## Spreadsheet Coding:
+        my $msg_type = $body->{'msg'}{'header'}{'msg_type'};
+        my $port_nos = $body->{'port_nos'};
+        my $c = $cell_id; $c =~ s/C://;
+        my $event_code = ec_fromkey($key);
+
+        # FIXME : don't break out individual ports here - that should happen in PE
+        foreach my $item (@{$port_nos}) {
+            my $p = $item->{'v'};
+            add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd', $tree_id); # $tree_id.' '.$port_list);
+        }
+    }
+
+If I understand things correctly, this observation point is for the "port #0" channel recieve of msgs coming 'down' to the PE from the Cell Agent.
+
+    # 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
+    sub meth_pe_packet_from_ca {
+
+        my $cell_id = nametype($body->{'cell_id'});
+        my $tree_id = nametype($body->{'tree_id'});
+        my $msg_type = $body->{'msg_type'};
+
+        ## Spreadsheet Coding:
+        my $event_code = ec_fromkey($key);
+        my $c = $cell_id; $c =~ s/C://;
+        my $p = 9999;
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
+    }
+
+I'm guessing this is the observation point for the PE taking msgs off of a link and then passing them along based upon the 'traph' data for the 'index' (forwarding table entry) for the "destination tree".
+
+    # 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
+    sub meth_pe_forward_leafward {
+
+        my $cell_id = nametype($body->{'cell_id'});
+        my $tree_id = nametype($body->{'tree_id'});
+        my $port_list = build_port_list($body->{'port_nos'});
+        my $msg_type = $body->{'msg_type'};
+
+        ## Spreadsheet Coding:
+        my $port_nos = $body->{'port_nos'};
+        my $c = $cell_id; $c =~ s/C://;
+        my $event_code = ec_fromkey($key);
+        foreach my $item (@{$port_nos}) {
+            my $p = $item->{'v'};
+            add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
+        }
+    }
+
+It's unclear that we really need forward leafward/rootward as completely different records/methods?  Could this be simplified by passing a 'direction' value? There is the difference between a single port and a port-set to be considered, but as I understand things, these are referred by index/direction and so it seems like Alan is 'helping' here ??
+
+    # 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
+    sub meth_pe_forward_rootward {
+
+        my $cell_id = nametype($body->{'cell_id'});
+        my $tree_id = nametype($body->{'tree_id'});
+        my $msg_type = $body->{'msg_type'};
+        my $port_no = portdesc($body->{'parent_port'});
+
+        ## Spreadsheet Coding:
+        my $event_code = ec_fromkey($key);
+        my $c = $cell_id; $c =~ s/C://;
+        my $p = $body->{'parent_port'}{'v'};
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
+    }
+
+Kinda confused here - I think this is the internals of the PE when it's interpreting a message from the Cell Agent telling the PE to update the forwarding table ??
+
+    # 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
+    sub meth_pe_process_packet {
+
+        my $cell_id = nametype($body->{'cell_id'});
+        my $tree_id = nametype($body->{'tree_id'});
+        my $msg_type = $body->{'msg_type'};
+        my $port_no = portdesc($body->{'port_no'});
+    #    'entry' => {
+    #        'parent' => { 'v' => 0 },
+    #        'inuse' : BOOLEAN
+    #        'may_send' => $VAR1->{'entry'}{'inuse'},
+    #        'mask' => { 'mask' => 1 },
+    #        'index' => 0,
+    #        'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+    #        'tree_uuid'
+    #    },
+        my $entry = $body->{'entry'};
+        my $parent = portdesc($entry->{'parent'});
+
+        ## Spreadsheet Coding:
+        my $event_code = ec_fromkey($key);
+        my $c = $cell_id; $c =~ s/C://;
+        my $p = $body->{'port_no'}{'v'};
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
+    }
 
 ---
 
@@ -285,7 +405,6 @@ In general, it would be useful to provide a "message hash" in the per-trace info
 
 ## LINK-TABLE:
 
-    C0 [label="p0, link#13"]
     C0:p1 -> C1:p1 [label="p1:p1, link#0"]
     C1:p2 -> C2:p1 [label="p2:p1, link#1"]
     C1:p3 -> C6:p1 [label="p3:p1, link#2"]
@@ -300,6 +419,17 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     C3:p3 -> C8:p3 [label="p3:p3, link#11"]
     C4:p2 -> C9:p2 [label="p2:p2, link#12"]
     Internet -> C2:p2 [label="p2, link#13"]
+
+    digraph G {
+        rankdir=LR
+        C0 [label="C0  (a)"]
+        C1 [label="C1  (b)"]
+        C2 [label="C2  (c)"]
+        C0:p1 -> C1:p1 [label="d"]
+        C0:p2 -> C2:p1 [label="e"]
+        C1:p2 -> C2:p2 [label="f"]
+        Internet -> C1:p3 [label="g"]
+    }
 
 ## VERBS:
 
