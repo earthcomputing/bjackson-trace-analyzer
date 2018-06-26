@@ -1,25 +1,26 @@
 
+# Log Messaging Substrate (LMS) - JSON Schema and Notes for Trace Records
+
+    aka Stream Processing System
+    Kafka Model (highly scalable)
+
 hint: https://github.github.com/gfm/
 
-NAME_TYPE:
-==========
+## NAME_TYPE:
 
     /.../name : STRING
     /.../uuid/uuid[] : SEQ 2 OF NUMBER
 
-PORT_DESC:
-==========
+## PORT_DESC:
 
     /.../ : OBJECT { v }
     /.../v : NUMBER
 
-SCHEMA:
-=======
+## SCHEMA:
 
     : OBJECT { header body }
 
-TRACE-METADATA:
-===============
+## TRACE-METADATA:
 
     /header : OBJECT { repo module function trace_type format - thread_id event_id - epoch }
 
@@ -41,8 +42,7 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 
     my $key = join('::', $thread_id, $event_id, $lineno);
 
-MAIN:
-=====
+## MAIN:
 
     https://github.com/earthcomputing/${repo}.git
     1529618416 (20180621-150016 PDT)
@@ -52,8 +52,7 @@ MAIN:
         "build_info": "...."
     }
 
-BASE-FORMS:
-===========
+## BASE-FORMS:
 
     685	/body : OBJECT { cell_id tree_id }
     606	/body : OBJECT { cell_id msg_type port_nos tree_id }
@@ -119,8 +118,7 @@ BASE-FORMS:
     /.../header/tree_map/NocAgentMaster : NAMETYPE
     /.../header/tree_map/NocMasterAgent : NAMETYPE
 
-PAYLOAD-FORMS:
-==============
+## PAYLOAD-FORMS:
 
     /.../payload : OBJECT { body tree_id }
     /.../payload : OBJECT { deploy_tree_id manifest tree_name }
@@ -194,8 +192,7 @@ PAYLOAD-FORMS:
     /.../manifest/vms[]/trees[]/parent_list[]
 
 
-Datacenter 'Complex' wiring diagram:
-====================================
+## Datacenter 'Complex' wiring diagram:
 
     # 'datacenter.rs$$initialize$$Trace$$connect_link'
     sub meth_connect_link {
@@ -205,8 +202,7 @@ Datacenter 'Complex' wiring diagram:
 
             border_port($cell_id, $port_no) if $is_border;
 
-Spreadsheet Coding:
-===================
+## Spreadsheet Coding:
 
     For each sent message:
         show which link it goes out on as an entry in the sending cell's column, e.g., DiscoverD>link1.
@@ -266,8 +262,7 @@ A generic tool should show all the message flow which would imply including the 
 
 In general, it would be useful to provide a "message hash" in the per-trace info, and also dump out the complete message details in a separate table (report).
 
-Routing Table
-=============
+## Routing Table
 
      Index Tree UUID  In Use Send? Parent Mask             Indices
          0 "358d69e1"  Yes    Yes       0 0000000000000001 [0, 0, 0, 0, 0, 0, 0, 0]
@@ -288,8 +283,7 @@ Routing Table
         15 "e9ef7cb9"  Yes    No        2 0000000000000100 [0, 0, 14, 0, 0, 0, 0, 0]
         16 "d548c82a"  Yes    Yes       2 0000000000000000 [0, 0, 16, 0, 0, 0, 0, 0]
 
-LINK-TABLE:
-===========
+## LINK-TABLE:
 
     C0 [label="p0, link#13"]
     C0:p1 -> C1:p1 [label="p1:p1, link#0"]
@@ -307,8 +301,7 @@ LINK-TABLE:
     C4:p2 -> C9:p2 [label="p2:p2, link#12"]
     Internet -> C2:p2 [label="p2, link#13"]
 
-VERBS:
-======
+## VERBS:
 
     685	cellagent.rs$get_base_tree_id
     582	cellagent.rs$update_traph
@@ -344,8 +337,7 @@ VERBS:
     10	packet_engine.rs$listen_ca
     10	packet_engine.rs$listen_port
 
-FIELDS:
-=======
+## FIELDS:
 
     18775	uuid : OBJECT, ARRAY
     9530	name : XXX
