@@ -8,8 +8,9 @@
 use strict;
 
 use lib '/Users/bjackson/perl5/lib/perl5';
-use JSON qw( decode_json ); # From CPAN
+use JSON qw(decode_json encode_json); # From CPAN
 use Data::Dumper;
+use Digest::SHA qw(sha1_hex);
 
 my $ALAN;
 my $code_filter;
@@ -37,6 +38,8 @@ my %cell_table;
 # link name map : 'Cx:py' -> 'link#z';
 my $max_link = 1; # avoid 0 ## 2
 my %link_table;
+
+my %msg_table;
 
 my %jschema;
 my %keyset;
@@ -71,10 +74,32 @@ print DOT ('}', $endl);
 close(DOT);
 
 msg_sheet();
+dump_msgs();
 dump_schema();
 exit 0;
 
 # --
+
+sub dump_msgs {
+    print($endl);
+    print('MESSAGES:', $endl);
+
+    foreach my $key (sort order_mtable keys %msg_table) {
+        my $hint = substr($msg_table{$key}, -5);
+        print(join(' ', $hint, $key), $endl);
+    }
+}
+
+# ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
+sub order_mtable($$) {
+    my ($left, $right) = @_;
+    my $left_hint = substr($msg_table{$left}, -5);
+    my $right_hint = substr($msg_table{$right}, -5);
+    return $left_hint cmp $right_hint unless $left_hint eq $right_hint;
+    return $msg_table{$left} cmp $msg_table{$right};
+}
 
 # link#
 # $dir : cell-snd, pe-rcv, pe-snd
@@ -907,6 +932,12 @@ sub summarize_msg {
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
 
+    my $payload_text = encode_json($payload);
+giveup('encode error') unless $payload_text;
+    my $payload_hash = sha1_hex($payload_text);
+giveup('hash error') unless $payload_hash;
+    $msg_table{$payload_text} = $payload_hash;
+
     # /msg/header/direction
     # /msg/header/msg_type
     # /msg/header/sender_id
@@ -919,7 +950,8 @@ sub summarize_msg {
     my $has_gvm = defined($payload->{'gvm_eqn'}) ? 'gvm' : '';
     my $has_manifest = defined($payload->{'manifest'}) ? 'manifest' : '';
 
-    return join('%%', $msg_type, $sender_id, $direction, $has_gvm, $has_manifest);
+    my $hint = substr($payload_hash, -5);
+    return join('%%', $msg_type, $sender_id, $direction, $hint, $has_gvm, $has_manifest);
 }
 
 sub construct_key {
