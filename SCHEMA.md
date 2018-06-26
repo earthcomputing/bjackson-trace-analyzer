@@ -1,42 +1,5 @@
 
-https://github.github.com/gfm/
-
-VERBS: 33
-=========
-
-    685	cellagent.rs$get_base_tree_id
-    582	cellagent.rs$update_traph
-    333	cellagent.rs$listen_pe_loop
-    266	cellagent.rs$send_msg
-    148	cellagent.rs$update_base_tree_map
-    90	cellagent.rs$process_discover_msg
-    90	cellagent.rs$add_saved_discover
-    31	cellagent.rs$stack_tree
-    30	cellagent.rs$add_saved_stack_tree
-    27	cellagent.rs$process_stack_tree_msg
-    27	cellagent.rs$port_connected
-    21	cellagent.rs$add_saved_msg
-    18	cellagent.rs$process_stack_treed_msg
-    18	cellagent.rs$process_application_msg
-    18	cellagent.rs$get_saved_msgs
-    10	cellagent.rs$tcp_application
-    10	cellagent.rs$process_manifest_msg
-    10	cellagent.rs$listen_uptree_loop
-    10	cellagent.rs$listen_uptree
-    10	cellagent.rs$listen_pe
-    10	cellagent.rs$deploy
-    9	cellagent.rs$process_discoverd_msg
-    6	cellagent.rs$forward_saved
-    4	cellagent.rs$tcp_stack_tree
-    3	cellagent.rs$forward_stack_tree
-    2	cellagent.rs$tcp_manifest
-    23	datacenter.rs$initialize
-    10	nalcell.rs$new
-    10	nalcell.rs$start_cell
-    10	nalcell.rs$start_packet_engine
-    603	packet_engine.rs$forward
-    10	packet_engine.rs$listen_ca
-    10	packet_engine.rs$listen_port
+hint: https://github.github.com/gfm/
 
 NAME_TYPE:
 ==========
@@ -78,6 +41,16 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 
     my $key = join('::', $thread_id, $event_id, $lineno);
 
+MAIN:
+=====
+
+    https://github.com/earthcomputing/${repo}.git
+    1529618416 (20180621-150016 PDT)
+
+    "body": {
+        "schema_version": "0.1",
+        "build_info": "...."
+    }
 
 BASE-FORMS:
 ===========
@@ -106,57 +79,6 @@ BASE-FORMS:
     2	/body : OBJECT { cell_id deploy_tree_id msg }
     20	/body : OBJECT { cell_number }
     13	/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
-
----
-
-    /body/cell_id : NAMETYPE
-    /body/base_tree_id : NAMETYPE
-    /body/deploy_tree_id : NAMETYPE
-    /body/deployment_tree_id : NAMETYPE
-    /body/left_cell : NAMETYPE
-    /body/link_id : NAMETYPE
-    /body/new_tree_id : NAMETYPE
-    /body/rite_cell : NAMETYPE
-    /body/sender_id : NAMETYPE
-    /body/stacked_tree_id : NAMETYPE
-    /body/tree_id : NAMETYPE
-    /body/vm_id : NAMETYPE
-
-    /body/tree_vm_map_keys[] : SEQ OF NAMETYPE
-
-    /body/direction : STRING # Leafward, Rootward
-    /body/msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
-    /body/port_status : STRING # Parent, Child, Pruned
-    /body/tcp_msg : STRING # "Hello From Master", "Reply from Container:VM:C:0+vm1+2"
-
-    /body/is_border : BOOLEAN
-    /body/save : BOOLEAN
-
-    /body/cell_number : NUMBER
-    /body/hops : NUMBER
-    /body/no_saved : NUMBER
-    /body/no_saved_msgs : NUMBER
-    /body/other_index : NUMBER
-
-    /body/port_no : PORT_DESC
-    /body/left_port : PORT_DESC
-    /body/rite_port : PORT_DESC
-
-    /body/port_nos[] : SEQ OF PORT_DESC
-
-    10	/body/up_tree_name
-
-    90	/body/children[] : SEQ OF OBJECT { port_no }
-    90	/body/children[]/port_no : PORT_DESC
-
-    291	/body/port_number : OBJECT { port_no }
-    291	/body/port_number/port_no : PORT_DESC
-
-    10	/body/allowed_tree : OBJECT { name }
-    10	/body/allowed_tree/name
-
-    370	/body/base_tree_map_keys[] : NAMETYPE
-    740	/body/base_tree_map_values[]/uuid/uuid[] : SEQ 2 OF NUMBER
 
 ---
 
@@ -271,96 +193,6 @@ PAYLOAD-FORMS:
     /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
     /.../manifest/vms[]/trees[]/parent_list[]
 
-KEYSET:
-=======
-
-    18775	uuid
-    9530	name
-    4054	header
-    4039	v
-    3210	body
-    3144	module
-    3144	trace_type
-    3144	thread_id
-    3144	format
-    3144	event_id
-    3144	function
-    3111	cell_id
-    2520	tree_id
-    1532	msg_type
-    1028	port_no
-    920	direction
-    920	sender_id
-    915	index
-    910	tree_map
-    910	payload
-    910	msg_count
-    910	msg
-    878	port_nos
-    875	xtnd_eqn
-    875	send_eqn
-    875	recv_eqn
-    875	variables
-    875	save_eqn
-    761	base_tree_id
-    757	hops
-    757	port_number
-    590	mask
-    584	gvm_eqn
-    466	path
-    466	sending_cell_id
-    295	inuse
-    295	entry
-    295	may_send
-    295	tree_uuid
-    295	parent
-    295	other_indices
-    291	other_index
-    291	port_status
-    291	gvm
-    291	children
-    270	new_tree_id
-    189	my_index
-    175	id
-    148	stacked_tree_id
-    118	var_name
-    118	var_type
-    118	value
-    118	parent_tree_id
-    105	allowed_trees
-    70	image
-    70	parent_list
-    70	trees
-    51	no_saved
-    37	deploy_tree_id
-    36	fwd_index
-    35	NocAgentMaster
-    35	cell_config
-    35	deployment_tree
-    35	NocMasterAgent
-    35	containers
-    35	required_config
-    35	tree_name
-    35	manifest
-    35	params
-    35	vms
-    31	base_tree_map_keys
-    31	base_tree_map_values
-    27	is_border
-    20	cell_number
-    18	save
-    18	no_saved_msgs
-    13	rite_cell
-    13	link_id
-    13	rite_port
-    13	left_cell
-    13	left_port
-    10	deployment_tree_id
-    10	allowed_tree
-    10	vm_id
-    10	tree_vm_map_keys
-    10	tcp_msg
-    10	up_tree_name
 
 Datacenter 'Complex' wiring diagram:
 ====================================
@@ -475,14 +307,151 @@ LINK-TABLE:
     C4:p2 -> C9:p2 [label="p2:p2, link#12"]
     Internet -> C2:p2 [label="p2, link#13"]
 
+VERBS:
+======
+
+    685	cellagent.rs$get_base_tree_id
+    582	cellagent.rs$update_traph
+    333	cellagent.rs$listen_pe_loop
+    266	cellagent.rs$send_msg
+    148	cellagent.rs$update_base_tree_map
+    90	cellagent.rs$process_discover_msg
+    90	cellagent.rs$add_saved_discover
+    31	cellagent.rs$stack_tree
+    30	cellagent.rs$add_saved_stack_tree
+    27	cellagent.rs$process_stack_tree_msg
+    27	cellagent.rs$port_connected
+    21	cellagent.rs$add_saved_msg
+    18	cellagent.rs$process_stack_treed_msg
+    18	cellagent.rs$process_application_msg
+    18	cellagent.rs$get_saved_msgs
+    10	cellagent.rs$tcp_application
+    10	cellagent.rs$process_manifest_msg
+    10	cellagent.rs$listen_uptree_loop
+    10	cellagent.rs$listen_uptree
+    10	cellagent.rs$listen_pe
+    10	cellagent.rs$deploy
+    9	cellagent.rs$process_discoverd_msg
+    6	cellagent.rs$forward_saved
+    4	cellagent.rs$tcp_stack_tree
+    3	cellagent.rs$forward_stack_tree
+    2	cellagent.rs$tcp_manifest
+    23	datacenter.rs$initialize
+    10	nalcell.rs$new
+    10	nalcell.rs$start_cell
+    10	nalcell.rs$start_packet_engine
+    603	packet_engine.rs$forward
+    10	packet_engine.rs$listen_ca
+    10	packet_engine.rs$listen_port
+
+FIELDS:
+=======
+
+    18775	uuid : OBJECT, ARRAY
+    9530	name : XXX
+    4054	header : OBJECT
+    4039	v : NUMBER
+    3210	body : OBJECT
+    3144	module : STRING # source file name, e.g. "foo.fs"
+    3144	trace_type : STRING # Trace, Debug
+    3144	thread_id : NUMBER
+    3144	format : STRING # random tag value
+    3144	event_id : ARRAY
+    3144	function : STRING # source code method name
+    3111	cell_id : NAMETYPE
+    2520	tree_id : NAMETYPE
+    1532	msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
+    1028	port_no : PORT_DESC
+    920	direction : STRING # Leafward, Rootward
+    920	sender_id : NAMETYPE
+    915	index : XXX
+    910	tree_map : OBJECT
+    910	payload : OBJECT
+    910	msg_count : NUMBER
+    910	msg : OBJECT
+    878	port_nos : ARRAY
+    875	xtnd_eqn : XXX
+    875	send_eqn : XXX
+    875	recv_eqn : XXX
+    875	variables : ARRAY
+    875	save_eqn : XXX
+    761	base_tree_id : NAMETYPE
+    757	hops : NUMBER
+    757	port_number : OBJECT
+    590	mask : OBJECT
+    584	gvm_eqn : OBJECT
+    466	path : OBJECT
+    466	sending_cell_id : XXX
+    295	inuse : BOOLEAN
+    295	entry : OBJECT
+    295	may_send : BOOLEAN
+    295	tree_uuid : XXX
+    295	parent : XXX
+    295	other_indices : ARRAY
+    291	other_index : NUMBER
+    291	port_status : STRING # Parent, Child, Pruned
+    291	gvm : OBJECT
+    291	children : ARRAY
+    270	new_tree_id : NAMETYPE
+    189	my_index : XXX
+    175	id : XXX
+    148	stacked_tree_id : NAMETYPE
+    118	var_name : XXX
+    118	var_type : XXX
+    118	value : XXX
+    118	parent_tree_id : XXX
+    105	allowed_trees : ARRAY
+    70	image : XXX
+    70	parent_list : ARRAY
+    70	trees : ARRAY
+    51	no_saved : NUMBER
+    37	deploy_tree_id : NAMETYPE
+    36	fwd_index : XXX
+    35	NocAgentMaster : XXX
+    35	cell_config : XXX
+    35	deployment_tree : OBJECT
+    35	NocMasterAgent : XXX
+    35	containers : ARRAY
+    35	required_config : XXX
+    35	tree_name : OBJECT
+    35	manifest : OBJECT
+    35	params : ARRAY
+    35	vms : ARRAY
+    31	base_tree_map_keys : ARRAY
+    31	base_tree_map_values : ARRAY
+    27	is_border : BOOLEAN
+    20	cell_number : NUMBER
+    18	save : BOOLEAN
+    18	no_saved_msgs : NUMBER
+    13	rite_cell : NAMETYPE
+    13	link_id : NAMETYPE
+    13	rite_port : PORT_DESC
+    13	left_cell : NAMETYPE
+    13	left_port : PORT_DESC
+    10	deployment_tree_id : NAMETYPE
+    10	allowed_tree : OBJECT
+    10	vm_id : NAMETYPE
+    10	tree_vm_map_keys : ARRAY
+    10	tcp_msg : STRING # "Hello From Master", "Reply from Container:VM:C:0+vm1+2"
+    10	up_tree_name : XXX
+
 ---
 
-    Change to header format :
+    /body/tree_vm_map_keys[] : SEQ OF NAMETYPE
 
-    https://github.com/earthcomputing/${repo}.git
-    1529618416 (20180621-150016 PDT)
+    /body/port_nos[] : SEQ OF PORT_DESC
 
-    "body": {
-        "schema_version": "0.1",
-        "build_info": "...."
-    }
+    10	/body/up_tree_name
+
+    90	/body/children[] : SEQ OF OBJECT { port_no }
+    90	/body/children[]/port_no : PORT_DESC
+
+    291	/body/port_number : OBJECT { port_no }
+    291	/body/port_number/port_no : PORT_DESC
+
+    10	/body/allowed_tree : OBJECT { name }
+    10	/body/allowed_tree/name
+
+    370	/body/base_tree_map_keys[] : NAMETYPE
+    740	/body/base_tree_map_values[]/uuid/uuid[] : SEQ 2 OF NUMBER
+
