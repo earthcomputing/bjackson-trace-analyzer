@@ -81,13 +81,15 @@ exit 0;
 # --
 
 sub dump_msgs {
-    print($endl);
-    print('MESSAGES:', $endl);
+    my $file = '/tmp/msg-dump.txt';
+    open(FD, '>'.$file) or die $!;
 
     foreach my $key (sort order_mtable keys %msg_table) {
         my $hint = substr($msg_table{$key}, -5);
-        print(join(' ', $hint, $key), $endl);
+        print FD (join(' ', $hint, $key), $endl);
     }
+
+    close(FD);
 }
 
 # ref: "<=>" and "cmp" operators
@@ -932,7 +934,7 @@ sub summarize_msg {
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
 
-    my $payload_text = encode_json($payload);
+    my $payload_text = JSON->new->canonical->encode($payload);# encode_json
 giveup('encode error') unless $payload_text;
     my $payload_hash = sha1_hex($payload_text);
 giveup('hash error') unless $payload_hash;
