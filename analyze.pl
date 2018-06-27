@@ -70,6 +70,7 @@ foreach my $file (@ARGV) {
     do_analyze($href);
 }
 
+dump_cell_table();
 print DOT ('}', $endl);
 close(DOT);
 
@@ -80,41 +81,36 @@ exit 0;
 
 # --
 
+# FIXME:
+sub dump_cell_table {
+    foreach my $c (sort keys %cell_table) {
+        my $c_up = $cell_table{$c};
+        next if ($c == -1);
+        my $cell_lname = ($ALAN) ? letter($c_up) : 'link#'.$c_up;
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
+    }
+}
+
 sub write_edge {
     my ($lc, $lp, $rc, $rp, $link_no) = @_;
-    my $c1_up = cell_table_entry($lc);
-    my $c2_up = cell_table_entry($rc);
     if ($ALAN) {
-        my $cell1_lname = letter($c1_up);
-        my $cell2_lname = letter($c2_up);
         my $link_name = letter($link_no);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
     }
     else {
-        my $cell1_lname = 'link#'.$c1_up;
-        my $cell2_lname = 'link#'.$c2_up;
         my $link_name = 'link#'.$link_no;
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
     }
 }
 
 sub write_border {
     my ($c, $p, $link_no) = @_;
-    my $c_up = cell_table_entry($c);
     if ($ALAN) {
-        my $cell_lname = letter($c_up);
         my $link_name = letter($link_no);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
     }
     else {
-        my $cell_lname = 'link#'.$c_up;
         my $link_name = 'link#'.$link_no;
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
         printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
     }
 }
@@ -878,30 +874,6 @@ sub dispatch {
     giveup('incompatible schema');
 }
 
-# C:0+P:1+C:1+P:1
-sub add_edge {
-    my ($link_id) = @_;
-    return unless $link_id;
-    my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    my $link_no = link_table_entry($lc, $lp, $rc, $rp);
-    write_edge($lc, $lp, $rc, $rp, $link_no);
-}
-
-# Internet+C:1+P:2
-sub border_port {
-    my ($cell_id, $port_no) = @_;
-    my ($tag, $c) = split(':', $cell_id);
-    my $port_index = $port_no; $port_index =~ s/[^\d]//g;
-    my $link_no = link_table_entry(-1, 0, $c, $port_index);
-    write_border($c, $port_index, $link_no);
-}
-
-sub get_link_no {
-    my ($c, $p) = @_;
-    my $k = 'C'.$c.':p'.$p;
-    return $link_table{$k};
-}
-
 # DANGER: shares link allocation responsibility
 sub cell_table_entry {
     my ($c) = @_;
@@ -916,6 +888,13 @@ sub cell_table_entry {
     return $link_no;
 }
 
+sub get_cellagent_port {
+    my ($c) = @_;
+    my $link_no = $cell_table{$c};
+    return $link_no;
+}
+
+
 # FIXME
 # should indicate EAST/WEST direction (a, a')
 # could do that with even/odd numbers
@@ -927,6 +906,33 @@ sub link_table_entry {
     my $link_no = $max_link; $max_link++; # += 2
     $link_table{$k1} = $link_no;
     $link_table{$k2} = $link_no; # +1
+}
+
+sub get_link_no {
+    my ($c, $p) = @_;
+    my $k = 'C'.$c.':p'.$p;
+    return $link_table{$k};
+}
+
+# C:0+P:1+C:1+P:1
+sub add_edge {
+    my ($link_id) = @_;
+    return unless $link_id;
+    my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
+    my $link_no = link_table_entry($lc, $lp, $rc, $rp);
+    my $c1_up = cell_table_entry($lc);
+    my $c2_up = cell_table_entry($rc);
+    write_edge($lc, $lp, $rc, $rp, $link_no);
+}
+
+# Internet+C:1+P:2
+sub border_port {
+    my ($cell_id, $port_no) = @_;
+    my ($tag, $c) = split(':', $cell_id);
+    my $port_index = $port_no; $port_index =~ s/[^\d]//g;
+    my $link_no = link_table_entry(-1, 0, $c, $port_index);
+    my $c_up = cell_table_entry($c);
+    write_border($c, $port_index, $link_no);
 }
 
 # SEQ OF OBJECT { v }
