@@ -80,6 +80,45 @@ exit 0;
 
 # --
 
+sub write_edge {
+    my ($lc, $lp, $rc, $rp, $link_no) = @_;
+    my $c1_up = cell_table_entry($lc);
+    my $c2_up = cell_table_entry($rc);
+    if ($ALAN) {
+        my $cell1_lname = letter($c1_up);
+        my $cell2_lname = letter($c2_up);
+        my $link_name = letter($link_no);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
+    }
+    else {
+        my $cell1_lname = 'link#'.$c1_up;
+        my $cell2_lname = 'link#'.$c2_up;
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
+    }
+}
+
+sub write_border {
+    my ($c, $p, $link_no) = @_;
+    my $c_up = cell_table_entry($c);
+    if ($ALAN) {
+        my $cell_lname = letter($c_up);
+        my $link_name = letter($link_no);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
+        printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
+    }
+    else {
+        my $cell_lname = 'link#'.$c_up;
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
+        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
+    }
+}
+
 sub dump_msgs {
     my $file = '/tmp/msg-dump.txt';
     open(FD, '>'.$file) or die $!;
@@ -707,7 +746,6 @@ sub meth_connect_link {
     my $rite_port = portdesc($body->{'rite_port'});
     my $link_id = $body->{'link_id'}{'name'};
     add_edge($link_id);
-#FIXME?
     print(join(' ', $link_id, ';'));
 }
 
@@ -845,46 +883,17 @@ sub add_edge {
     my ($link_id) = @_;
     return unless $link_id;
     my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    my $c1_up = cell_table_entry($lc);
-    my $c2_up = cell_table_entry($rc);
     my $link_no = link_table_entry($lc, $lp, $rc, $rp);
-    if ($ALAN) {
-        my $cell1_lname = letter($c1_up);
-        my $cell2_lname = letter($c2_up);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
-        my $link_name = letter($link_no);
-        printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
-    }
-    else {
-        my $cell1_lname = 'link#'.$c1_up;
-        my $cell2_lname = 'link#'.$c2_up;
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $lc, $lc, $cell1_lname);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $rc, $rc, $cell2_lname);
-        my $link_name = 'link#'.$link_no;
-        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
-    }
+    write_edge($lc, $lp, $rc, $rp, $link_no);
 }
 
+# Internet+C:1+P:2
 sub border_port {
     my ($cell_id, $port_no) = @_;
     my ($tag, $c) = split(':', $cell_id);
-    my $port_index = $port_no;
-    $port_index =~ s/[^\d]//g;
-    my $c_up = cell_table_entry($c);
+    my $port_index = $port_no; $port_index =~ s/[^\d]//g;
     my $link_no = link_table_entry(-1, 0, $c, $port_index);
-    if ($ALAN) {
-        my $cell_lname = letter($c_up);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
-        my $link_name = letter($link_no);
-        printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $port_index, $link_name);
-    }
-    else {
-        my $cell_lname = 'link#'.$c_up;
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
-        my $link_name = 'link#'.$link_no;
-        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $port_index, $port_index, $link_name);
-    }
+    write_border($c, $port_index, $link_no);
 }
 
 sub get_link_no {
