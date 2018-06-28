@@ -829,8 +829,9 @@ sub meth_pe_process_packet {
     my $msg_type = $body->{'msg_type'};
     my $port_no = portdesc($body->{'port_no'});
     my $entry = $body->{'entry'};
+    my $index = $entry->{'index'};
     my $parent = portdesc($entry->{'parent'});
-    print(join(' ', $cell_id, $msg_type, $tree_id, $port_no, 'parent='.$parent, ';'));
+    print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
 
     update_routing_table($cell_id, $entry);
 
