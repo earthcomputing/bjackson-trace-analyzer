@@ -11,6 +11,7 @@ use lib '/Users/bjackson/perl5/lib/perl5';
 use JSON qw(decode_json encode_json); # From CPAN
 use Data::Dumper;
 use Digest::SHA qw(sha1_hex);
+use Data::GUID;
 
 my $ALAN;
 my $code_filter;
@@ -39,6 +40,7 @@ my %cell_table;
 my $max_link = 1; # avoid 0 ## 2
 my %link_table;
 
+my %routing_table;
 my %msg_table;
 
 my %jschema;
@@ -70,9 +72,12 @@ foreach my $file (@ARGV) {
     do_analyze($href);
 }
 
+# dump_link_table();
 dump_cell_table();
 print DOT ('}', $endl);
 close(DOT);
+
+dump_routing_tables();
 
 msg_sheet();
 dump_msgs();
@@ -81,7 +86,63 @@ exit 0;
 
 # --
 
-# FIXME:
+#    'entry' => {
+#        'index' => 0,
+#        'tree_uuid'
+#        'inuse' : BOOLEAN
+#        'may_send' => $VAR1->{'entry'}{'inuse'},
+#        'parent' => { 'v' => 0 },
+#        'mask' => { 'mask' => 1 },
+#        'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
+#    },
+sub update_routing_table {
+    my ($cell_id, $entry) = @_;
+    my $key = $entry->{'index'};
+    # my $key = $entry->{'tree_uuid'};
+    $routing_table{$cell_id} = { '0' => 0 } unless defined $routing_table{$cell_id};
+    my $table = $routing_table{$cell_id};
+    $table->{$key} = $entry;
+}
+
+sub get_routing_entry {
+    my ($cell_id, $key) = @_;
+    return $routing_table{$cell_id}->{$key};
+}
+
+# costly, but validates
+sub hint4uuid {
+    my ($ref) = @_;
+    my $word0 = $ref->{'uuid'}[0];
+    my $word1 = $ref->{'uuid'}[1];
+    my $str = sprintf("0x%016x%016x", $word1, $word0);
+    my $guid = Data::GUID->from_hex($str);
+    my $hex_guid = $guid->as_hex;
+    return lc(substr($hex_guid, -8));
+}
+
+sub dump_routing_tables {
+    my $file = '/tmp/routing-table.txt';
+    open(FD, '>'.$file) or die $!;
+    foreach my $cell_id (sort keys %routing_table) {
+        print FD ($endl);
+        print FD (join(' ', $cell_id, 'Routing Table'), $endl);
+
+        my $routes = $routing_table{$cell_id};
+        foreach my $key (sort { $a cmp $b } keys %{$routes}) {
+            my $entry = $routes->{$key};
+            my $index = $entry->{'index'};
+            my $hint = hint4uuid($entry->{'tree_uuid'});
+            my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
+            my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
+            my $parent = $entry->{'parent'}{'v'};
+            my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
+            my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
+            print FD (join("\t", $index, $hint, $inuse, $may_send, $parent, $mask, $other_indices), $endl);
+        }
+    }
+    close(FD);
+}
+
 sub dump_cell_table {
     foreach my $c (sort keys %cell_table) {
         my $c_up = $cell_table{$c};
@@ -767,18 +828,11 @@ sub meth_pe_process_packet {
     my $tree_id = nametype($body->{'tree_id'});
     my $msg_type = $body->{'msg_type'};
     my $port_no = portdesc($body->{'port_no'});
-#    'entry' => {
-#        'parent' => { 'v' => 0 },
-#        'inuse' : BOOLEAN
-#        'may_send' => $VAR1->{'entry'}{'inuse'},
-#        'mask' => { 'mask' => 1 },
-#        'index' => 0,
-#        'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
-#        'tree_uuid'
-#    },
     my $entry = $body->{'entry'};
     my $parent = portdesc($entry->{'parent'});
     print(join(' ', $cell_id, $msg_type, $tree_id, $port_no, 'parent='.$parent, ';'));
+
+    update_routing_table($cell_id, $entry);
 
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
@@ -894,7 +948,6 @@ sub get_cellagent_port {
     return $link_no;
 }
 
-
 # FIXME
 # should indicate EAST/WEST direction (a, a')
 # could do that with even/odd numbers
@@ -906,6 +959,19 @@ sub link_table_entry {
     my $link_no = $max_link; $max_link++; # += 2
     $link_table{$k1} = $link_no;
     $link_table{$k2} = $link_no; # +1
+}
+
+# FIXME
+sub dump_link_table {
+    foreach my $cp (sort keys %link_table) {
+        my $link_no = $link_table{$cp};
+        if ($cp eq 'Internet') {
+            write_border();
+        }
+        else {
+            write_edge();
+        }
+    }
 }
 
 sub get_link_no {

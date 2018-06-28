@@ -384,6 +384,14 @@ In general, it would be useful to provide a "message hash" in the per-trace info
 
 ## Routing Table
 
+    entry/index : NUMBER
+    entry/tree_uuid/uuid : UUID (SEQ 2 of NUMBER)
+    entry/inuse : BOOLEAN
+    entry/may_send : BOOLEAN
+    entry/parent/v : NUMBER
+    entry/mask/mask : NUMBER
+    entry/other_indices : SEQ OF NUMBER
+
      Index Tree UUID  In Use Send? Parent Mask             Indices
          0 "358d69e1"  Yes    Yes       0 0000000000000001 [0, 0, 0, 0, 0, 0, 0, 0]
          1 "b90ffb35"  Yes    Yes       0 0000000000000110 [0, 0, 0, 0, 0, 0, 0, 0]
