@@ -18,6 +18,10 @@ my $code_filter;
 my $debug;
 my $dump_tables; # = 1;
 
+my $endl = "\n";
+my $dquot = '"';
+my $blank = ' ';
+
 my $op_table = {
     'Application' => 'A',
     'Discover' => 'D',
@@ -43,12 +47,11 @@ my %link_table;
 my %routing_table;
 my %msg_table;
 
+my @msgqueue;
+
+my %verb;
 my %jschema;
 my %keyset;
-
-my $endl = "\n";
-my $dquot = '"';
-my $blank = ' ';
 
 if ( $#ARGV < 0 ) {
     print('usage: [-dump] [-ALAN] [-filter=C:2] analyze xx.json ...', $endl);
@@ -61,8 +64,8 @@ open(DOT, '>'.$dotfile) or die $!;
 print DOT ('digraph G {', $endl);
 print DOT ('rankdir=LR', $endl);
 
-my @msgqueue;
-
+my $schemafile = '/tmp/schema-data.txt';
+open(SCHEMA, '>'.$schemafile) or die $!;
 foreach my $file (@ARGV) {
     if ($file eq '-dump') { $dump_tables = 1; next; }
     if ($file eq '-ALAN') { $ALAN = 1; next; }
@@ -70,18 +73,22 @@ foreach my $file (@ARGV) {
     print($endl, $file, $endl);
     my $href = process_file($file);
     do_analyze($href);
+    dump_histo('VERBS:', \%verb);
 }
 
+# FIXME - localize 'DOT'
 # dump_link_table();
 dump_cell_table();
 print DOT ('}', $endl);
 close(DOT);
 
 dump_routing_tables();
-
-msg_sheet();
 dump_msgs();
-dump_schema();
+msg_sheet();
+
+dump_histo('SCHEMA:', \%jschema);
+dump_histo('KEYSET:', \%keyset);
+close(SCHEMA);
 exit 0;
 
 # --
@@ -320,7 +327,6 @@ sub process_file {
 
 sub do_analyze {
     my ($href) = @_;
-    my %verb;
 
     my $last_thread = '-1';
 
@@ -358,8 +364,6 @@ sub do_analyze {
 
     # dangling data:
     print($endl);
-
-    dump_histo('VERBS:', \%verb);
 }
 
 sub nametype {
@@ -1158,16 +1162,11 @@ sub dump_histo {
     my ($hdr, $href) = @_;
     return unless $dump_tables; # 
 
-    print($endl);
-    print($hdr, $endl);
+    print SCHEMA ($endl);
+    print SCHEMA ($hdr, $endl);
     foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
-        print(join(' ', $href->{$item}, $item), $endl);
+        print SCHEMA (join(' ', $href->{$item}, $item), $endl);
     }
-}
-
-sub dump_schema {
-    dump_histo('SCHEMA:', \%jschema);
-    dump_histo('KEYSET:', \%keyset);
 }
 
 # --
