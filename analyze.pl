@@ -378,53 +378,6 @@ sub portdesc {
     return 'v'.$id;
 }
 
-# 24 distinct top-level forms (38 verbs)
-my @mformats = qw(
-    'noc.rs$$initialize$$Trace$$trace_schema'
-
-    'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
-    'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
-    'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
-    'cellagent.rs$$deploy$$Debug$$ca_deploy'
-    'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
-    'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
-    'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
-    'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
-    'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
-    'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
-    'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
-    'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
-    'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
-    'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
-    'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
-    'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
-    'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
-    'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg'
-    'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
-    'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
-    'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
-    'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
-    'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
-    'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
-    'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
-    'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
-    'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
-
-    'datacenter.rs$$initialize$$Trace$$border_cell_start'
-    'datacenter.rs$$initialize$$Trace$$connect_link'
-    'datacenter.rs$$initialize$$Trace$$interior_cell_start'
-
-    'nalcell.rs$$new$$Trace$$nalcell_port_setup'
-    'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
-    'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
-    'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
-
-    'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
-    'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
-    'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
-    'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
-    'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
-);
 
 # 'noc.rs$$initialize$$Trace$$trace_schema'
 sub meth_START {
@@ -883,8 +836,8 @@ sub dispatch {
 
     # This indicates subsystem startup - i.e. break in seq of messages
     if ($methkey eq 'main.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
-    if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
-    if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
+    ## if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
+    ## if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
 
     if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
@@ -919,17 +872,17 @@ sub dispatch {
     if ($methkey eq 'datacenter.rs$$initialize$$Trace$$interior_cell_start') { meth_interior_cell_start($body); return; }
 
     if ($methkey eq 'nalcell.rs$$new$$Trace$$nalcell_port_setup') { meth_nalcell_port_setup($body); return; }
-    if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nal_cellstart_ca($body); return; }
+    ## if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nal_cellstart_ca($body); return; }
     if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca') { meth_nal_cellstart_ca($body); return; } ## 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
     if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
 
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward') { meth_pe_forward_rootward($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
+    ## if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
     if ($methkey eq 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca') { meth_pe_packet_from_ca($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ## 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
-    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_msg_from_ca($body); return; }
+    ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_msg_from_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
     print($endl);
@@ -1173,6 +1126,59 @@ sub dump_histo {
 }
 
 # --
+
+my @mformats = qw(
+
+    # DEAD:
+    'noc.rs$$MAIN$$Trace$$trace_schema'
+    'noc.rs$$initialize$$Trace$$trace_schema'
+
+    'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
+    'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
+    'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
+
+    # OCCUR:
+    'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
+    'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
+    'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
+    'cellagent.rs$$deploy$$Debug$$ca_deploy'
+    'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
+    'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
+    'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
+    'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
+    'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
+    'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
+    'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
+    'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
+    'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
+    'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
+    'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
+    'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
+    'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
+    'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg'
+    'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
+    'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
+    'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
+    'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
+    'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
+    'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
+    'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
+    'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
+    'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
+    'datacenter.rs$$initialize$$Trace$$border_cell_start'
+    'datacenter.rs$$initialize$$Trace$$connect_link'
+    'datacenter.rs$$initialize$$Trace$$interior_cell_start'
+    'main.rs$$MAIN$$Trace$$trace_schema'
+    'nalcell.rs$$new$$Trace$$nalcell_port_setup'
+    'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
+    'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
+    'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
+    'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
+    'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
+    'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
+    'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
+    'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
+);
 
 my $notes = << '_eof_';
 
