@@ -54,9 +54,13 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 
 ## BASE-FORMS:
 
+    1	/body : OBJECT { schema_version }
+
     685	/body : OBJECT { cell_id tree_id }
-    606	/body : OBJECT { cell_id msg_type port_nos tree_id }
+    614	/body : OBJECT { cell_id msg_type port_nos tree_id }
+    340	/body : OBJECT { cell_id entry msg_type port_no tree_id }
     333	/body : OBJECT { cell_id msg }
+    297	/body : OBJECT { cell_id msg_type tree_id }
     291	/body : OBJECT { cell_id base_tree_id entry }
     291	/body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
     266	/body : OBJECT { cell_id msg port_nos tree_id }
@@ -70,6 +74,7 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     19	/body : OBJECT { cell_id msg port_no tree_id }
     18	/body : OBJECT { cell_id no_saved_msgs tree_id }
     18	/body : OBJECT { cell_id msg port_no save tree_id }
+    17	/body : OBJECT { cell_id msg_type parent_port tree_id }
     10	/body : OBJECT { cell_id sender_id vm_id }
     10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
     10	/body : OBJECT { cell_id allowed_tree direction msg_type tcp_msg }
