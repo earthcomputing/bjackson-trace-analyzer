@@ -454,6 +454,25 @@ sub meth_ca_got_from_uptree {
     print(join(' ', $cell_id, $direction, $msg_type, $tcp_msg, $allowed_tree, ';'));
 }
 
+# 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
+sub meth_ca_process_discover_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
+    my $port_no = portdesc($body->{'port_no'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $new_tree_id, $port_no, $summary, ';'));
+}
+
+# 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
+sub meth_ca_process_discover_d_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_no = portdesc($body->{'port_no'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
+}
 
 # 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg'
 sub meth_ca_process_stack_tree_msg {
@@ -465,6 +484,23 @@ sub meth_ca_process_stack_tree_msg {
     print(join(' ', $cell_id, $new_tree_id, $port_no, $summary, ';'));
 }
 
+# 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
+sub meth_ca_process_stack_tree_d_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
+}
+
+# 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
+sub meth_ca_process_manifest_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_no = portdesc($body->{'port_no'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
+}
+
 # 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
 sub meth_ca_process_application_msg {
     my ($body) = @_;
@@ -474,13 +510,6 @@ sub meth_ca_process_application_msg {
     my $save = $body->{'save'};
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $port_no, $save, $summary, ';'));
-}
-
-# 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
-sub meth_ca_process_stack_tree_d_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    print(join(' ', $cell_id, ';'));
 }
 
 # 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
@@ -509,16 +538,6 @@ sub meth_ca_forward_stack_tree_msg {
     my $msg_type = $body->{'msg_type'};
     my $port_list = build_port_list($body->{'port_nos'});
     print(join(' ', $cell_id, $tree_id, $msg_type, $port_list, ';'));
-}
-
-# 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
-sub meth_ca_process_manifest_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $port_no = portdesc($body->{'port_no'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$deploy$$Debug$$ca_deploy'
@@ -582,16 +601,6 @@ sub meth_ca_stack_tree {
     print(join(' ', $cell_id, $base_tree_id, $new_tree_id, ';'));
 }
 
-# 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
-sub meth_ca_process_discover_d_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $port_no = portdesc($body->{'port_no'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
-}
-
 # 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
 sub meth_ca_save_discover_msg {
     my ($body) = @_;
@@ -599,16 +608,6 @@ sub meth_ca_save_discover_msg {
     my $tree_id = nametype($body->{'tree_id'});
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $summary, ';'));
-}
-
-# 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
-sub meth_ca_process_discover_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $new_tree_id = nametype($body->{'new_tree_id'});
-    my $port_no = portdesc($body->{'port_no'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $new_tree_id, $port_no, $summary, ';'));
 }
 
 # 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
@@ -744,6 +743,7 @@ sub meth_ca_send_msg {
     my $port_no = portdesc($body->{'port_no'});
     my $is_border = $body->{'is_border'}; # cell port=of-entry
 
+    ## Complex Entry:
     my $port_id = '';
     if (defined $port_no) {
         $port_id = (($is_border) ? 'FX:' : '').$port_no;
@@ -802,6 +802,8 @@ sub meth_connect_link {
     my $rite_cell = nametype($body->{'rite_cell'});
     my $rite_port = portdesc($body->{'rite_port'});
     my $link_id = $body->{'link_id'}{'name'};
+
+    ## Complex Entry:
     add_edge($link_id);
     print(join(' ', $link_id, ';'));
 }
@@ -833,6 +835,7 @@ sub meth_pe_process_packet {
     my $parent = portdesc($entry->{'parent'});
     print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
 
+    ## Routing Table:
     update_routing_table($cell_id, $entry);
 
     ## Spreadsheet Coding:
