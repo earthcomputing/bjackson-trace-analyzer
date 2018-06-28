@@ -55,6 +55,9 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 ## BASE-FORMS:
 
     1	/body : OBJECT { schema_version }
+    20	/body : OBJECT { cell_number }
+    13	/body : OBJECT { link_id left_cell left_port rite_cell rite_port }
+    68	/body : OBJECT { cell_id }
 
     685	/body : OBJECT { cell_id tree_id }
     614	/body : OBJECT { cell_id msg_type port_nos tree_id }
@@ -67,7 +70,6 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     148	/body : OBJECT { cell_id base_tree_id stacked_tree_id }
     117	/body : OBJECT { cell_id msg new_tree_id port_no }
     100	/body : OBJECT { cell_id msg tree_id }
-    68	/body : OBJECT { cell_id }
     51	/body : OBJECT { cell_id msg no_saved tree_id }
     31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
     27	/body : OBJECT { cell_id is_border port_no }
@@ -81,8 +83,6 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     6	/body : OBJECT { cell_id msg_type port_nos }
     4	/body : OBJECT { cell_id entry msg new_tree_id }
     2	/body : OBJECT { cell_id deploy_tree_id msg }
-    20	/body : OBJECT { cell_number }
-    13	/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
 
 ---
 
