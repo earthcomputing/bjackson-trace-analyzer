@@ -441,27 +441,29 @@ In general, it would be useful to provide a "message hash" in the per-trace info
 
 ## VERBS:
 
+    1	main.rs$MAIN
+
     685	cellagent.rs$get_base_tree_id
     582	cellagent.rs$update_traph
     333	cellagent.rs$listen_pe_loop
     266	cellagent.rs$send_msg
     148	cellagent.rs$update_base_tree_map
-    90	cellagent.rs$process_discover_msg
     90	cellagent.rs$add_saved_discover
+    90	cellagent.rs$process_discover_msg
     31	cellagent.rs$stack_tree
     30	cellagent.rs$add_saved_stack_tree
     27	cellagent.rs$process_stack_tree_msg
     27	cellagent.rs$port_connected
     21	cellagent.rs$add_saved_msg
+    18	cellagent.rs$get_saved_msgs
     18	cellagent.rs$process_stack_treed_msg
     18	cellagent.rs$process_application_msg
-    18	cellagent.rs$get_saved_msgs
-    10	cellagent.rs$tcp_application
-    10	cellagent.rs$process_manifest_msg
-    10	cellagent.rs$listen_uptree_loop
-    10	cellagent.rs$listen_uptree
     10	cellagent.rs$listen_pe
+    10	cellagent.rs$tcp_application
+    10	cellagent.rs$listen_uptree
+    10	cellagent.rs$process_manifest_msg
     10	cellagent.rs$deploy
+    10	cellagent.rs$listen_uptree_loop
     9	cellagent.rs$process_discoverd_msg
     6	cellagent.rs$forward_saved
     4	cellagent.rs$tcp_stack_tree
@@ -471,99 +473,151 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     10	nalcell.rs$new
     10	nalcell.rs$start_cell
     10	nalcell.rs$start_packet_engine
-    603	packet_engine.rs$forward
-    10	packet_engine.rs$listen_ca
+    628	packet_engine.rs$forward
+    340	packet_engine.rs$process_packet
+    297	packet_engine.rs$listen_ca_loop
     10	packet_engine.rs$listen_port
+    10	packet_engine.rs$listen_ca
+
+---
+
+    1	main.rs$$MAIN$$Trace$$trace_schema
+
+    27	cellagent.rs$$port_connected$$Trace$$ca_send_msg
+    13	datacenter.rs$$initialize$$Trace$$connect_link
+    8	datacenter.rs$$initialize$$Trace$$interior_cell_start
+    2	datacenter.rs$$initialize$$Trace$$border_cell_start
+    10	nalcell.rs$$new$$Trace$$nalcell_port_setup
+    10	nalcell.rs$$start_cell$$Trace$$nalcell_start_ca
+    10	nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe
+
+    685	cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id
+    333	cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg
+    291	cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry
+    291	cellagent.rs$$update_traph$$Debug$$ca_update_traph
+    266	cellagent.rs$$send_msg$$Debug$$ca_send_msg
+    148	cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map
+    90	cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg
+    90	cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg
+    31	cellagent.rs$$stack_tree$$Debug$$ca_stack_tree
+    30	cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg
+    27	cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg
+    21	cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg
+    18	cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg
+    18	cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg
+    18	cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs
+    10	cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg
+    10	cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg
+    10	cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree
+    10	cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm
+    10	cellagent.rs$$listen_pe$$Debug$$ca_listen_pe
+    10	cellagent.rs$$deploy$$Debug$$ca_deploy
+    9	cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg
+    6	cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg
+    4	cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg
+    3	cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg
+    2	cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg
+
+    611	packet_engine.rs$$forward$$Debug$$pe_forward_leafward
+    340	packet_engine.rs$$process_packet$$Debug$$pe_process_packet
+    297	packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca
+    17	packet_engine.rs$$forward$$Debug$$pe_forward_rootward
+    10	packet_engine.rs$$listen_port$$Debug$$pe_listen_ports
+    10	packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca
 
 ## FIELDS:
 
-    18775	uuid : OBJECT, ARRAY
-    9530	name : XXX
-    4054	header : OBJECT
-    4039	v : NUMBER
-    3210	body : OBJECT
-    3144	module : STRING # source file name, e.g. "foo.fs"
-    3144	trace_type : STRING # Trace, Debug
-    3144	thread_id : NUMBER
-    3144	format : STRING # random tag value
-    3144	event_id : ARRAY
-    3144	function : STRING # source code method name
-    3111	cell_id : NAMETYPE
-    2520	tree_id : NAMETYPE
-    1532	msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
-    1028	port_no : PORT_DESC
-    920	direction : STRING # Leafward, Rootward
+    21779	uuid : OBJECT, ARRAY
+    10862	name : XXX
+    4736	v : NUMBER
+    4717	header : OBJECT
+    3873	body : OBJECT
+    3807	trace_type : STRING # Trace, Debug
+    3807	thread_id : NUMBER
+    3807	repo
+    3807	module : STRING # source file name, e.g. "foo.fs"
+    3807	function : STRING # source code method name
+    3807	format : STRING # random tag value
+    3807	event_id : ARRAY
+    3807	epoch
+    3773	cell_id : NAMETYPE
+    3182	tree_id : NAMETYPE
+    2194	msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
+    1368	port_no : PORT_DESC
+    1270	mask : OBJECT
+    1255	index : XXX
     920	sender_id : NAMETYPE
-    915	index : XXX
+    920	direction : STRING # Leafward, Rootward
     910	tree_map : OBJECT
     910	payload : OBJECT
     910	msg_count : NUMBER
     910	msg : OBJECT
-    878	port_nos : ARRAY
+    886	port_nos : ARRAY
     875	xtnd_eqn : XXX
-    875	send_eqn : XXX
-    875	recv_eqn : XXX
     875	variables : ARRAY
+    875	send_eqn : XXX
     875	save_eqn : XXX
+    875	recv_eqn : XXX
     761	base_tree_id : NAMETYPE
-    757	hops : NUMBER
     757	port_number : OBJECT
-    590	mask : OBJECT
+    757	hops : NUMBER
+    635	tree_uuid : XXX
+    635	parent : XXX
+    635	other_indices : ARRAY
+    635	may_send : BOOLEAN
+    635	inuse : BOOLEAN
+    635	entry : OBJECT
     584	gvm_eqn : OBJECT
-    466	path : OBJECT
     466	sending_cell_id : XXX
-    295	inuse : BOOLEAN
-    295	entry : OBJECT
-    295	may_send : BOOLEAN
-    295	tree_uuid : XXX
-    295	parent : XXX
-    295	other_indices : ARRAY
-    291	other_index : NUMBER
+    466	path : OBJECT
     291	port_status : STRING # Parent, Child, Pruned
+    291	other_index : NUMBER
     291	gvm : OBJECT
     291	children : ARRAY
     270	new_tree_id : NAMETYPE
     189	my_index : XXX
     175	id : XXX
     148	stacked_tree_id : NAMETYPE
-    118	var_name : XXX
     118	var_type : XXX
+    118	var_name : XXX
     118	value : XXX
     118	parent_tree_id : XXX
     105	allowed_trees : ARRAY
-    70	image : XXX
-    70	parent_list : ARRAY
     70	trees : ARRAY
+    70	parent_list : ARRAY
+    70	image : XXX
     51	no_saved : NUMBER
     37	deploy_tree_id : NAMETYPE
     36	fwd_index : XXX
-    35	NocAgentMaster : XXX
-    35	cell_config : XXX
-    35	deployment_tree : OBJECT
-    35	NocMasterAgent : XXX
-    35	containers : ARRAY
-    35	required_config : XXX
-    35	tree_name : OBJECT
-    35	manifest : OBJECT
-    35	params : ARRAY
     35	vms : ARRAY
-    31	base_tree_map_keys : ARRAY
+    35	tree_name : OBJECT
+    35	required_config : XXX
+    35	params : ARRAY
+    35	manifest : OBJECT
+    35	deployment_tree : OBJECT
+    35	containers : ARRAY
+    35	cell_config : XXX
+    35	NocMasterAgent : XXX
+    35	NocAgentMaster : XXX
     31	base_tree_map_values : ARRAY
+    31	base_tree_map_keys : ARRAY
     27	is_border : BOOLEAN
     20	cell_number : NUMBER
     18	save : BOOLEAN
     18	no_saved_msgs : NUMBER
+    17	parent_port
+    13	rite_port : PORT_DESC
     13	rite_cell : NAMETYPE
     13	link_id : NAMETYPE
-    13	rite_port : PORT_DESC
-    13	left_cell : NAMETYPE
     13	left_port : PORT_DESC
-    10	deployment_tree_id : NAMETYPE
-    10	allowed_tree : OBJECT
+    13	left_cell : NAMETYPE
     10	vm_id : NAMETYPE
+    10	up_tree_name : XXX
     10	tree_vm_map_keys : ARRAY
     10	tcp_msg : STRING # "Hello From Master", "Reply from Container:VM:C:0+vm1+2"
-    10	up_tree_name : XXX
+    10	deployment_tree_id : NAMETYPE
+    10	allowed_tree : OBJECT
+    1	schema_version
 
 ---
 

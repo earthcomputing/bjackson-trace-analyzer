@@ -875,6 +875,9 @@ sub meth_xx {
 sub dispatch {
     my ($key, $module, $function, $kind, $format, $json) = @_;
     my $methkey = join('$$', $module, $function, $kind, $format);
+
+    $verb{$methkey}++;
+
     my $body = $json->{'body'};
     my $header = $json->{'header'};
 
