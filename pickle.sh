@@ -28,11 +28,12 @@ set files = ( \
     schema-data.txt \
 )
 
-ls -latrh "${work}"
+ls -latrh "${work}/${tag}${epoch}"
 
+mkdir -p "${work}/${tag}${epoch}"
 foreach one ( ${files} )
-    # diff -w "${work}/${one}" ${wdir}${one} | cdiff
-    cp ${wdir}${one} "${work}"
+    # diff -w "${work}/${tag}${epoch}/${one}" ${wdir}${one} | cdiff
+    cp ${wdir}${one} "${work}/${tag}${epoch}/"
 end
 
 ls -latrh "${work}"
