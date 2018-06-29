@@ -496,28 +496,30 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     10	nalcell.rs$$start_cell$$Trace$$nalcell_start_ca
     10	nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe
 
-    685	cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id
-    333	cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg
     291	cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry
     291	cellagent.rs$$update_traph$$Debug$$ca_update_traph
+
+    90	cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg
+    27	cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg
+    18	cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg
+    18	cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg
+    10	cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg
+    9	cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg
+
+    685	cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id
+    333	cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg
     266	cellagent.rs$$send_msg$$Debug$$ca_send_msg
     148	cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map
-    90	cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg
     90	cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg
     31	cellagent.rs$$stack_tree$$Debug$$ca_stack_tree
     30	cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg
-    27	cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg
     21	cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg
-    18	cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg
-    18	cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg
     18	cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs
     10	cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg
-    10	cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg
     10	cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree
     10	cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm
     10	cellagent.rs$$listen_pe$$Debug$$ca_listen_pe
     10	cellagent.rs$$deploy$$Debug$$ca_deploy
-    9	cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg
     6	cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg
     4	cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg
     3	cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg

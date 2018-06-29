@@ -93,15 +93,6 @@ exit 0;
 
 # --
 
-#    'entry' => {
-#        'index' => 0,
-#        'tree_uuid'
-#        'inuse' : BOOLEAN
-#        'may_send' => $VAR1->{'entry'}{'inuse'},
-#        'parent' => { 'v' => 0 },
-#        'mask' => { 'mask' => 1 },
-#        'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
-#    },
 sub update_routing_table {
     my ($cell_id, $entry) = @_;
     my $key = $entry->{'index'};
@@ -109,6 +100,7 @@ sub update_routing_table {
     $routing_table{$cell_id} = { '0' => 0 } unless defined $routing_table{$cell_id};
     my $table = $routing_table{$cell_id};
     $table->{$key} = $entry;
+    # FIXME : should we indicate updates ??
 }
 
 sub get_routing_entry {
@@ -457,28 +449,41 @@ sub meth_nalcell_start_pe {
 
 # --
 
-# 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
-sub meth_ca_got_tcp_application_msg {
+# /body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
+# 'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
+sub meth_ca_update_traph {
     my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $tree_id, $summary, ';'));
+    my $cell_id = nametype($body->{'cell_id'}); # "C:2"
+    my $port_no = portdesc($body->{'port_number'}{'port_no'});
+    my $port_status = $body->{'port_status'}; # STRING # Parent, Child, Pruned
+    my $base_tree_id = nametype($body->{'base_tree_id'}); # "C:2", "C:2+Control", "C:2+Connected", "C:2+Noc"
+    my $hops = $body->{'hops'}; # NUMBER
+    my $other_index = $body->{'other_index'}; # NUMBER
+    # 'children' => [],
+    # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
+    # FIXME
+    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, ';'));
 }
 
-#  listen_uptree_loop C:0 Rootward Application Reply from Container:VM:C:0+vm1+2 NocAgentMaster ;
-# 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
-sub meth_ca_got_from_uptree {
+## IMPORTANT : Routing Table
+# /body : OBJECT { cell_id base_tree_id entry }
+# 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
+sub meth_ca_updated_traph_entry {
     my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $direction = $body->{'direction'};
-    my $msg_type = $body->{'msg_type'};
-    my $tcp_msg = $body->{'tcp_msg'};
-    my $tree_id = nametype($body->{'tree_id'});
-# FIXME, not really:
-    my $allowed_tree = nametype($body->{'allowed_tree'});
-    print(join(' ', $cell_id, $direction, $msg_type, $tcp_msg, $allowed_tree, ';'));
+    my $cell_id = nametype($body->{'cell_id'}); # "C:2"
+    my $base_tree_id = nametype($body->{'base_tree_id'}); # "C:2", "C:2+Control", "C:2+Connected", "C:2+Noc"
+    my $entry = $body->{'entry'};
+
+    ## Routing Table:
+    update_routing_table($cell_id, $entry);
+
+    # FIXME
+    my $parent = portdesc($entry->{'parent'});
+    print(join(' ', $cell_id, 'base='.$base_tree_id, 'entry.parent='.$parent, ';'));
 }
+
+# --
+## ca_process_*
 
 # 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
 sub meth_ca_process_discover_msg {
@@ -536,6 +541,31 @@ sub meth_ca_process_application_msg {
     my $save = $body->{'save'};
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $port_no, $save, $summary, ';'));
+}
+
+# --
+
+# 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
+sub meth_ca_got_tcp_application_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $summary, ';'));
+}
+
+#  listen_uptree_loop C:0 Rootward Application Reply from Container:VM:C:0+vm1+2 NocAgentMaster ;
+# 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
+sub meth_ca_got_from_uptree {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $direction = $body->{'direction'};
+    my $msg_type = $body->{'msg_type'};
+    my $tcp_msg = $body->{'tcp_msg'};
+    my $tree_id = nametype($body->{'tree_id'});
+# FIXME, not really:
+    my $allowed_tree = nametype($body->{'allowed_tree'});
+    print(join(' ', $cell_id, $direction, $msg_type, $tcp_msg, $allowed_tree, ';'));
 }
 
 # 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
@@ -684,42 +714,6 @@ sub meth_ca_get_base_tree_id {
     print(join(' ', $cell_id, $tree_id, ';'));
 }
 
-# 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
-sub meth_ca_updated_traph_entry {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $base_tree_id = nametype($body->{'base_tree_id'});
-# 'entry' => {
-#    'parent' => { 'v' => 0 },
-#    'other_indices' => [ 0, 0, 0, 0, 0, 0, 0, 0 ],
-#    'mask' => { 'mask' => 1 },
-#    'inuse' => BOOLEAN
-#    'index' => 0,
-#    'may_send' => $VAR1->{'entry'}{'inuse'},
-#    'tree_uuid' => { 'uuid' => [ '2677185697179700845', 0 ] }
-# },
-    my $entry = $body->{'entry'};
-    my $parent = portdesc($entry->{'parent'});
-# FIXME
-    print(join(' ', $cell_id, 'base='.$base_tree_id, 'entry.parent='.$parent, ';'));
-}
-
-# /body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
-# 'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
-sub meth_ca_update_traph {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'}); # "C:2"
-    my $base_tree_id = nametype($body->{'base_tree_id'}); # "C:2", "C:2+Control", "C:2+Connected", "C:2+Noc"
-    my $port_no = portdesc($body->{'port_number'}{'port_no'});
-    my $hops = $body->{'hops'}; # NUMBER
-    my $other_index = $body->{'other_index'}; # NUMBER
-    my $port_status = $body->{'port_status'}; # STRING # Parent, Child, Pruned
-    # 'children' => [],
-    # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
-    # FIXME
-    print(join(' ', $cell_id, 'base='.$base_tree_id, $port_no, 'hops='.$hops, $other_index, 'status='.$port_status, ';'));
-}
-
 # 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
 sub meth_ca_listen_pe {
     my ($body) = @_;
@@ -800,13 +794,18 @@ sub meth_pe_packet_from_ca {
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
+## IMPORTANT : Routing Table, Spreadsheet Coding
+# /body : OBJECT { cell_id entry msg_type port_no tree_id }
 # 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
 sub meth_pe_process_packet {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
+    my $port_no = portdesc($body->{'port_no'});
+
+    # why is this "meta data" ?
     my $tree_id = nametype($body->{'tree_id'});
     my $msg_type = $body->{'msg_type'};
-    my $port_no = portdesc($body->{'port_no'});
+
     my $entry = $body->{'entry'};
     my $index = $entry->{'index'};
     my $parent = portdesc($entry->{'parent'});
@@ -815,6 +814,7 @@ sub meth_pe_process_packet {
     ## Routing Table:
     update_routing_table($cell_id, $entry);
 
+# FIXME - maybe this isn't a msgcode per-se (redundant/excess) ??
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
@@ -868,6 +868,22 @@ sub dispatch {
     if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
     ## if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nal_cellstart_ca($body); return; }
 
+# --
+
+    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_update_traph') { meth_ca_update_traph($body); return; }
+    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry') { meth_ca_updated_traph_entry($body); return; }
+
+# --
+
+    if ($methkey eq 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg') { meth_ca_process_discover_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg') { meth_ca_process_discover_d_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg') { meth_ca_process_manifest_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg') { meth_ca_process_stack_tree_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
+
+# --
+
     if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg') { meth_ca_save_stack_tree_msg($body); return; }
@@ -881,27 +897,19 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') { meth_ca_listen_vm($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree') { meth_ca_got_from_uptree($body); return; }
     if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg') { meth_ca_process_discover_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg') { meth_ca_process_discover_d_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg') { meth_ca_process_manifest_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg') { meth_ca_process_stack_tree_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg2($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg') { meth_ca_got_stack_tree_tcp_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map') { meth_ca_update_base_tree_map($body); return; }
-    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_update_traph') { meth_ca_update_traph($body); return; }
-    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry') { meth_ca_updated_traph_entry($body); return; }
 
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward') { meth_pe_forward_rootward($body, $key); return; }
     ## if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
+    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## listen_ca
     if ($methkey eq 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca') { meth_pe_packet_from_ca($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ## 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
+    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ##  pe_msg_from_ca
     ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_msg_from_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
