@@ -60,29 +60,31 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
     68	/body : OBJECT { cell_id }
 
     685	/body : OBJECT { cell_id tree_id }
-    614	/body : OBJECT { cell_id msg_type port_nos tree_id }
-    340	/body : OBJECT { cell_id entry msg_type port_no tree_id }
-    333	/body : OBJECT { cell_id msg }
-    297	/body : OBJECT { cell_id msg_type tree_id }
     291	/body : OBJECT { cell_id base_tree_id entry }
     291	/body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
-    266	/body : OBJECT { cell_id msg port_nos tree_id }
     148	/body : OBJECT { cell_id base_tree_id stacked_tree_id }
+    31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+    27	/body : OBJECT { cell_id port_no is_border }
+    18	/body : OBJECT { cell_id no_saved_msgs tree_id }
+    10	/body : OBJECT { cell_id sender_id vm_id }
+    10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
+
+    614	/body : OBJECT { cell_id msg_type port_nos tree_id }
+    340	/body : OBJECT { cell_id msg_type entry port_no tree_id }
+    297	/body : OBJECT { cell_id msg_type tree_id }
+    17	/body : OBJECT { cell_id msg_type parent_port tree_id }
+    10	/body : OBJECT { cell_id msg_type allowed_tree direction tcp_msg }
+    6	/body : OBJECT { cell_id msg_type port_nos }
+
+    333	/body : OBJECT { cell_id msg }
+    266	/body : OBJECT { cell_id msg port_nos tree_id }
     117	/body : OBJECT { cell_id msg new_tree_id port_no }
     100	/body : OBJECT { cell_id msg tree_id }
     51	/body : OBJECT { cell_id msg no_saved tree_id }
-    31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
-    27	/body : OBJECT { cell_id is_border port_no }
     19	/body : OBJECT { cell_id msg port_no tree_id }
-    18	/body : OBJECT { cell_id no_saved_msgs tree_id }
     18	/body : OBJECT { cell_id msg port_no save tree_id }
-    17	/body : OBJECT { cell_id msg_type parent_port tree_id }
-    10	/body : OBJECT { cell_id sender_id vm_id }
-    10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
-    10	/body : OBJECT { cell_id allowed_tree direction msg_type tcp_msg }
-    6	/body : OBJECT { cell_id msg_type port_nos }
-    4	/body : OBJECT { cell_id entry msg new_tree_id }
-    2	/body : OBJECT { cell_id deploy_tree_id msg }
+    4	/body : OBJECT { cell_id msg entry new_tree_id }
+    2	/body : OBJECT { cell_id msg deploy_tree_id }
 
 ---
 
@@ -125,20 +127,20 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 
 ## PAYLOAD-FORMS:
 
-    /.../payload : OBJECT { body tree_id }
+    /.../payload : OBJECT { tree_id body }
+    /.../payload : OBJECT { tree_id fwd_index index }
+    /.../payload : OBJECT { tree_id gvm_eqn hops index path sending_cell_id }
+    /.../payload : OBJECT { tree_id my_index }
+    /.../payload : OBJECT { parent_tree_id gvm_eqn index new_tree_id }
     /.../payload : OBJECT { deploy_tree_id manifest tree_name }
-    /.../payload : OBJECT { fwd_index index tree_id }
-    /.../payload : OBJECT { gvm_eqn hops index path sending_cell_id tree_id }
-    /.../payload : OBJECT { gvm_eqn index new_tree_id parent_tree_id }
-    /.../payload : OBJECT { my_index tree_id }
 
 ---
 
+    /.../payload/tree_id : NAMETYPE
+    /.../payload/parent_tree_id : NAMETYPE
     /.../payload/deploy_tree_id : NAMETYPE
     /.../payload/new_tree_id : NAMETYPE
-    /.../payload/parent_tree_id : NAMETYPE
     /.../payload/sending_cell_id : NAMETYPE
-    /.../payload/tree_id : NAMETYPE
     /.../payload/tree_name : OBJECT { name }
     /.../payload/tree_name/name
 
@@ -346,6 +348,17 @@ Kinda confused here - I think this is the internals of the PE when it's interpre
 
 ---
 
+## Sender Names (typical)
+
+    Discover - "Sender:C:0+CellAgent"
+    DiscoverD - "Sender:C:0+CellAgent"
+    StackTree - "Sender:C:2+BorderPort+2
+    StackTreeD - "Sender:C:2+BorderPort+2
+    Manifest - "Sender:C:2+BorderPort+2
+    Application - "Sender:C:9+VM:C:9+vm1"
+
+---
+
         send_msg C:0 C:0+Connected [v0,v1,v2,v3,v4,v5,v6,v7] Discover%%Sender:C:0+CellAgent%%Leafward%%gvm%% ;
 
     Discover>link#0       # table(C0:p1)
@@ -547,13 +560,13 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     3807	format : STRING # random tag value
     3807	event_id : ARRAY
     3807	epoch
-    3773	cell_id : NAMETYPE
+    3773	cell_id : NAMETYPE # "C:2"
     3182	tree_id : NAMETYPE
     2194	msg_type : STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
     1368	port_no : PORT_DESC
     1270	mask : OBJECT
     1255	index : XXX
-    920	sender_id : NAMETYPE
+    920	sender_id : NAMETYPE # "Sender:C:9+VM:C:9+vm1"
     920	direction : STRING # Leafward, Rootward
     910	tree_map : OBJECT
     910	payload : OBJECT

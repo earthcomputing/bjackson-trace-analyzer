@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # analyze xx.json
+## A microservice is not a 'subroutine' !!
 
 # TODO :
 # JSON::MaybeXS
@@ -431,9 +432,8 @@ sub meth_nalcell_port_setup {
 }
 
 # /body : OBJECT { cell_id }
-## 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
-# 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
-sub meth_nal_cellstart_ca {
+# 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
+sub meth_nalcell_start_ca {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
@@ -447,7 +447,203 @@ sub meth_nalcell_start_pe {
     print(join(' ', $cell_id, ';'));
 }
 
+# /body : OBJECT { cell_id }
+# 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
+sub meth_pe_listen_ca {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
+}
+
+# /body : OBJECT { cell_id }
+# 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
+sub meth_pe_listen_ports {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
+}
+
+# /body : OBJECT { cell_id }
+# 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
+sub meth_ca_listen_pe {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
+}
+
+# single-ended port (link LOV) activation:
+
+## IMPORTANT : Complex Entry
+# /body : OBJECT { cell_id port_no is_border }
+# 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
+sub meth_ca_send_msg_port_connected {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $port_no = portdesc($body->{'port_no'});
+    my $is_border = $body->{'is_border'}; # cell port=of-entry
+
+    ## Complex Entry:
+    my $port_id = '';
+    if (defined $port_no) {
+        $port_id = (($is_border) ? 'FX:' : '').$port_no;
+        border_port($cell_id, $port_no) if $is_border;
+    }
+    print(join(' ', $cell_id, $port_id, ';'));
+}
+
+# point of origin for all messages!
+
+## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg port_nos tree_id }
+# /body/msg : OBJECT { header payload }
+# /.../payload : OBJECT { tree_id body }
+# 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
+sub ca_send_msg_generic {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
+    my $summary = summarize_msg($body->{'msg'});
+
+    print(join(' ', $cell_id, $tree_id, $port_list, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $port_nos = $body->{'port_nos'};
+
+    my $msg_hdr = $body->{'msg'}{'header'};
+    my $msg_type = $msg_hdr->{'msg_type'}; # STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
+    my $direction = $msg_hdr->{'direction'}; # STRING # Leafward, Rootward
+    my $msg_count = $msg_hdr->{'msg_count'}; # NUMBER
+    my $sender_id = nametype($msg_hdr->{'sender_id'}); # "Sender:..."
+    my $tree_map = $msg_hdr->{'tree_map'};
+
+    my $msg_payload = $body->{'msg'}{'payload'};
+    my $pay_tree_id = nametype($msg_payload->{'tree_id'}); # "C:2+NocAgentMaster"
+    my $pay_body = $msg_payload->{'body'}; # STRING # "Reply from Container:VM:C:9+vm1+2"
+
+    #FIXME -bj
+    # this really just adds a msg to the CA=>PE queue
+    foreach my $item (@{$port_nos}) {
+        my $p = $item->{'v'};
+        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd', $tree_id); # $tree_id.' '.$port_list);
+    }
+}
+
+# virtual recieve from Cell Agent
+# eventually this will be CA => C-Model => PE
+
+## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg_type tree_id }
+# 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
+sub meth_pe_packet_from_ca {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
+    print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
+
+    # Discover - "C:0"
+    # DiscoverD - "C:0"
+    # StackTree - "C:2+NocAgentDeploy", "C:2+NocAgentDeploy", "C:2+NocMasterAgent", "C:2+NocAgentMaster"
+    # StackTreeD - "C:2+NocAgentDeploy", "C:2+NocAgentDeploy", "C:2+NocMasterAgent", "C:2+NocAgentMaster"
+    # Manifest - "C:2+NocMasterDeploy", "C:2+NocAgentDeploy", "C:2+NocMasterAgent", "C:2+NocAgentMaster"
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = 0;
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
+}
+
+# guts of the Packet Engine (forwarding)
+
+## IMPORTANT : Spreadsheet
+# 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
+sub meth_pe_forward_leafward {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
+    my $msg_type = $body->{'msg_type'};
+    print(join(' ', $cell_id, $msg_type, $port_list, 'tree='.$tree_id, ';'));
+
+    ## Spreadsheet Coding:
+    my $port_nos = $body->{'port_nos'};
+    my $c = $cell_id; $c =~ s/C://;
+    my $event_code = ec_fromkey($key);
+    foreach my $item (@{$port_nos}) {
+        my $p = $item->{'v'};
+        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
+    }
+}
+
+## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg_type parent_port tree_id }
+# 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
+sub meth_pe_forward_rootward {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_no = portdesc($body->{'parent_port'});
+    my $msg_type = $body->{'msg_type'};
+    print(join(' ', $cell_id, $msg_type, $port_no, 'tree='.$tree_id, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = $body->{'parent_port'}{'v'};
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
+}
+
+# Packet Engine Control Plane - msg processing (ie. worker)
+
+## IMPORTANT : Routing, Spreadsheet
+# /body : OBJECT { cell_id entry msg_type port_no tree_id }
+# 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
+sub meth_pe_process_packet {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $port_no = portdesc($body->{'port_no'});
+
+    # why is this "meta data" ?
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
+
+    my $entry = $body->{'entry'};
+    my $index = $entry->{'index'};
+    my $parent = portdesc($entry->{'parent'});
+    print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
+
+    ## Routing Table:
+    update_routing_table($cell_id, $entry);
+
+# FIXME - maybe this isn't a msgcode per-se (redundant/excess) ??
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = $body->{'port_no'}{'v'};
+    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
+}
+
+# Cell Agent Control Plane - msg processing (ie. worker)
+# Leafward => micro service request (set)
+# Rootward => response to application/client (singleton)
+
+## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg }
+# 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
+sub meth_ca_got_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $summary = summarize_msg($body->{'msg'});
+# FIXME
+    print(join(' ', $cell_id, $summary, ';'));
+}
+
 # --
+# traph ops:
 
 # /body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
 # 'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
@@ -465,7 +661,7 @@ sub meth_ca_update_traph {
     print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, ';'));
 }
 
-## IMPORTANT : Routing Table
+## IMPORTANT : Routing
 # /body : OBJECT { cell_id base_tree_id entry }
 # 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
 sub meth_ca_updated_traph_entry {
@@ -544,9 +740,20 @@ sub meth_ca_process_application_msg {
 }
 
 # --
+# general info:
 
-# 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
-sub meth_ca_got_tcp_application_msg {
+# /body : OBJECT { cell_id tree_id }
+# 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
+sub meth_ca_get_base_tree_id {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'}); # "C:0+Connected", "C:1", "C:2+NocMasterDeploy", "C:2+NocAgentDeploy", "C:2+NocMasterAgent", "C:2+NocAgentMaster"
+    print(join(' ', $cell_id, $tree_id, ';'));
+}
+
+# /body : OBJECT { cell_id msg tree_id }
+# 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
+sub meth_ca_save_discover_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
@@ -554,76 +761,53 @@ sub meth_ca_got_tcp_application_msg {
     print(join(' ', $cell_id, $tree_id, $summary, ';'));
 }
 
-#  listen_uptree_loop C:0 Rootward Application Reply from Container:VM:C:0+vm1+2 NocAgentMaster ;
-# 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
-sub meth_ca_got_from_uptree {
+# --
+
+## IMPORTANT : Stacking (base_tree_map) ??
+# /body : OBJECT { cell_id base_tree_id stacked_tree_id }
+# 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
+sub meth_ca_update_base_tree_map {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $direction = $body->{'direction'};
-    my $msg_type = $body->{'msg_type'};
-    my $tcp_msg = $body->{'tcp_msg'};
-    my $tree_id = nametype($body->{'tree_id'});
-# FIXME, not really:
-    my $allowed_tree = nametype($body->{'allowed_tree'});
-    print(join(' ', $cell_id, $direction, $msg_type, $tcp_msg, $allowed_tree, ';'));
+    my $base_tree_id = nametype($body->{'base_tree_id'});
+    my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
+    print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 }
 
-# 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
-sub meth_ca_forward_saved_msg {
+## IMPORTANT : Stacking
+# /body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+# 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
+sub meth_ca_stack_tree {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $msg_type = $body->{'msg_type'};
-    my $port_list = build_port_list($body->{'port_nos'});
-    print(join(' ', $cell_id, $msg_type, $port_list, ';'));
+    my $base_tree_id = nametype($body->{'base_tree_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
+    # base_tree_map_keys
+    # base_tree_map_values
+    # FIXME
+    print(join(' ', $cell_id, $base_tree_id, $new_tree_id, ';'));
 }
 
-# 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
-sub meth_ca_get_saved_msgs {
+# IMPORTANT : Stacking, Routing
+# /body : OBJECT { cell_id msg entry new_tree_id }
+# 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
+sub meth_ca_got_stack_tree_tcp_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $no_saved_msgs = $body->{'no_saved_msgs'};
-    print(join(' ', $cell_id, $tree_id, $no_saved_msgs, ';'));
-}
-
-# 'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
-sub meth_ca_forward_stack_tree_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $msg_type = $body->{'msg_type'};
-    my $port_list = build_port_list($body->{'port_nos'});
-    print(join(' ', $cell_id, $tree_id, $msg_type, $port_list, ';'));
-}
-
-# 'cellagent.rs$$deploy$$Debug$$ca_deploy'
-sub meth_ca_deploy {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $deployment_tree_id = nametype($body->{'deployment_tree_id'});
-# tree_vm_map_keys
-# FIXME
-    print(join(' ', $cell_id, $deployment_tree_id, ';'));
-}
-
-# 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
-sub meth_ca_add_saved_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $no_saved = $body->{'no_saved'};
-    print(join(' ', $cell_id, $tree_id, $no_saved, ';'));
-}
-
-# 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
-sub meth_ca_got_manifest_tcp_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $deploy_tree_id = nametype($body->{'deploy_tree_id'});
+    my $new_tree_id = nametype($body->{'new_tree_id'});
     my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $deploy_tree_id, $summary, ';'));
+
+    my $entry = $body->{'entry'};
+
+    ## Routing Table:
+    # update_routing_table($cell_id, $entry);
+
+    # FIXME
+    print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
 }
 
+# IMPORTANT : Stacking
+# /body : OBJECT { cell_id msg no_saved tree_id }
 # 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
 sub meth_ca_save_stack_tree_msg {
     my ($body) = @_;
@@ -634,109 +818,33 @@ sub meth_ca_save_stack_tree_msg {
     print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 }
 
-# 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
-sub meth_ca_got_stack_tree_tcp_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $new_tree_id = nametype($body->{'new_tree_id'});
-    my $summary = summarize_msg($body->{'msg'});
-# entry
-# FIXME
-    print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
-}
-
-# 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
-sub meth_ca_stack_tree {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $base_tree_id = nametype($body->{'base_tree_id'});
-    my $new_tree_id = nametype($body->{'new_tree_id'});
-# base_tree_map_keys
-# base_tree_map_values
-# FIXME
-    print(join(' ', $cell_id, $base_tree_id, $new_tree_id, ';'));
-}
-
-# 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
-sub meth_ca_save_discover_msg {
+# /body : OBJECT { cell_id msg no_saved tree_id }
+# 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
+sub meth_ca_add_saved_msg {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
+    my $no_saved = $body->{'no_saved'};
     my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $tree_id, $summary, ';'));
+    print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 }
 
-# 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
-sub meth_ca_update_base_tree_map {
+# best guess - launch of VM (Cell Agent Control Plane work action)
+
+# IMPORTANT : up_tree
+# /body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
+# 'cellagent.rs$$deploy$$Debug$$ca_deploy'
+sub meth_ca_deploy {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $base_tree_id = nametype($body->{'base_tree_id'});
-    my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
-    print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
+    my $deployment_tree_id = nametype($body->{'deployment_tree_id'});
+    my $up_tree_name = $body->{'up_tree_name'}; # STRING # "vm1"
+    my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
+    # FIXME
+    print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 }
 
-# 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
-sub meth_ca_got_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $summary, ';'));
-}
-
-# 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
-sub meth_ca_send_msg2 {
-    my ($body, $key) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $port_list = build_port_list($body->{'port_nos'});
-    my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $tree_id, $port_list, $summary, ';'));
-
-    ## Spreadsheet Coding:
-    my $msg_type = $body->{'msg'}{'header'}{'msg_type'};
-    my $port_nos = $body->{'port_nos'};
-    my $c = $cell_id; $c =~ s/C://;
-    my $event_code = ec_fromkey($key);
-
-    # this really just adds a msg to the CA=>PE queue
-    foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd', $tree_id); # $tree_id.' '.$port_list);
-#FIXME -bj
-    }
-}
-
-# 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
-sub meth_ca_get_base_tree_id {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    print(join(' ', $cell_id, $tree_id, ';'));
-}
-
-# 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
-sub meth_ca_listen_pe {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    print(join(' ', $cell_id, ';'));
-}
-
-# 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
-sub meth_ca_send_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $port_no = portdesc($body->{'port_no'});
-    my $is_border = $body->{'is_border'}; # cell port=of-entry
-
-    ## Complex Entry:
-    my $port_id = '';
-    if (defined $port_no) {
-        $port_id = (($is_border) ? 'FX:' : '').$port_no;
-        border_port($cell_id, $port_no) if $is_border;
-    }
-    print(join(' ', $cell_id, $port_id, ';'));
-}
-
+# /body : OBJECT { cell_id sender_id vm_id }
 # 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
 sub meth_ca_listen_vm {
     my ($body) = @_;
@@ -746,96 +854,70 @@ sub meth_ca_listen_vm {
     print(join(' ', $cell_id, $sender_id, $vm_id, ';'));
 }
 
-# 'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
-sub meth_listen_ca {
+#  listen_uptree_loop C:0 Rootward Application Reply from Container:VM:C:0+vm1+2 NocAgentMaster ;
+
+# /body : OBJECT { cell_id msg_type allowed_tree direction tcp_msg }
+# 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
+sub meth_ca_got_from_uptree {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    print(join(' ', $cell_id, ';'));
+    my $msg_type = $body->{'msg_type'};
+    my $direction = $body->{'direction'};
+    my $tcp_msg = $body->{'tcp_msg'};
+    my $allowed_tree = nametype($body->{'allowed_tree'});
+    print(join(' ', $cell_id, $msg_type, $direction, $tcp_msg, $allowed_tree, ';'));
 }
 
-# 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
-sub meth_pe_forward_leafward {
-    my ($body, $key) = @_;
+# /body : OBJECT { cell_id msg deploy_tree_id }
+# 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
+sub meth_ca_got_manifest_tcp_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $deploy_tree_id = nametype($body->{'deploy_tree_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $deploy_tree_id, $summary, ';'));
+}
+
+# /body : OBJECT { cell_id msg tree_id }
+# 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
+sub meth_ca_got_tcp_application_msg {
+    my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $tree_id, $summary, ';'));
+}
+
+## IMPORTANT : stacking
+# /body : OBJECT { cell_id msg_type port_nos tree_id }
+# 'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
+sub meth_ca_forward_stack_tree_msg {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $msg_type = $body->{'msg_type'};
     my $port_list = build_port_list($body->{'port_nos'});
-    my $msg_type = $body->{'msg_type'};
-    print(join(' ', $cell_id, $msg_type, $port_list, 'tree='.$tree_id, ';'));
-
-    ## Spreadsheet Coding:
-    my $port_nos = $body->{'port_nos'};
-    my $c = $cell_id; $c =~ s/C://;
-    my $event_code = ec_fromkey($key);
-    foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
-    }
+    print(join(' ', $cell_id, $tree_id, $msg_type, $port_list, ';'));
 }
 
-# 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
-sub meth_pe_msg_from_ca {
+# /body : OBJECT { cell_id no_saved_msgs tree_id }
+# 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
+sub meth_ca_get_saved_msgs {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    print(join(' ', $cell_id, ';'));
+    my $tree_id = nametype($body->{'tree_id'});
+    my $no_saved_msgs = $body->{'no_saved_msgs'};
+    print(join(' ', $cell_id, $tree_id, $no_saved_msgs, ';'));
 }
 
-# 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
-sub meth_pe_packet_from_ca {
-    my ($body, $key) = @_;
+# /body : OBJECT { cell_id msg_type port_nos }
+# 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
+sub meth_ca_forward_saved_msg {
+    my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $msg_type = $body->{'msg_type'};
-    print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
-
-    ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = 9999;
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
-}
-
-## IMPORTANT : Routing Table, Spreadsheet Coding
-# /body : OBJECT { cell_id entry msg_type port_no tree_id }
-# 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
-sub meth_pe_process_packet {
-    my ($body, $key) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $port_no = portdesc($body->{'port_no'});
-
-    # why is this "meta data" ?
-    my $tree_id = nametype($body->{'tree_id'});
-    my $msg_type = $body->{'msg_type'};
-
-    my $entry = $body->{'entry'};
-    my $index = $entry->{'index'};
-    my $parent = portdesc($entry->{'parent'});
-    print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
-
-    ## Routing Table:
-    update_routing_table($cell_id, $entry);
-
-# FIXME - maybe this isn't a msgcode per-se (redundant/excess) ??
-    ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'port_no'}{'v'};
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
-}
-
-# 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
-sub meth_pe_forward_rootward {
-    my ($body, $key) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $tree_id = nametype($body->{'tree_id'});
-    my $msg_type = $body->{'msg_type'};
-    my $port_no = portdesc($body->{'parent_port'});
-    print(join(' ', $cell_id, $msg_type, $tree_id, $port_no, ';'));
-
-    ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'parent_port'}{'v'};
-    add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
+    my $msg_type = $body->{'msg_type'}; # Manifest Application
+    my $port_list = build_port_list($body->{'port_nos'});
+    print(join(' ', $cell_id, $msg_type, $port_list, ';'));
 }
 
 # ''
@@ -864,9 +946,9 @@ sub dispatch {
     if ($methkey eq 'datacenter.rs$$initialize$$Trace$$connect_link') { meth_connect_link($body); return; }
 
     if ($methkey eq 'nalcell.rs$$new$$Trace$$nalcell_port_setup') { meth_nalcell_port_setup($body); return; }
-    if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca') { meth_nal_cellstart_ca($body); return; } ## nal_cellstart_ca
+    if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca') { meth_nalcell_start_ca($body); return; } ## nal_cellstart_ca
     if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
-    ## if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nal_cellstart_ca($body); return; }
+    ## if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nalcell_start_ca($body); return; }
 
 # --
 
@@ -896,8 +978,8 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg') { meth_ca_got_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') { meth_ca_listen_vm($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree') { meth_ca_got_from_uptree($body); return; }
-    if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg2($body, $key); return; }
+    if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg_port_connected($body); return; }
+    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { ca_send_msg_generic($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body); return; }
@@ -906,11 +988,11 @@ sub dispatch {
 
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward') { meth_pe_forward_rootward($body, $key); return; }
-    ## if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_listen_ca($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_listen_ca($body); return; } ## listen_ca
+    ## if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_pe_listen_ca($body); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_pe_listen_ca($body); return; } ## listen_ca
     if ($methkey eq 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca') { meth_pe_packet_from_ca($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_msg_from_ca($body); return; } ##  pe_msg_from_ca
-    ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_msg_from_ca($body); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_listen_ports($body); return; } ##  pe_msg_from_ca
+    ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_listen_ports($body); return; }
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
     print($endl);
@@ -1159,7 +1241,6 @@ my @mformats = qw(
     DEAD:
     'noc.rs$$MAIN$$Trace$$trace_schema'
     'noc.rs$$initialize$$Trace$$trace_schema'
-
     'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
     'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
     'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
