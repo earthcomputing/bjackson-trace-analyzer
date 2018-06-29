@@ -1,27 +1,30 @@
 #!/usr/bin/perl -w
 # analyze xx.json
 ## A microservice is not a 'subroutine' !!
-
-# TODO :
-# JSON::MaybeXS
 # python -mjson.tool
 
 use strict;
 
 use lib '/Users/bjackson/perl5/lib/perl5';
-use JSON qw(decode_json encode_json); # From CPAN
+use JSON qw(decode_json encode_json);
 use Data::Dumper;
 use Digest::SHA qw(sha1_hex);
 use Data::GUID;
 
-my $ALAN;
-my $code_filter;
-my $debug;
-my $dump_tables; # = 1;
-
 my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
+
+if ( $#ARGV < 0 ) {
+    print('usage: [-dump] [-ALAN] [-filter=C:2] analyze xx.json ...', $endl);
+    exit -1
+}
+
+my $dotfile = 'complex.dot';
+my $schemafile = 'schema-data.txt';
+my $routingfile = 'routing-table.txt';
+my $msgfile = 'msg-dump.txt';
+my $csvfile = 'events.csv';
 
 my $op_table = {
     'Application' => 'A',
@@ -38,61 +41,122 @@ my $arrow_code = {
     'pe-snd' => '->'
 };
 
+# --
+
+my $ALAN;
+my $code_filter;
+my $debug;
+my $result_dir = '/tmp/'; # can be blank!?
+
 my $max_cell = -1;
-my %cell_table;
+my %cell_table; # $c => $link_no
 
-# link name map : 'Cx:py' -> 'link#z';
 my $max_link = 1; # avoid 0 ## 2
-my %link_table;
+my %link_table; # map : 'Cx:py' -> $link_no
 
-my %routing_table;
-my %msg_table;
+my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
+my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
+my %msg_table; # map : {$payload_text} = $payload_hash
+my %routing_table; # map : {$cell_id}{$entry->{'index'}} => $entry
+my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
 
-my @msgqueue;
+my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
-my %verb;
-my %jschema;
-my %keyset;
-
-if ( $#ARGV < 0 ) {
-    print('usage: [-dump] [-ALAN] [-filter=C:2] analyze xx.json ...', $endl);
-    exit -1
-}
+# --
 
 # FIXME : one dot file for list of inputs
-my $dotfile = '/tmp/complex.dot';
-open(DOT, '>'.$dotfile) or die $!;
-print DOT ('digraph G {', $endl);
-print DOT ('rankdir=LR', $endl);
+open_dot();
 
-my $schemafile = '/tmp/schema-data.txt';
-open(SCHEMA, '>'.$schemafile) or die $!;
-foreach my $file (@ARGV) {
-    if ($file eq '-dump') { $dump_tables = 1; next; }
-    if ($file eq '-ALAN') { $ALAN = 1; next; }
-    if ($file =~ /-filter=/) { my ($a, $b) = split('=', $file); $code_filter = $b; next; }
-    print($endl, $file, $endl);
-    my $href = process_file($file);
+foreach my $fname (@ARGV) {
+    if ($fname eq '-ALAN') { $ALAN = 1; next; }
+    if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
+    if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
+    print($endl, $fname, $endl);
+    my $href = process_file($fname);
     do_analyze($href);
-    dump_histo('VERBS:', \%verb);
 }
 
-# FIXME - localize 'DOT'
-# dump_link_table();
-dump_cell_table();
-print DOT ('}', $endl);
-close(DOT);
+dump_complex();
+close_dot();
 
 dump_routing_tables();
 dump_msgs();
 msg_sheet();
+dump_schema();
 
-dump_histo('SCHEMA:', \%jschema);
-dump_histo('KEYSET:', \%keyset);
-close(SCHEMA);
 exit 0;
 
 # --
+
+sub open_dot {
+    my $path = $result_dir.$dotfile;
+    open(DOT, '>'.$path) or die $path.': '.$!;
+    print DOT ('digraph G {', $endl);
+    print DOT ('rankdir=LR', $endl);
+}
+
+sub close_dot {
+    print DOT ('}', $endl);
+    close(DOT);
+}
+
+# FIXME
+# add_edge
+sub write_edge {
+    my ($lc, $lp, $rc, $rp, $link_no) = @_;
+    if ($ALAN) {
+        my $link_name = letter($link_no);
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
+    }
+    else {
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
+    }
+}
+
+# border_port
+sub write_border {
+    my ($c, $p, $link_no) = @_;
+    if ($ALAN) {
+        my $link_name = letter($link_no);
+        printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
+    }
+    else {
+        my $link_name = 'link#'.$link_no;
+        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
+    }
+}
+
+sub dump_link_table {
+    foreach my $cp (sort keys %link_table) {
+        my $link_no = $link_table{$cp};
+        if ($cp eq 'Internet') {
+            write_border();
+        }
+        else {
+            write_edge();
+        }
+    }
+}
+
+sub dump_complex {
+    # dump_link_table();
+    foreach my $c (sort keys %cell_table) {
+        my $c_up = $cell_table{$c};
+        next if ($c == -1);
+        my $cell_lname = ($ALAN) ? letter($c_up) : 'link#'.$c_up;
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
+    }
+}
+
+sub dump_schema {
+    my $path = $result_dir.$schemafile;
+    open(SCHEMA, '>'.$path) or die $path.': '.$!;
+    dump_histo('VERBS:', \%verb);
+    dump_histo('SCHEMA:', \%jschema);
+    dump_histo('KEYSET:', \%keyset);
+    close(SCHEMA);
+}
 
 sub update_routing_table {
     my ($cell_id, $entry) = @_;
@@ -121,8 +185,8 @@ sub hint4uuid {
 }
 
 sub dump_routing_tables {
-    my $file = '/tmp/routing-table.txt';
-    open(FD, '>'.$file) or die $!;
+    my $path = $result_dir.$routingfile;
+    open(FD, '>'.$path) or die $path.': '.$!;
     foreach my $cell_id (sort keys %routing_table) {
         print FD ($endl);
         print FD (join(' ', $cell_id, 'Routing Table'), $endl);
@@ -143,42 +207,9 @@ sub dump_routing_tables {
     close(FD);
 }
 
-sub dump_cell_table {
-    foreach my $c (sort keys %cell_table) {
-        my $c_up = $cell_table{$c};
-        next if ($c == -1);
-        my $cell_lname = ($ALAN) ? letter($c_up) : 'link#'.$c_up;
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
-    }
-}
-
-sub write_edge {
-    my ($lc, $lp, $rc, $rp, $link_no) = @_;
-    if ($ALAN) {
-        my $link_name = letter($link_no);
-        printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
-    }
-    else {
-        my $link_name = 'link#'.$link_no;
-        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
-    }
-}
-
-sub write_border {
-    my ($c, $p, $link_no) = @_;
-    if ($ALAN) {
-        my $link_name = letter($link_no);
-        printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
-    }
-    else {
-        my $link_name = 'link#'.$link_no;
-        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
-    }
-}
-
 sub dump_msgs {
-    my $file = '/tmp/msg-dump.txt';
-    open(FD, '>'.$file) or die $!;
+    my $path = $result_dir.$msgfile;
+    open(FD, '>'.$path) or die $path.': '.$!;
 
     foreach my $key (sort order_mtable keys %msg_table) {
         my $hint = substr($msg_table{$key}, -5);
@@ -234,8 +265,8 @@ sub letter {
 # FIXME
 # only supports 60 cells or links
 sub msg_sheet {
-    my $csvfile = '/tmp/events.csv';
-    open(CSV, '>'.$csvfile) or die $!;
+    my $path = $result_dir.$csvfile;
+    open(CSV, '>'.$path) or die $path.': '.$!;
     print CSV (join(',', 'event/cell', 0..9), $endl);
     my @row = ();
     my $c_overwrite = 0;
@@ -297,8 +328,8 @@ sub order_msgs($$) {
 # --
 
 sub process_file {
-    my ($file) = @_;
-    my @records = inhale($file);
+    my ($fname) = @_;
+    my @records = inhale($fname);
 
     my $lineno = 0;
     my %data;
@@ -1088,6 +1119,19 @@ sub meth_ca_forward_saved_msg_application {
 
 # --
 
+sub get_cellagent_port {
+    my ($c) = @_;
+    my $link_no = $cell_table{$c};
+    return $link_no;
+}
+
+# graphviz format (note :pX is magic)
+sub get_link_no {
+    my ($c, $p) = @_;
+    my $k = 'C'.$c.':p'.$p;
+    return $link_table{$k};
+}
+
 # DANGER: shares link allocation responsibility
 sub cell_table_entry {
     my ($c) = @_;
@@ -1102,12 +1146,6 @@ sub cell_table_entry {
     return $link_no;
 }
 
-sub get_cellagent_port {
-    my ($c) = @_;
-    my $link_no = $cell_table{$c};
-    return $link_no;
-}
-
 # FIXME
 # should indicate EAST/WEST direction (a, a')
 # could do that with even/odd numbers
@@ -1119,25 +1157,6 @@ sub link_table_entry {
     my $link_no = $max_link; $max_link++; # += 2
     $link_table{$k1} = $link_no;
     $link_table{$k2} = $link_no; # +1
-}
-
-# FIXME
-sub dump_link_table {
-    foreach my $cp (sort keys %link_table) {
-        my $link_no = $link_table{$cp};
-        if ($cp eq 'Internet') {
-            write_border();
-        }
-        else {
-            write_edge();
-        }
-    }
-}
-
-sub get_link_no {
-    my ($c, $p) = @_;
-    my $k = 'C'.$c.':p'.$p;
-    return $link_table{$k};
 }
 
 # C:0+P:1+C:1+P:1
@@ -1262,8 +1281,8 @@ sub order_numseq_basic($$) {
 }
 
 sub inhale {
-    my ($file) = @_;
-    open(FD, '<'.$file) or die $!;
+    my ($path) = @_;
+    open(FD, '<'.$path) or die $path.': '.$!;
     my @body = <FD>;
     close(FD);
     return @body;
@@ -1312,8 +1331,6 @@ sub walk_structure {
 # by frequency, descending
 sub dump_histo {
     my ($hdr, $href) = @_;
-    return unless $dump_tables; # 
-
     print SCHEMA ($endl);
     print SCHEMA ($hdr, $endl);
     foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
@@ -1430,8 +1447,8 @@ sub order_numseq_smartmatch($$) {
 # this function allows for multi-line json entries
 # UNUSED
 sub snarf {
-    my ($fname) = @_;
-    open FD, '<'.$fname or die $!;
+    my ($path) = @_;
+    open FD, '<'.$path or die $path.': '.$!;
     my $body = '';
     while (<FD>) {
         chomp;

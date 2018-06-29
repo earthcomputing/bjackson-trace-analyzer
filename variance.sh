@@ -1,0 +1,35 @@
+#!/bin/csh -fx
+
+set tag = "cmodel-"
+set epoch = 1530227070
+set datafile = "multicell-trace-${tag}${epoch}.json"
+
+set wdir = "/tmp/${tag}${epoch}/"
+set work = "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data"
+
+mkdir -p ${wdir}
+
+sha1sum.sh sample-data/${datafile} "${work}/${datafile}"
+# cp sample-data/${datafile} "$work/${datafile}"
+
+analyze.pl -ALAN -wdir=${wdir} sample-data/${datafile} > ${wdir}raw-analysis.txt
+cat ${wdir}raw-analysis.txt | post-process.sh > ${wdir}threaded-analysis.txt
+
+set files = ( \
+    raw-analysis.txt \
+    threaded-analysis.txt \
+    complex.dot \
+    routing-table.txt \
+    msg-dump.txt \
+    events.csv \
+    schema-data.txt \
+)
+
+ls -latrh "${work}"
+
+foreach one ( ${files} )
+    diff -w "${work}/${one}" ${wdir}${one} | cdiff
+    # cp ${wdir}${one} "${work}"
+end
+
+exit 0
