@@ -825,7 +825,7 @@ sub meth_ca_add_saved_msg {
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
-    my $summary = summarize_msg($body->{'msg'});
+    my $summary = 'BUG'; # summarize_msg($body->{'msg'}); ## msg became an array, with [0] = null ??
     print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 }
 
@@ -920,12 +920,7 @@ sub meth_ca_forward_saved_msg {
     print(join(' ', $cell_id, $msg_type, $port_list, ';'));
 }
 
-# ''
-sub meth_xx {
-    my ($body) = @_;
-    my $xx = 0;
-    print(join(' ', $xx, ';'));
-}
+# --
 
 sub dispatch {
     my ($key, $module, $function, $kind, $format, $json) = @_;
@@ -995,12 +990,103 @@ sub dispatch {
     ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_listen_ports($body); return; }
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
+# NEW:
+
+    if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe') { meth_ca_listen_pe_cmodel($body); return; }
+    if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body); return; }
+    if ($methkey eq 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca') { meth_cm_bytes_to_ca($body); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm') { meth_pe_packet_from_cm($body); return; }
+    if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body); return; }
+    if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
+    if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
+
     print($endl);
-    print(join(' ', $methkey), $endl);
-    print Dumper $body;
-    print($endl);
+
+    print STDERR (join(' ', $methkey), $endl);
+    print STDERR Dumper $body;
+    print STDERR ($endl);
     giveup('incompatible schema');
 }
+
+## IMPORTANT : why ?
+# /body : OBJECT { ... }
+# ''
+sub meth_xx {
+    my ($body) = @_;
+    my $xx = 0;
+    print(join(' ', $xx, ';'));
+}
+
+# --
+# NEW
+
+# /body : OBJECT { cell_id }
+# 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
+sub meth_ca_listen_pe_cmodel {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
+}
+
+# /body : OBJECT { cell_id msg  }
+# 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
+sub meth_cm_bytes_from_ca {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $summary, ';'));
+}
+
+# /body : OBJECT { cell_id msg  }
+# 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca'
+sub meth_cm_bytes_to_ca {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $summary, ';'));
+}
+
+# /body : OBJECT { cell_id msg_type tree_id }
+# 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
+sub meth_pe_packet_from_cm {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg_type = $body->{'msg_type'};
+    my $tree_id = nametype($body->{'tree_id'});
+    print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
+}
+
+# /body : OBJECT { cell_id msg  }
+# 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
+sub meth_ca_got_msg_cmodel {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $summary = summarize_msg($body->{'msg'});
+    print(join(' ', $cell_id, $summary, ';'));
+}
+
+# /body : OBJECT { cell_id msg_type port_nos }
+# 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg'
+sub meth_ca_forward_saved_msg_manifest {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg_type = $body->{'msg_type'};
+    my $port_list = build_port_list($body->{'port_nos'});
+    print(join(' ', $cell_id, $msg_type, $port_list, ';'));
+}
+
+# /body : OBJECT { cell_id msg_type port_nos }
+# 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg'
+
+sub meth_ca_forward_saved_msg_application {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg_type = $body->{'msg_type'};
+    my $port_list = build_port_list($body->{'port_nos'});
+    print(join(' ', $cell_id, $msg_type, $port_list, ';'));
+}
+
+# --
 
 # DANGER: shares link allocation responsibility
 sub cell_table_entry {
@@ -1289,6 +1375,15 @@ my @mformats = qw(
     'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
     'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
     'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
+
+    NEW:
+    'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg'
+    'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg'
+    'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
+    'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
+    'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
+    'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca'
+    'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
 );
 
 my $notes = << '_eof_';
