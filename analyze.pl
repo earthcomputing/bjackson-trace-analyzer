@@ -50,9 +50,10 @@ my $debug;
 my $result_dir = '/tmp/'; # can be blank!?
 
 my $max_cell = -1;
-my %cell_table; # $c => $link_no
+my %cell_table; # $c => $edge_no
 
-my $max_link = 1; # avoid 0 ## 2
+my $max_edge = 1; # avoid 0
+my %edges; # map : "Cx:pX->Cy:pY" -> { 'left_cell' 'left_port' 'right_cell' 'right_port' 'edge_no' }; # plus 'Internet'
 my %link_table; # map : 'Cx:py' -> $link_no
 
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
@@ -66,8 +67,6 @@ my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
 # --
 
-# FIXME : one dot file for list of inputs
-open_dot();
 
 foreach my $fname (@ARGV) {
     if ($fname eq '-ALAN') { $ALAN = 1; next; }
@@ -78,6 +77,8 @@ foreach my $fname (@ARGV) {
     do_analyze($href);
 }
 
+# FIXME : one dot file for list of inputs
+open_dot();
 dump_complex();
 close_dot();
 
@@ -122,51 +123,66 @@ sub close_dot {
     close(DOT);
 }
 
-# FIXME
-# add_edge
+# info from activate_edge / meth_connect_link
 sub write_edge {
-    my ($lc, $lp, $rc, $rp, $link_no) = @_;
+    my ($lc, $lp, $rc, $rp, $edge_no) = @_;
     if ($ALAN) {
+        my $link_no = $edge_no * 2;
         my $link_name = letter($link_no);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
     }
     else {
-        my $link_name = 'link#'.$link_no;
+        my $link_name = 'link#'.$edge_no;
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
     }
 }
 
-# border_port
+# info from border_port / meth_ca_send_msg_port_connected
 sub write_border {
-    my ($c, $p, $link_no) = @_;
+    my ($c, $p, $edge_no) = @_;
     if ($ALAN) {
+        my $link_no = $edge_no * 2;
         my $link_name = letter($link_no);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
     }
     else {
-        my $link_name = 'link#'.$link_no;
+        my $link_name = 'link#'.$edge_no;
         printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
     }
 }
 
-sub dump_link_table {
-    foreach my $cp (sort keys %link_table) {
-        my $link_no = $link_table{$cp};
-        if ($cp eq 'Internet') {
-            write_border();
+sub dump_edges {
+    foreach my $k (sort order_edges keys %edges) {
+        my $o = $edges{$k};
+        my $left_cell = $o->{'left_cell'};
+        my $left_port = $o->{'left_port'};
+        my $right_cell = $o->{'right_cell'};
+        my $right_port = $o->{'right_port'};
+        my $edge_no = $o->{'edge_no'};
+
+        if ($left_cell == -1) { # eq 'Internet') {
+            write_border($right_cell, $right_port, $edge_no);
         }
         else {
-            write_edge();
+            write_edge($left_cell, $left_port, $right_cell, $right_port, $edge_no);
         }
     }
 }
 
+sub order_edges($$) {
+    my ($left, $right) = @_;
+    my $l = $edges{$left}{'edge_no'};
+    my $r = $edges{$right}{'edge_no'};
+    return $l <=> $r;
+}
+
 sub dump_complex {
-    # dump_link_table();
+    dump_edges();
     foreach my $c (sort keys %cell_table) {
-        my $c_up = $cell_table{$c};
-        next if ($c == -1);
-        my $cell_lname = ($ALAN) ? letter($c_up) : 'link#'.$c_up;
+        my $c_up = $cell_table{$c}; # edge_no
+        next if ($c == -1); # Internet
+        my $link_no = ($c_up * 2) + 1;
+        my $cell_lname = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
 }
@@ -252,6 +268,8 @@ sub order_mtable($$) {
 # $dir : cell-snd, pe-rcv, pe-snd
 sub add_msgcode {
     my ($c, $p, $msg_type, $event_code, $dir, $tree_id) = @_;
+    # swimming against the flow, or not ??
+    # relate to the wiring diagram, trees segments can be upside-down!
     my $link_no = get_link_no($c, $p);
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
@@ -271,9 +289,11 @@ sub add_msgcode {
 
 sub letter {
     my ($link_no) = @_;
-    my $chan = $link_no / 2;
-    my $compass = $link_no % 1;
-    return chr($link_no + ord('a') - 1); # $chan ...) + (($compass) ? '' : "'");
+    my $edge_no = $link_no / 2;
+    my $compass = $link_no % 2;
+    my $star = ($compass == 0) ? '' : "'";
+    my $name = chr($edge_no + ord('a') - 1);
+    return $name.$star;
 }
 
 # breaking condition is contention for a queue endpoint
@@ -489,8 +509,12 @@ sub meth_connect_link {
     my $rite_cell = nametype($body->{'rite_cell'});
     my $rite_port = portdesc($body->{'rite_port'});
 
+    ## FIXME : GOV magic, should happen thru Discovery!
     ## Complex Entry:
-    add_edge($link_id);
+    if (defined $link_id) {
+        my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
+        activate_edge($lc, $lp, $rc, $rp);
+    }
     print(join(' ', $link_id, ';'));
 }
 
@@ -1161,8 +1185,8 @@ sub meth_ca_forward_saved_msg_application {
 
 sub get_cellagent_port {
     my ($c) = @_;
-    my $link_no = $cell_table{$c};
-    return $link_no;
+    my $edge_no = $cell_table{$c};
+    return $edge_no;
 }
 
 # graphviz format (note :pX is magic)
@@ -1172,42 +1196,54 @@ sub get_link_no {
     return $link_table{$k};
 }
 
-# DANGER: shares link allocation responsibility
-sub cell_table_entry {
-    my ($c) = @_;
-    $max_cell = $c if $c > $max_cell;
-    my $p = 0;
-    my $k = 'C'.$c.':p'.$p;
-    return $cell_table{$c} if $cell_table{$c};
-    ## fill in entry
-    my $link_no = $max_link; $max_link++; # += 2
-    $link_table{$k} = $link_no;
-    $cell_table{$c} = $link_no;
-    return $link_no;
-}
-
 # FIXME
 # should indicate EAST/WEST direction (a, a')
-# could do that with even/odd numbers
-sub link_table_entry {
+# do that with even/odd numbers
+# ISSUE : knows direction, so key really matters (don't allow both!)
+# could canonicalize by sorting cell numbers (uuid)
+sub edge_table_entry {
     my ($lc, $lp, $rc, $rp) = @_;
     my $k1 = 'C'.$lc.':p'.$lp; $k1 = 'Internet' if $lc == -1;
     my $k2 = 'C'.$rc.':p'.$rp;
-
-    my $link_no = $max_link; $max_link++; # += 2
-    $link_table{$k1} = $link_no;
-    $link_table{$k2} = $link_no; # +1
+    my $edge_key = $k1.'->'.$k2;
+    my $edge = {
+        'left_cell' => $lc,
+        'left_port' => $lp,
+        'right_cell' => $rc,
+        'right_port' => $rp,
+        'edge_no' => 0 # illegal value
+    };
+    # not threadsafe: conditionally stores object, then updates it.
+    $edges{$edge_key} = $edge unless defined $edges{$edge_key};
+    my $o = $edges{$edge_key};
+    if ($o->{'edge_no'} == 0) {
+        my $edge_no = $max_edge ; $max_edge++; # allocate
+        $o->{'edge_no'} = $edge_no;
+        # this could be done with edge_no, and then checking the edge object for which end the cell/port is
+        my $link_no = $edge_no * 2;
+        $link_table{$k1} = $link_no;
+        $link_table{$k2} = $link_no + 1;
+    }
+    return $o->{'edge_no'};
 }
 
-# C:0+P:1+C:1+P:1
-sub add_edge {
-    my ($link_id) = @_;
-    return unless $link_id;
-    my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id);
-    my $link_no = link_table_entry($lc, $lp, $rc, $rp);
+sub cell_table_entry {
+    my ($c) = @_;
+    $max_cell = $c if $c > $max_cell;
+    return $cell_table{$c} if $cell_table{$c};
+
+    my $edge_no = edge_table_entry($c, 0, $c, 0); # virtual port #0
+    my $k = 'C'.$c.':p0';
+    $cell_table{$c} = $edge_no;
+    return $edge_no;
+}
+
+sub activate_edge {
+    my ($lc, $lp, $rc, $rp) = @_;
+    my $edge_no = edge_table_entry($lc, $lp, $rc, $rp);
     my $c1_up = cell_table_entry($lc);
     my $c2_up = cell_table_entry($rc);
-    write_edge($lc, $lp, $rc, $rp, $link_no);
+    # write_edge($lc, $lp, $rc, $rp, $edge_no);
 }
 
 # Internet+C:1+P:2
@@ -1215,9 +1251,9 @@ sub border_port {
     my ($cell_id, $port_no) = @_;
     my ($tag, $c) = split(':', $cell_id);
     my $port_index = $port_no; $port_index =~ s/[^\d]//g;
-    my $link_no = link_table_entry(-1, 0, $c, $port_index);
+    my $edge_no = edge_table_entry(-1, 0, $c, $port_index);
     my $c_up = cell_table_entry($c);
-    write_border($c, $port_index, $link_no);
+    # write_border($c, $port_index, $edge_no);
 }
 
 # SEQ OF OBJECT { v }
