@@ -25,6 +25,7 @@ my $schemafile = 'schema-data.txt';
 my $routingfile = 'routing-table.txt';
 my $msgfile = 'msg-dump.txt';
 my $csvfile = 'events.csv';
+my $guidfile = 'guid-table.txt';
 
 my $op_table = {
     'Application' => 'A',
@@ -59,6 +60,7 @@ my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
 my %msg_table; # map : {$payload_text} = $payload_hash
 my %routing_table; # map : {$cell_id}{$entry->{'index'}} => $entry
 my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
+my %guid_table; # map : guid -> name
 
 my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
@@ -83,10 +85,30 @@ dump_routing_tables();
 dump_msgs();
 msg_sheet();
 dump_schema();
+dump_guids();
 
 exit 0;
 
 # --
+
+sub dump_guids {
+    my $fname = $guidfile;
+    my $hdr = 'GUIDS:';
+    my $href = \%guid_table;
+
+    my $path = $result_dir.$fname;
+    open(GUIDS, '>'.$path) or die $path.': '.$!;
+    print GUIDS ($endl);
+    print GUIDS ($hdr, $endl);
+
+    # sort by value
+    foreach my $item (sort { $href->{$a} cmp $href->{$b} } keys %{$href}) {
+        my $hint =  lc(substr($item, -8));
+        print GUIDS (join(' ', $hint, $href->{$item}, $item), $endl);
+    }
+
+    close(GUIDS);
+}
 
 sub open_dot {
     my $path = $result_dir.$dotfile;
@@ -176,11 +198,7 @@ sub get_routing_entry {
 # costly, but validates
 sub hint4uuid {
     my ($ref) = @_;
-    my $word0 = $ref->{'uuid'}[0];
-    my $word1 = $ref->{'uuid'}[1];
-    my $str = sprintf("0x%016x%016x", $word1, $word0);
-    my $guid = Data::GUID->from_hex($str);
-    my $hex_guid = $guid->as_hex;
+    my $hex_guid = xlate_uuid($ref);
     return lc(substr($hex_guid, -8));
 }
 
@@ -397,10 +415,32 @@ sub do_analyze {
     print($endl);
 }
 
+sub xlate_uuid {
+    my ($ref) = @_;
+    my $words = $ref->{'uuid'};
+    return 0 unless $#$words == 1;
+
+    my $w0 = $words->[0];
+    my $w1 = $words->[1];
+
+    unless (defined $w0) {
+        print STDERR (Dumper $ref, $endl);
+        exit 0;
+    }
+
+    my $str = sprintf("0x%016x%016x", $w1, $w0);
+    my $guid = Data::GUID->from_hex($str);
+    my $hex_guid = $guid->as_hex;
+    return $hex_guid;
+}
+
 sub nametype {
     my ($nameref) = @_;
-    my $id = $nameref->{'name'}; $id = '' unless defined $id;
-    return $id;
+    my $name = $nameref->{'name'}; $name = '' unless defined $name;
+    my $uuid = $nameref->{'uuid'};
+    my $guid = xlate_uuid($uuid);
+    $guid_table{$guid} = $name;
+    return $name;
 }
 
 sub portdesc {

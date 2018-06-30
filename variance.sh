@@ -23,6 +23,7 @@ set files = ( \
     msg-dump.txt \
     events.csv \
     schema-data.txt \
+    guid-table.txt \
 )
 
 ls -latrh "${work}/${tag}${epoch}"
