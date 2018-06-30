@@ -104,7 +104,7 @@ sub dump_guids {
     # sort by value
     foreach my $item (sort { $href->{$a} cmp $href->{$b} } keys %{$href}) {
         my $hint =  lc(substr($item, -8));
-        print GUIDS (join(' ', $hint, $href->{$item}, $item), $endl);
+        print GUIDS (join(' ', $hint, $item, $href->{$item}), $endl);
     }
 
     close(GUIDS);
@@ -418,7 +418,7 @@ sub do_analyze {
 sub xlate_uuid {
     my ($ref) = @_;
     my $words = $ref->{'uuid'};
-    return 0 unless $#$words == 1;
+    return '0x00000000000000000000000000000000' unless $#$words == 1;
 
     my $w0 = $words->[0];
     my $w1 = $words->[1];
