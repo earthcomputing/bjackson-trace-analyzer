@@ -1,8 +1,14 @@
 #!/bin/csh -fx
 
+set tag = ""
+set epoch = 1529944245
+
+# cmodel-1530320950
 set tag = "cmodel-"
+set epoch = 1530227070
 set epoch = 1530320950
 
+# triangle-1530400069
 set tag = "triangle-"
 set epoch = 1530400069
 
