@@ -1,7 +1,19 @@
 #!/bin/csh -fx
 
 set tag = "cmodel-"
-set epoch = 1530227070
+set epoch = 1530320950
+
+set tag = "triangle-"
+set epoch = 1530400069
+
+# filtered-1530400069
+set tag = "filtered-"
+set epoch = 1530400069
+
+# onemsg-1530400069
+set tag = "onemsg-"
+set epoch = 1530400069
+
 set datafile = "multicell-trace-${tag}${epoch}.json"
 
 set wdir = "/tmp/${tag}${epoch}/"
@@ -29,7 +41,7 @@ set files = ( \
 ls -latrh "${work}/${tag}${epoch}"
 
 foreach one ( ${files} )
-    diff -w "${work}/${tag}${epoch}/${one}" ${wdir}${one} | cdiff
+    diff -N -w "${work}/${tag}${epoch}/${one}" ${wdir}${one} | cdiff
     # cp ${wdir}${one} "${work}/${tag}${epoch}/"
 end
 
