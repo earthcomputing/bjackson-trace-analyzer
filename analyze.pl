@@ -245,7 +245,8 @@ sub dump_msgs {
     my $path = $result_dir.$msgfile;
     open(FD, '>'.$path) or die $path.': '.$!;
 
-    foreach my $key (sort order_mtable keys %msg_table) {
+    # foreach my $key (sort order_mtable keys %msg_table) {
+    foreach my $key (sort keys %msg_table) {
         my $hint = substr($msg_table{$key}, -5);
         print FD (join(' ', $hint, $key), $endl);
     }
@@ -295,6 +296,12 @@ sub letter {
     my $name = chr($edge_no + ord('a') - 1);
     return $name.$star;
 }
+
+# FIXME -
+# I have a notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
+# There's a possible argument that left-xmit conflicts (must have happens-before) with right-rcv.
+# I'd like to allow for the notion that "the wire" can hold two msgs so that each end can be simultaneously active.
+# this may allow the spreadsheet to be really dense - provided folks reading it understand this game is being played.
 
 # breaking condition is contention for a queue endpoint
 # could construct data into a 2 dimensional data structure (fix number of cells, variable length history)
@@ -593,7 +600,7 @@ sub meth_ca_send_msg_port_connected {
 # /body/msg : OBJECT { header payload }
 # /.../payload : OBJECT { tree_id body }
 # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
-sub ca_send_msg_generic {
+sub meth_ca_send_msg_generic {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
@@ -655,6 +662,7 @@ sub meth_pe_packet_from_ca {
 # guts of the Packet Engine (forwarding)
 
 ## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg_type port_nos tree_id }
 # 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
 sub meth_pe_forward_leafward {
     my ($body, $key) = @_;
@@ -1069,7 +1077,7 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') { meth_ca_listen_vm($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree') { meth_ca_got_from_uptree($body); return; }
     if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg_port_connected($body); return; }
-    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { ca_send_msg_generic($body, $key); return; }
+    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg_generic($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body); return; }
@@ -1152,12 +1160,14 @@ sub meth_pe_packet_from_cm {
 }
 
 # /body : OBJECT { cell_id msg  }
+# /body : OBJECT { cell_id port_no msg  }
 # 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
 sub meth_ca_got_msg_cmodel {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
+    my $port_no = portdesc($body->{'port_no'});
     my $summary = summarize_msg($body->{'msg'});
-    print(join(' ', $cell_id, $summary, ';'));
+    print(join(' ', $cell_id, $port_no, $summary, ';'));
 }
 
 # /body : OBJECT { cell_id msg_type port_nos }
@@ -1289,7 +1299,7 @@ giveup('hash error') unless $payload_hash;
     my $has_manifest = defined($payload->{'manifest'}) ? 'manifest' : '';
 
     my $hint = substr($payload_hash, -5);
-    return join('%%', $msg_type, $sender_id, $direction, $hint, $has_gvm, $has_manifest);
+    return join('%%', $hint, $direction, $msg_type, $sender_id, $has_gvm, $has_manifest);
 }
 
 sub construct_key {
