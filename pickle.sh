@@ -45,6 +45,7 @@ set files = ( \
     events.csv \
     schema-data.txt \
     guid-table.txt \
+    forest.txt \
 )
 
 ls -latrh "${work}/${tag}${epoch}"
