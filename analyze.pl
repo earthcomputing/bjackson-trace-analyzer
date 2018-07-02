@@ -26,6 +26,7 @@ my $routingfile = 'routing-table.txt';
 my $msgfile = 'msg-dump.txt';
 my $csvfile = 'events.csv';
 my $guidfile = 'guid-table.txt';
+my $forestfile = 'forest.txt';
 
 my $op_table = {
     'Application' => 'A',
@@ -67,6 +68,12 @@ my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
 # --
 
+# FIXME - convert to post-processing
+{
+    my $path = $result_dir.$forestfile;
+    open(FOREST, '>'.$path) or die $path.': '.$!;
+    print FOREST (join(' ', 'child', 'parent', 'span-tree', 'link'), $endl);
+}
 
 foreach my $fname (@ARGV) {
     if ($fname eq '-ALAN') { $ALAN = 1; next; }
@@ -77,11 +84,10 @@ foreach my $fname (@ARGV) {
     do_analyze($href);
 }
 
-# FIXME : one dot file for list of inputs
-open_dot();
-dump_complex();
-close_dot();
+close(FOREST);
 
+# ISSUE : one file/report for entire list of inputs
+dump_complex();
 dump_routing_tables();
 dump_msgs();
 msg_sheet();
@@ -109,18 +115,6 @@ sub dump_guids {
     }
 
     close(GUIDS);
-}
-
-sub open_dot {
-    my $path = $result_dir.$dotfile;
-    open(DOT, '>'.$path) or die $path.': '.$!;
-    print DOT ('digraph G {', $endl);
-    print DOT ('rankdir=LR', $endl);
-}
-
-sub close_dot {
-    print DOT ('}', $endl);
-    close(DOT);
 }
 
 # info from activate_edge / meth_connect_link
@@ -177,6 +171,10 @@ sub order_edges($$) {
 }
 
 sub dump_complex {
+    my $path = $result_dir.$dotfile;
+    open(DOT, '>'.$path) or die $path.': '.$!;
+    print DOT ('digraph G {', $endl);
+    print DOT ('rankdir=LR', $endl);
     dump_edges();
     foreach my $c (sort keys %cell_table) {
         my $c_up = $cell_table{$c}; # edge_no
@@ -185,6 +183,8 @@ sub dump_complex {
         my $cell_lname = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
+    print DOT ('}', $endl);
+    close(DOT);
 }
 
 sub dump_schema {
@@ -1159,15 +1159,50 @@ sub meth_pe_packet_from_cm {
     print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
 }
 
-# /body : OBJECT { cell_id msg  }
+## IMPORTANT : Forest/DiscoverD
 # /body : OBJECT { cell_id port_no msg  }
 # 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
+#
+# parent :    /body/cell_id: NAME_TYPE                # "C:0"
+# link :      /body/port_no : PORT_DESC               # - relative to this node, aka parent
+# msg_type :  /body/msg/header/msg_type : String      # "DiscoverD"
+# child :     /body/msg/header/sender_id : NAME_TYPE  # "Sender:C:1+CellAgent"
+# span-tree : /body/msg/payload/tree_id : NAME_TYPE   # "Tree:C:0"
 sub meth_ca_got_msg_cmodel {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $port_no = portdesc($body->{'port_no'});
     my $summary = summarize_msg($body->{'msg'});
+
     print(join(' ', $cell_id, $port_no, $summary, ';'));
+
+    # /.../msg/header/msg_type
+    # /.../msg/header/sender_id
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+
+    my $msg_type = $header->{'msg_type'};
+
+    return unless $msg_type eq 'DiscoverD';
+
+    ## sort out link/edge/bias:
+
+    # FIXME
+    my $p = $body->{'port_no'}{'v'};
+    # my $link = ($parent, $p);
+    # my ($edge, $bias) = ($link);
+
+    ## Forest / DiscoverD
+    my $sender_id = nametype($header->{'sender_id'});
+    my $tree_id = nametype($payload->{'tree_id'});
+
+    # FIXME : parse names
+    my $parent = $cell_id;
+    my $child = $sender_id;
+    my $span_tree = $tree_id;
+
+    print FOREST (join(' ', $child, $parent, $span_tree, $parent.':v'.$p), $endl);
 }
 
 # /body : OBJECT { cell_id msg_type port_nos }
