@@ -69,6 +69,6 @@ foreach one ( ${files} )
     cp ${wdir}${one} "${archive}/"
 end
 
-ls -latrh "${work}"
+ls -latrh "${archive}"
 
 exit 0
