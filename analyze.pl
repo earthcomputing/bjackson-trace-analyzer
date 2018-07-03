@@ -20,13 +20,13 @@ if ( $#ARGV < 0 ) {
     exit -1
 }
 
-my $dotfile = 'complex.dot';
+my $dotfile = 'complex.gv';
 my $schemafile = 'schema-data.txt';
 my $routingfile = 'routing-table.txt';
 my $msgfile = 'msg-dump.txt';
 my $csvfile = 'events.csv';
 my $guidfile = 'guid-table.txt';
-my $forestfile = 'forest.txt';
+my $forestfile = 'forest.gv';
 
 my $op_table = {
     'Application' => 'A',
@@ -43,6 +43,26 @@ my $arrow_code = {
     'pe-snd' => '->'
 };
 
+my $gamut = {
+    'Tree:C:0' => 'red',
+    'Tree:C:1' => 'green',
+    'Tree:C:2' => 'blue',
+    'Tree:C:3' => 'cyan',
+    'Tree:C:4' => 'magenta',
+    'Tree:C:5' => 'purple', # 'yellow' - bad visual choices
+    'Tree:C:6' => 'navy',
+    'Tree:C:7' => 'green',
+    'Tree:C:8' => 'maroon',
+    'Tree:C:9' => 'turquoise4' # teal, 'olive'
+};
+
+sub pick_color {
+    my ($span_tree) = @_;
+    my $color = $gamut->{$span_tree};
+    return 'black' unless $color;
+    return $color;
+}
+
 # --
 
 my $ALAN;
@@ -57,6 +77,9 @@ my $max_edge = 1; # avoid 0
 my %edges; # map : "Cx:pX->Cy:pY" -> { 'left_cell' 'left_port' 'right_cell' 'right_port' 'edge_no' }; # plus 'Internet'
 my %link_table; # map : 'Cx:py' -> $link_no
 
+my $max_forest = 1;
+my %forest; # map : int -> { span_tree parent p child }
+
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
 my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
 my %msg_table; # map : {$payload_text} = $payload_hash
@@ -68,13 +91,6 @@ my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
 # --
 
-# FIXME - convert to post-processing
-{
-    my $path = $result_dir.$forestfile;
-    open(FOREST, '>'.$path) or die $path.': '.$!;
-    print FOREST (join(' ', 'child', 'parent', 'span-tree', 'link'), $endl);
-}
-
 foreach my $fname (@ARGV) {
     if ($fname eq '-ALAN') { $ALAN = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
@@ -84,8 +100,6 @@ foreach my $fname (@ARGV) {
     do_analyze($href);
 }
 
-close(FOREST);
-
 # ISSUE : one file/report for entire list of inputs
 dump_complex();
 dump_routing_tables();
@@ -93,6 +107,7 @@ dump_msgs();
 msg_sheet();
 dump_schema();
 dump_guids();
+dump_forest();
 
 exit 0;
 
@@ -1202,7 +1217,55 @@ sub meth_ca_got_msg_cmodel {
     my $child = $sender_id;
     my $span_tree = $tree_id;
 
-    print FOREST (join(' ', $child, $parent, $span_tree, $parent.':v'.$p), $endl);
+    add_tree_link($span_tree, $parent, $p, $child);
+}
+
+sub add_tree_link {
+    my ($span_tree, $parent, $p, $child) = @_;
+    my $o = {
+        'span_tree' => $span_tree,
+        'parent' => $parent,
+        'p' => $p,
+        'child' => $child,
+    };
+    my $k = $max_forest++;
+    $forest{$k} = $o;
+}
+
+# C1 -> C0:p1 [label="Tree:C0" color=red]
+sub dump_forest {
+    my $path = $result_dir.$forestfile;
+    open(FOREST, '>'.$path) or die $path.': '.$!;
+    print FOREST ('digraph G {', $endl);
+    print FOREST ('rankdir=LR', $endl);
+    # print FOREST (join(' ', 'span-tree', 'parent', 'link', 'child'), $endl);
+    foreach my $k (sort order_forest keys %forest) {
+        my $o = $forest{$k};
+        my $right = $o->{'parent'}.':p'.$o->{'p'};
+        my $left = $o->{'child'};
+        my $span_tree = $o->{'span_tree'};
+        my $color = pick_color($span_tree);
+        my $label = '[label="'.$span_tree.'" color='.$color.']';
+$left =~ s/Sender:C:/C/;
+$left =~ s/\+CellAgent//;
+$right =~ s/://;
+$label =~ s/C:/C/;
+        print FOREST (join(' ', $left, '->', $right, $label), $endl);
+    }
+    print FOREST ('}', $endl);
+    close(FOREST);
+}
+
+sub order_forest($$) {
+    my ($left, $right) = @_;
+    my $l_tree = $forest{$left}{'span_tree'};
+    my $r_tree = $forest{$right}{'span_tree'};
+    return $l_tree cmp $r_tree unless $l_tree eq $r_tree;
+
+    my $l = $forest{$left}{'child'};
+    my $r = $forest{$right}{'child'};
+    # return $l <=> $r;
+    return $l cmp $r;
 }
 
 # /body : OBJECT { cell_id msg_type port_nos }
@@ -1585,5 +1648,18 @@ sub snarf {
     my @records = split('}{', $body);
     return @records;
 }
+
+http://www.graphviz.org/doc/info/colors.html
+https://en.wikipedia.org/wiki/Web_colors
+
+"#ffffff", "#ff0000", "#00ff00", "#0000ff", // white(#ffffff), red(#ff0000), green(#00ff00), blue(#0000ff)
+"#000000", "#00ffff", "#ff00ff", "#ffff00", // black(#000000), cyan(#00ffff), magenta(#ff00ff) yellow(#ffff00)
+"#c0c0c0",  // silver(#c0c0c0)
+"#000080", "#008000", "#800000", // navy, green (old), maroon
+"#808000", "#800080", "#008080", // olive, purple, teal
+"#808080", // gray
+// lime=green
+// aqua=cyan
+// fuchsia=magenta
 
 _eof_

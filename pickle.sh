@@ -23,10 +23,16 @@ set epoch = 1530400069
 set tag = "triangle-"
 set epoch = 1530400069
 
+# cmodel-1530320950
+set tag = "cmodel-"
+set epoch = 1530227070
+set epoch = 1530320950
+
 set datafile = "multicell-trace-${tag}${epoch}.json"
 
 set wdir = "/tmp/${tag}${epoch}/"
 set work = "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data"
+set archive = "${work}/${tag}${epoch}"
 
 mkdir -p ${wdir}
 
@@ -34,26 +40,33 @@ sha1sum.sh sample-data/${datafile} "${work}/${datafile}"
 # cp sample-data/${datafile} "$work/${datafile}"
 
 analyze.pl -ALAN -wdir=${wdir} sample-data/${datafile} > ${wdir}raw-analysis.txt
+
+set rc = $status
+if ($rc != 0) then
+    echo 'STATUS: ' ${status}
+    exit ${status}
+endif
+
 cat ${wdir}raw-analysis.txt | post-process.sh > ${wdir}threaded-analysis.txt
 
 set files = ( \
     raw-analysis.txt \
     threaded-analysis.txt \
-    complex.dot \
+    complex.gv \
     routing-table.txt \
     msg-dump.txt \
     events.csv \
     schema-data.txt \
     guid-table.txt \
-    forest.txt \
+    forest.gv \
 )
 
-ls -latrh "${work}/${tag}${epoch}"
+ls -latrh "${archive}"
 
-mkdir -p "${work}/${tag}${epoch}"
+mkdir -p "${archive}"
 foreach one ( ${files} )
-    # diff -N -w "${work}/${tag}${epoch}/${one}" ${wdir}${one} | cdiff
-    cp ${wdir}${one} "${work}/${tag}${epoch}/"
+    # diff -N -w "${archive}/${one}" ${wdir}${one} | cdiff
+    cp ${wdir}${one} "${archive}/"
 end
 
 ls -latrh "${work}"
