@@ -132,6 +132,40 @@ sub dump_guids {
     close(GUIDS);
 }
 
+# accelerate with an inverted map
+sub find_edge {
+    my ($edge_no) = @_;
+    foreach my $k (keys %edges) {
+        my $o = $edges{$k};
+        return $o if $o->{'edge_no'} == $edge_no;
+    }
+    giveup('find_edge: not found? '.$edge_no);
+}
+
+sub write_link {
+    my ($link_no, $label) = @_;
+    my $edge_no = int($link_no / 2);
+    my $compass = $link_no % 2;
+
+    my $o = find_edge($edge_no);
+
+    my $lc = $o->{'left_cell'};
+    my $lp = $o->{'left_port'};
+    my $rc = $o->{'right_cell'};
+    my $rp = $o->{'right_port'};
+
+    giveup('bad link') if ($lc == -1); # 'Internet'
+
+    if ($compass) {
+        my $attrs = '[label="'.$label.'" color=red]';
+        printf DOT ("C%d:p%d -> C%d:p%d %s\n", $lc, $lp, $rc, $rp, $attrs); # [label=\"p%d:p%d,\\n%s\"]
+    }
+    else {
+        my $attrs = '[label="'.$label.'" color=blue]';
+        printf DOT ("C%d:p%d -> C%d:p%d %s\n", $rc, $rp, $lc, $lp, $attrs); # [label=\"p%d:p%d,\\n%s\"]
+    }
+}
+
 # info from activate_edge / meth_connect_link
 sub write_edge {
     my ($lc, $lp, $rc, $rp, $edge_no) = @_;
@@ -198,8 +232,27 @@ sub dump_complex {
         my $cell_lname = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
+    add_overlay();
     print DOT ('}', $endl);
     close(DOT);
+}
+
+sub add_overlay {
+    my %target;
+    foreach my $k (sort order_forest keys %forest) {
+        my $o = $forest{$k};
+        my $root = $o->{'root'};
+        my $link_no = $o->{'link_no'};
+
+        $target{$link_no} = [] unless $target{$link_no}; # ensure defined
+        push($target{$link_no}, $root);
+
+    }
+    foreach my $l (sort keys %target) {
+        my @cells = @{$target{$l}};
+        my $label = '( C'.join(' C', sort @cells).' )'; # list of roots
+        write_link($l, $label);
+    }
 }
 
 sub dump_schema {
@@ -305,7 +358,7 @@ sub add_msgcode {
 
 sub letter {
     my ($link_no) = @_;
-    my $edge_no = $link_no / 2;
+    my $edge_no = int($link_no / 2);
     my $compass = $link_no % 2;
     my $star = ($compass == 0) ? '' : "'";
     my $name = chr($edge_no + ord('a') - 1);
@@ -1222,15 +1275,29 @@ sub meth_ca_got_msg_cmodel {
 
 sub add_tree_link {
     my ($span_tree, $parent, $p, $child) = @_;
+
+    my $link_no;
+    {
+        my ($x, $c) = split(':', $parent);
+        $link_no = get_link_no($c, $p);
+    }
+    my $root;
+    {
+        my ($x, $y, $c) = split(':', $span_tree);
+        $root = $c;
+    }
     $span_tree =~ s/C:/C/;
     $parent =~ s/://;
     $child =~ s/Sender:C:/C/;
     $child =~ s/\+CellAgent//;
+
     my $o = {
         'span_tree' => $span_tree,
         'parent' => $parent,
         'p' => $p,
         'child' => $child,
+        'root' => $root,
+        'link_no' => $link_no
     };
     my $k = $max_forest++;
     $forest{$k} = $o;
