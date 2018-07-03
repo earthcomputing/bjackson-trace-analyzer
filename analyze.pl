@@ -44,16 +44,16 @@ my $arrow_code = {
 };
 
 my $gamut = {
-    'Tree:C:0' => 'red',
-    'Tree:C:1' => 'green',
-    'Tree:C:2' => 'blue',
-    'Tree:C:3' => 'cyan',
-    'Tree:C:4' => 'magenta',
-    'Tree:C:5' => 'purple', # 'yellow' - bad visual choices
-    'Tree:C:6' => 'navy',
-    'Tree:C:7' => 'green',
-    'Tree:C:8' => 'maroon',
-    'Tree:C:9' => 'turquoise4' # teal, 'olive'
+    'Tree:C0' => 'red',
+    'Tree:C1' => 'green',
+    'Tree:C2' => 'blue',
+    'Tree:C3' => 'cyan',
+    'Tree:C4' => 'magenta',
+    'Tree:C5' => 'purple', # 'yellow' - bad visual choices
+    'Tree:C6' => 'navy',
+    'Tree:C7' => 'green',
+    'Tree:C8' => 'maroon',
+    'Tree:C9' => 'turquoise4' # teal, 'olive'
 };
 
 sub pick_color {
@@ -1222,6 +1222,10 @@ sub meth_ca_got_msg_cmodel {
 
 sub add_tree_link {
     my ($span_tree, $parent, $p, $child) = @_;
+    $span_tree =~ s/C:/C/;
+    $parent =~ s/://;
+    $child =~ s/Sender:C:/C/;
+    $child =~ s/\+CellAgent//;
     my $o = {
         'span_tree' => $span_tree,
         'parent' => $parent,
@@ -1241,16 +1245,21 @@ sub dump_forest {
     # print FOREST (join(' ', 'span-tree', 'parent', 'link', 'child'), $endl);
     foreach my $k (sort order_forest keys %forest) {
         my $o = $forest{$k};
-        my $right = $o->{'parent'}.':p'.$o->{'p'};
-        my $left = $o->{'child'};
+        my $parent = $o->{'parent'};
+        my $child = $o->{'child'};
         my $span_tree = $o->{'span_tree'};
+        my $port = $o->{'p'};
+
+        my $dst_link = $parent.':p'.$port;
+        my $src_link = $child;
+
+        my $left = $src_link;
+        my $right = $dst_link;
+        my $label = $span_tree;
         my $color = pick_color($span_tree);
-        my $label = '[label="'.$span_tree.'" color='.$color.']';
-$left =~ s/Sender:C:/C/;
-$left =~ s/\+CellAgent//;
-$right =~ s/://;
-$label =~ s/C:/C/;
-        print FOREST (join(' ', $left, '->', $right, $label), $endl);
+
+        my $attrs = '[label="'.$label.'" color='.$color.']';
+        print FOREST (join(' ', $left, '->', $right, $attrs), $endl);
     }
     print FOREST ('}', $endl);
     close(FOREST);
