@@ -1206,6 +1206,8 @@ sub meth_ca_listen_cm {
 # 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
 sub meth_ca_listen_pe_cmodel {
     my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    print(join(' ', $cell_id, ';'));
 }
 
 # /body : OBJECT { cell_id msg  }
