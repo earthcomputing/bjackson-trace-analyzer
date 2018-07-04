@@ -39,7 +39,7 @@ mkdir -p ${wdir}
 sha1sum.sh sample-data/${datafile} "${work}/${datafile}"
 # cp sample-data/${datafile} "$work/${datafile}"
 
-analyze.pl -ALAN -wdir=${wdir} sample-data/${datafile} > ${wdir}raw-analysis.txt
+analyze.pl -wdir=${wdir} sample-data/${datafile} > ${wdir}raw-analysis.txt
 
 set rc = $status
 if ($rc != 0) then

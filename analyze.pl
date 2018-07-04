@@ -16,7 +16,7 @@ my $dquot = '"';
 my $blank = ' ';
 
 if ( $#ARGV < 0 ) {
-    print('usage: [-dump] [-ALAN] [-filter=C:2] analyze xx.json ...', $endl);
+    print('usage: [-dump] [-NOT_ALAN] [-filter=C:2] analyze xx.json ...', $endl);
     exit -1
 }
 
@@ -65,7 +65,7 @@ sub pick_color {
 
 # --
 
-my $ALAN;
+my $NOT_ALAN;
 my $code_filter;
 my $debug;
 my $result_dir = '/tmp/'; # can be blank!?
@@ -92,7 +92,7 @@ my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 # --
 
 foreach my $fname (@ARGV) {
-    if ($fname eq '-ALAN') { $ALAN = 1; next; }
+    if ($fname eq '-NOT_ALAN') { $NOT_ALAN = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     print($endl, $fname, $endl);
@@ -169,28 +169,28 @@ sub write_link {
 # info from activate_edge / meth_connect_link
 sub write_edge {
     my ($lc, $lp, $rc, $rp, $edge_no) = @_;
-    if ($ALAN) {
+    if ($NOT_ALAN) {
+        my $link_name = 'link#'.$edge_no;
+        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
+    }
+    else {
         my $link_no = $edge_no * 2;
         my $link_name = letter($link_no);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
-    }
-    else {
-        my $link_name = 'link#'.$edge_no;
-        printf DOT ("C%d:p%d -> C%d:p%d [label=\"p%d:p%d,\\n%s\"]\n", $lc, $lp, $rc, $rp, $lp, $rp, $link_name);
     }
 }
 
 # info from border_port / meth_ca_send_msg_port_connected
 sub write_border {
     my ($c, $p, $edge_no) = @_;
-    if ($ALAN) {
+    if ($NOT_ALAN) {
+        my $link_name = 'link#'.$edge_no;
+        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
+    }
+    else {
         my $link_no = $edge_no * 2;
         my $link_name = letter($link_no);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
-    }
-    else {
-        my $link_name = 'link#'.$edge_no;
-        printf DOT ("Internet -> C%d:p%d [label=\"p%d,\\n%s\"]\n", $c, $p, $p, $link_name);
     }
 }
 
@@ -229,7 +229,7 @@ sub dump_complex {
         my $c_up = $cell_table{$c}; # edge_no
         next if ($c == -1); # Internet
         my $link_no = ($c_up * 2) + 1;
-        my $cell_lname = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
+        my $cell_lname = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no) 
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
     add_overlay();
@@ -343,7 +343,7 @@ sub add_msgcode {
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
-    my $link_code = ($ALAN) ? letter($link_no) : 'link#'.$link_no;
+    my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no) ;
     my $code = $crypt.$arrow.$link_code.$endl.'('.$tree_id.')'; # $blank
     my $o = {
         'event_code' => $event_code,
