@@ -1,34 +1,16 @@
 #!/bin/csh -fx
 
+# sample-data/multicell-trace-triangle-1530634503352636.json.gz
+# sample-data/multicell-trace-square-1530635880772557.json.gz
+# sample-data/multicell-trace-cmodel-1530635964794727.json.gz
+
+set tag = "cmodel-"
+set epoch = 1530635964794727
+
 # git commit -a
 # git push
 
-set tag = ""
-set epoch = 1529944245
-
-# cmodel-1530320950
-set tag = "cmodel-"
-set epoch = 1530227070
-set epoch = 1530320950
-
-# filtered-1530400069
-set tag = "filtered-"
-set epoch = 1530400069
-
-# onemsg-1530400069
-set tag = "onemsg-"
-set epoch = 1530400069
-
-# triangle-1530400069
-set tag = "triangle-"
-set epoch = 1530400069
-
-# cmodel-1530320950
-set tag = "cmodel-"
-set epoch = 1530227070
-set epoch = 1530320950
-
-set datafile = "multicell-trace-${tag}${epoch}.json"
+set datafile = "multicell-trace-${tag}${epoch}.json.gz"
 
 set wdir = "/tmp/${tag}${epoch}/"
 set work = "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data"

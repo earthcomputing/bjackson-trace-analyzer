@@ -229,7 +229,7 @@ sub dump_complex {
         my $c_up = $cell_table{$c}; # edge_no
         next if ($c == -1); # Internet
         my $link_no = ($c_up * 2) + 1;
-        my $cell_lname = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no) 
+        my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letter($link_no);
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
     add_overlay();
@@ -343,7 +343,7 @@ sub add_msgcode {
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
-    my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no) ;
+    my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no);
     my $code = $crypt.$arrow.$link_code.$endl.'('.$tree_id.')'; # $blank
     my $o = {
         'event_code' => $event_code,
@@ -1161,8 +1161,6 @@ sub dispatch {
     ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_listen_ports($body); return; }
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
-# NEW:
-
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe') { meth_ca_listen_pe_cmodel($body); return; }
     if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body); return; }
     if ($methkey eq 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca') { meth_cm_bytes_to_ca($body); return; }
@@ -1170,6 +1168,9 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
+
+# NEW:
+    if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
 
     print($endl);
 
@@ -1192,11 +1193,19 @@ sub meth_xx {
 # NEW
 
 # /body : OBJECT { cell_id }
-# 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
-sub meth_ca_listen_pe_cmodel {
+# 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm'
+sub meth_ca_listen_cm {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     print(join(' ', $cell_id, ';'));
+}
+
+# --
+
+# /body : OBJECT { cell_id }
+# 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
+sub meth_ca_listen_pe_cmodel {
+    my ($body) = @_;
 }
 
 # /body : OBJECT { cell_id msg  }
@@ -1542,7 +1551,9 @@ sub order_numseq_basic($$) {
 
 sub inhale {
     my ($path) = @_;
-    open(FD, '<'.$path) or die $path.': '.$!;
+    my $gzip = $path =~ m/.gz$/;
+    my $openspec = ($gzip) ?  'gzcat '.$path.'|' : '<'.$path;
+    open(FD, $openspec) or die $path.': '.$!;
     my @body = <FD>;
     close(FD);
     return @body;
