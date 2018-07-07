@@ -107,7 +107,7 @@ dump_msgs();
 dump_schema();
 dump_guids();
 dump_forest();
-# msg_sheet();
+msg_sheet();
 
 exit 0;
 
@@ -344,12 +344,13 @@ sub add_msgcode {
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
     my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letters($link_no);
-    my $code = $crypt.$arrow.$link_code.$endl.'('.$tree_id.')'; # $blank
+    my $code = $crypt.$arrow.$link_code.' '.'('.$tree_id.')'; # $blank
     my $o = {
         'event_code' => $event_code,
         'tree_id' => $tree_id,
         'cell_no' => $c,
         'link_no' => $link_no,
+        'arrow' => $arrow,
         'code' => $code
     };
 
@@ -371,54 +372,50 @@ sub letters {
     return $name.$star;
 }
 
-# FIXME -
-# I have a notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
+# uses the notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
 # There's a possible argument that left-xmit conflicts (must have happens-before) with right-rcv.
-# I'd like to allow for the notion that "the wire" can hold two msgs so that each end can be simultaneously active.
-# this may allow the spreadsheet to be really dense - provided folks reading it understand this game is being played.
+# instead, allow for the notion that "the wire" can hold two msgs so that each end can be simultaneously active.
+# allows the spreadsheet to be really dense - provided folks reading it understand the game rules
 
 # breaking condition is contention for a queue endpoint
 # could construct data into a 2 dimensional data structure (fix number of cells, variable length history)
-# combine operations by ((in x out) x ports)
-# use a row-busy bitvector - can keep it in cell table ?
-# FIXME
-# only supports 60 cells or links
 sub msg_sheet {
     my $path = $result_dir.$csvfile;
     open(CSV, '>'.$path) or die $path.': '.$!;
     print CSV (join(',', 'event/cell', 0..9), $endl);
     my @row = ();
-    my $c_overwrite = 0;
-    my $l_overwrite = 0;
+
+    my %queue_table;
+
     foreach my $item (sort order_msgs @msgqueue) {
-my $code = $item->{'code'};
-if (defined $code_filter) { next unless $code =~ $code_filter; }
+        my $code = $item->{'code'};
+        if (defined $code_filter) { next unless $code =~ $code_filter; }
+
         my $c = $item->{'cell_no'};
         my $l = $item->{'link_no'};
-        giveup('more than 60 cells?') if $c > 60;
-        giveup('more than 60 links?') if $l > 60;
-        my $cindex = 1 << $c;
-        my $lindex = 1 << $l;
+        my $arrow = $item->{'arrow'};
+
+        my $chan = $l.$arrow;
+        my $interlock = $queue_table{$chan};
+        $queue_table{$chan}++;
+
         # causal relationship - cell-agent queue and link queues are sequential
         # check if the queue is busy:
-        my $has_c = $c_overwrite & $cindex;
-        my $has_l = $l_overwrite & $lindex;
-        if ($has_c or $has_l) {
-            $c_overwrite = 0;
-            $l_overwrite = 0;
+        if (defined $interlock) {
             foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
-            print CSV (join(',', $item->{'event_code'}, @row), $endl);
+            print CSV (join(',', $item->{'event_code'}, map { $dquot.$_.$dquot } @row), $endl);
             @row = ();
+            %queue_table = ();
         }
 
-        $c_overwrite |= $cindex;
-        $l_overwrite |= $lindex;
-        $row[$c] = $dquot.$code.$dquot;
+        my $prev = $row[$c];
+        $code .= $endl.$prev if $prev;
+        $row[$c] = $code;
     }
 
     # dangling data:
     foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
-    print CSV (join(',', 'last', @row), $endl);
+    print CSV (join(',', 'last', map { $dquot.$_.$dquot } @row), $endl);
     close(CSV);
 }
 
