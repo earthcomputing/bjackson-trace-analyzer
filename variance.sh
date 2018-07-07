@@ -7,6 +7,9 @@
 set tag = "cmodel-"
 set epoch = 1530635964794727
 
+set tag = "distributed-"
+set epoch = 1530937085270224
+
 set datafile = "multicell-trace-${tag}${epoch}.json.gz"
 
 set wdir = "/tmp/${tag}${epoch}/"

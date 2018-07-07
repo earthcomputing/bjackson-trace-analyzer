@@ -104,10 +104,10 @@ foreach my $fname (@ARGV) {
 dump_complex();
 dump_routing_tables();
 dump_msgs();
-msg_sheet();
 dump_schema();
 dump_guids();
 dump_forest();
+# msg_sheet();
 
 exit 0;
 
@@ -175,7 +175,7 @@ sub write_edge {
     }
     else {
         my $link_no = $edge_no * 2;
-        my $link_name = letter($link_no);
+        my $link_name = letters($link_no);
         printf DOT ("C%d:p%d -> C%d:p%d [label=\"%s\"]\n", $lc, $lp, $rc, $rp, $link_name);
     }
 }
@@ -189,7 +189,7 @@ sub write_border {
     }
     else {
         my $link_no = $edge_no * 2;
-        my $link_name = letter($link_no);
+        my $link_name = letters($link_no);
         printf DOT ("Internet -> C%d:p%d [label=\"%s\"]\n", $c, $p, $link_name);
     }
 }
@@ -229,7 +229,7 @@ sub dump_complex {
         my $c_up = $cell_table{$c}; # edge_no
         next if ($c == -1); # Internet
         my $link_no = ($c_up * 2) + 1;
-        my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letter($link_no);
+        my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letters($link_no);
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
     add_overlay();
@@ -343,7 +343,7 @@ sub add_msgcode {
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type};
-    my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letter($link_no);
+    my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letters($link_no);
     my $code = $crypt.$arrow.$link_code.$endl.'('.$tree_id.')'; # $blank
     my $o = {
         'event_code' => $event_code,
@@ -356,12 +356,18 @@ sub add_msgcode {
     push(@msgqueue, $o);
 }
 
-sub letter {
+sub letters {
     my ($link_no) = @_;
     my $edge_no = int($link_no / 2);
     my $compass = $link_no % 2;
     my $star = ($compass == 0) ? '' : "'";
-    my $name = chr($edge_no + ord('a') - 1);
+
+    my $little = $edge_no % 26;
+    my $more = int($edge_no / 26);
+
+    my $ch0 = chr($little + ord('a') - 1);
+    my $ch1= chr($more + ord('a') - 1);
+    my $name = $ch0; $name = $ch1.$ch0 if $more > 0; # 676 edges (vs. 17,576 or 456,976 edges)
     return $name.$star;
 }
 
