@@ -3,12 +3,17 @@
 # sample-data/multicell-trace-triangle-1530634503352636.json.gz
 # sample-data/multicell-trace-square-1530635880772557.json.gz
 # sample-data/multicell-trace-cmodel-1530635964794727.json.gz
+# sample-data/multicell-trace-distributed-1530937085270224.json.gz
+## sample-data/multicell-trace-decentralized-1530858754526305.json.gz
 
 set tag = "cmodel-"
 set epoch = 1530635964794727
 
 set tag = "distributed-"
 set epoch = 1530937085270224
+
+set tag = "triangle-"
+set epoch = 1530634503352636
 
 # git commit -a
 # git push
@@ -35,15 +40,17 @@ endif
 cat ${wdir}raw-analysis.txt | post-process.sh > ${wdir}threaded-analysis.txt
 
 set files = ( \
-    raw-analysis.txt \
-    threaded-analysis.txt \
     complex.gv \
-    routing-table.txt \
-    msg-dump.txt \
     events.csv \
-    schema-data.txt \
-    guid-table.txt \
     forest.gv \
+    guid-table.txt \
+    gvm-table.txt \
+    manifest-table.txt \
+    msg-dump.txt \
+    raw-analysis.txt \
+    routing-table.txt \
+    schema-data.txt \
+    threaded-analysis.txt \
 )
 
 ls -latrh "${archive}"
