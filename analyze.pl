@@ -27,6 +27,20 @@ my $msgfile = 'msg-dump.txt';
 my $csvfile = 'events.csv';
 my $guidfile = 'guid-table.txt';
 my $forestfile = 'forest.gv';
+my $gvmfile = 'gvm-table.txt'; my %gvm_table;
+my $manifestfile = 'manifest-table.txt'; my %manifest_table;
+
+# "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
+sub note_value {
+    my ($href, $value) = @_;
+    return unless $value;
+
+    my $json_text = JSON->new->canonical->encode($value);
+    giveup('encode error') unless $json_text;
+    my $hc = sha1_hex($json_text);
+    giveup('hash error') unless $hc;
+    $href->{$json_text} = $hc;
+}
 
 my $op_table = {
     'Application' => 'A',
@@ -103,7 +117,9 @@ foreach my $fname (@ARGV) {
 # ISSUE : one file/report for entire list of inputs
 dump_complex();
 dump_routing_tables();
-dump_msgs();
+dump_msgs($msgfile, \%msg_table);
+dump_msgs($gvmfile, \%gvm_table);
+dump_msgs($manifestfile, \%manifest_table);
 dump_schema();
 dump_guids();
 dump_forest();
@@ -310,12 +326,12 @@ sub dump_routing_tables {
 }
 
 sub dump_msgs {
-    my $path = $result_dir.$msgfile;
+    my ($file, $href) = @_;
+    my $path = $result_dir.$file;
     open(FD, '>'.$path) or die $path.': '.$!;
 
-    # foreach my $key (sort order_mtable keys %msg_table) {
-    foreach my $key (sort keys %msg_table) {
-        my $hint = substr($msg_table{$key}, -5);
+    foreach my $key (sort keys $href) {
+        my $hint = substr($href->{$key}, -5);
         print FD (join(' ', $hint, $key), $endl);
     }
 
@@ -327,10 +343,12 @@ sub dump_msgs {
 # return $left <=> $right; # numerically
 sub order_mtable($$) {
     my ($left, $right) = @_;
-    my $left_hint = substr($msg_table{$left}, -5);
-    my $right_hint = substr($msg_table{$right}, -5);
+    my $href = \%msg_table;
+
+    my $left_hint = substr($href->{$left}, -5);
+    my $right_hint = substr($href->{$right}, -5);
     return $left_hint cmp $right_hint unless $left_hint eq $right_hint;
-    return $msg_table{$left} cmp $msg_table{$right};
+    return $href->{$left} cmp $href->{$right};
 }
 
 # link#
@@ -831,7 +849,8 @@ sub meth_ca_update_traph {
     my $other_index = $body->{'other_index'}; # NUMBER
     # 'children' => [],
     # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
-    # FIXME
+    my $gvm = $body->{'gvm'};
+    note_value(\%gvm_table, $gvm);
     print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, ';'));
 }
 
@@ -1483,8 +1502,14 @@ giveup('hash error') unless $payload_hash;
 
     # /msg/payload/gvm_eqn
     # /msg/payload/manifest
-    my $has_gvm = defined($payload->{'gvm_eqn'}) ? 'gvm' : '';
-    my $has_manifest = defined($payload->{'manifest'}) ? 'manifest' : '';
+    my $gvm_eqn = $payload->{'gvm_eqn'};
+    note_value(\%gvm_table, $gvm_eqn);
+
+    my $manifest = $payload->{'manifest'};
+    note_value(\%manifest_table, $manifest);
+
+    my $has_gvm = defined($gvm_eqn) ? 'gvm' : '';
+    my $has_manifest = defined($manifest) ? 'manifest' : '';
 
     my $hint = substr($payload_hash, -5);
     return join('%%', $hint, $direction, $msg_type, $sender_id, $has_gvm, $has_manifest);
