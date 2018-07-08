@@ -4,7 +4,7 @@
     aka Stream Processing System
     Kafka Model (highly scalable)
 
-hint: https://github.github.com/gfm/
+GitHub Flavored Markdown: https://github.github.com/gfm/
 
 ## NAME_TYPE:
 
@@ -33,19 +33,18 @@ hint: https://github.github.com/gfm/
     /header/event_id[] : SEQ OF NUMBER
     /header/epoch : NUMBER
 
-For now, trace record parsing is done on a per unique "emitter" basis :
+Trace record parsing is done on a per unique "emitter key" basis :
 
-    my $methkey = join('$$', $module, $function, $kind, $format);
-    SHOULD also include $repo
+    my $emitter_key = join('$$', $repo, $module, $function, $kind, $format);
 
-Each trace record SHOULD have a unique "key".  In order to be defensive against bugs, adding a stream sequence number disambiguates things.  The notion here is that a number of independent emitters may be publishing trace records thru the same channel HOWEVER sequential in the channel DOES NOT imply causal ordering.  Ordering by key is a causal guarantee (from the actual emitter).
+Each record SHOULD have a unique "trace key".  In order to be defensive against bugs, adding a stream sequence number (or lineno) disambiguates things.  The notion here is that a number of independent emitters may be publishing trace records thru the same channel HOWEVER sequential in the channel DOES NOT necessarily imply causal ordering.  Ordering by key is a causal guarantee (from the actual emitter).
 
-    my $key = join('::', $thread_id, $event_id, $lineno);
+    my $trace_key = join('::', $thread_id, $event_id, $lineno);
 
 ## MAIN:
 
     https://github.com/earthcomputing/${repo}.git
-    1529618416 (20180621-150016 PDT)
+    1530634503352636 (20180703-161503.352636 PDT)
 
     "body": {
         "schema_version": "0.1",
@@ -200,19 +199,94 @@ Each trace record SHOULD have a unique "key".  In order to be defensive against 
 
 ## Datacenter 'Complex' wiring diagram:
 
+    ## IMPORTANT : link activation
+    # /body : OBJECT { link_id left_cell left_port rite_cell rite_port }
     # 'datacenter.rs$$initialize$$Trace$$connect_link'
     sub meth_connect_link {
-
+        my ($body) = @_;
         my $link_id = $body->{'link_id'}{'name'};
-        add_edge($link_id);
+        my $left_cell = nametype($body->{'left_cell'});
+        my $left_port = portdesc($body->{'left_port'});
+        my $rite_cell = nametype($body->{'rite_cell'});
+        my $rite_port = portdesc($body->{'rite_port'});
 
+        ## FIXME : GEV magic, should happen thru Discovery!
+        ## Complex Entry:
+        if (defined $link_id) {
+            my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
+            activate_edge($lc, $lp, $rc, $rp);
+        }
+        print(join(' ', $link_id, ';'));
+    }
+
+---
+
+    ## IMPORTANT : Complex Entry
+    # /body : OBJECT { cell_id port_no is_border }
     # 'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
-    sub meth_ca_send_msg {
-
+    sub meth_ca_send_msg_port_connected {
+        my ($body) = @_;
         my $cell_id = nametype($body->{'cell_id'});
         my $port_no = portdesc($body->{'port_no'});
         my $is_border = $body->{'is_border'}; # cell port=of-entry
-        border_port($cell_id, $port_no) if $is_border;
+
+        ## Complex Entry:
+        my $port_id = '';
+        if (defined $port_no) {
+            $port_id = (($is_border) ? 'FX:' : '').$port_no;
+            border_port($cell_id, $port_no) if $is_border;
+        }
+        print(join(' ', $cell_id, $port_id, ';'));
+    }
+
+
+## DiscoverD spanning tree link identification:
+
+    ## IMPORTANT : Forest/DiscoverD
+    # /body : OBJECT { cell_id port_no msg  }
+    # 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
+    #
+    # parent :    /body/cell_id: NAME_TYPE                # "C:0"
+    # link :      /body/port_no : PORT_DESC               # - relative to this node, aka parent
+    # msg_type :  /body/msg/header/msg_type : String      # "DiscoverD"
+    # child :     /body/msg/header/sender_id : NAME_TYPE  # "Sender:C:1+CellAgent"
+    # span-tree : /body/msg/payload/tree_id : NAME_TYPE   # "Tree:C:0"
+    sub meth_ca_got_msg_cmodel {
+        my ($body) = @_;
+        my $cell_id = nametype($body->{'cell_id'});
+        my $port_no = portdesc($body->{'port_no'});
+        my $summary = summarize_msg($body->{'msg'});
+
+        print(join(' ', $cell_id, $port_no, $summary, ';'));
+
+        # /.../msg/header/msg_type
+        # /.../msg/header/sender_id
+        my $msg = $body->{'msg'};
+        my $header = $msg->{'header'};
+        my $payload = $msg->{'payload'};
+
+        my $msg_type = $header->{'msg_type'};
+
+        return unless $msg_type eq 'DiscoverD';
+
+        ## sort out link/edge/bias:
+
+        # FIXME
+        my $p = $body->{'port_no'}{'v'};
+        # my $link = ($parent, $p);
+        # my ($edge, $bias) = ($link);
+
+        ## Forest / DiscoverD
+        my $sender_id = nametype($header->{'sender_id'});
+        my $tree_id = nametype($payload->{'tree_id'});
+
+        # FIXME : parse names
+        my $parent = $cell_id;
+        my $child = $sender_id;
+        my $span_tree = $tree_id;
+
+        add_tree_link($span_tree, $parent, $p, $child);
+    }
 
 ## Spreadsheet Coding:
 
