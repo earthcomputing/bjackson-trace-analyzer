@@ -30,16 +30,17 @@ my $forestfile = 'forest.gv';
 my $gvmfile = 'gvm-table.txt'; my %gvm_table;
 my $manifestfile = 'manifest-table.txt'; my %manifest_table;
 
-# "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
+# tables of json_text for various objects
 sub note_value {
     my ($href, $value) = @_;
-    return unless $value;
+    return undef unless $value;
 
     my $json_text = JSON->new->canonical->encode($value);
     giveup('encode error') unless $json_text;
     my $hc = sha1_hex($json_text);
     giveup('hash error') unless $hc;
     $href->{$json_text} = $hc;
+    return $hc;
 }
 
 my $op_table = {
@@ -850,8 +851,8 @@ sub meth_ca_update_traph {
     # 'children' => [],
     # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
     my $gvm = $body->{'gvm'};
-    note_value(\%gvm_table, $gvm);
-    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, ';'));
+    my $gvm_hash = note_value(\%gvm_table, $gvm);
+    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, 'gvm='.substr($gvm_hash, -5), ';'));
 }
 
 ## IMPORTANT : Routing
@@ -1486,12 +1487,7 @@ sub summarize_msg {
 
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
-
-    my $payload_text = JSON->new->canonical->encode($payload);# encode_json
-giveup('encode error') unless $payload_text;
-    my $payload_hash = sha1_hex($payload_text);
-giveup('hash error') unless $payload_hash;
-    $msg_table{$payload_text} = $payload_hash;
+    my $payload_hash = note_value(\%msg_table, $payload);
 
     # /msg/header/direction
     # /msg/header/msg_type
@@ -1503,16 +1499,16 @@ giveup('hash error') unless $payload_hash;
     # /msg/payload/gvm_eqn
     # /msg/payload/manifest
     my $gvm_eqn = $payload->{'gvm_eqn'};
-    note_value(\%gvm_table, $gvm_eqn);
+    my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
 
     my $manifest = $payload->{'manifest'};
-    note_value(\%manifest_table, $manifest);
+    my $man_hash = note_value(\%manifest_table, $manifest);
 
-    my $has_gvm = defined($gvm_eqn) ? 'gvm' : '';
-    my $has_manifest = defined($manifest) ? 'manifest' : '';
+    my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
+    my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
 
     my $hint = substr($payload_hash, -5);
-    return join('%%', $hint, $direction, $msg_type, $sender_id, $has_gvm, $has_manifest);
+    return join('%%', $hint, $direction, $msg_type, $sender_id, 'gvm='.$opt_gvm, 'manifest='.$opt_manifest);
 }
 
 sub construct_key {
