@@ -43,13 +43,13 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
 
 ## MAIN:
 
-    https://github.com/earthcomputing/${repo}.git
-    1530634503352636 (20180703-161503.352636 PDT)
-
     "body": {
         "schema_version": "0.1",
         "build_info": "...."
     }
+
+    https://github.com/earthcomputing/${repo}.git
+    1530634503352636 (20180703-161503.352636 PDT)
 
 ## Datacenter 'Complex' wiring diagram:
 
@@ -68,12 +68,13 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         ## Complex Entry:
         if (defined $link_id) {
             my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
-            activate_edge($lc, $lp, $rc, $rp);
+**            activate_edge($lc, $lp, $rc, $rp); **
         }
         print(join(' ', $link_id, ';'));
     }
 
 ---
+Border Port:
 
     ## IMPORTANT : Complex Entry
     # /body : OBJECT { cell_id port_no is_border }
@@ -88,7 +89,7 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         my $port_id = '';
         if (defined $port_no) {
             $port_id = (($is_border) ? 'FX:' : '').$port_no;
-            border_port($cell_id, $port_no) if $is_border;
+**            border_port($cell_id, $port_no) if $is_border; **
         }
         print(join(' ', $cell_id, $port_id, ';'));
     }
