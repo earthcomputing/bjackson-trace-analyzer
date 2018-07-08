@@ -68,7 +68,7 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         ## Complex Entry:
         if (defined $link_id) {
             my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
-**            activate_edge($lc, $lp, $rc, $rp); **
+            ** activate_edge($lc, $lp, $rc, $rp); **
         }
         print(join(' ', $link_id, ';'));
     }
@@ -89,7 +89,7 @@ Border Port:
         my $port_id = '';
         if (defined $port_no) {
             $port_id = (($is_border) ? 'FX:' : '').$port_no;
-**            border_port($cell_id, $port_no) if $is_border; **
+            ** border_port($cell_id, $port_no) if $is_border; **
         }
         print(join(' ', $cell_id, $port_id, ';'));
     }
@@ -139,7 +139,7 @@ Border Port:
         my $child = $sender_id;
         my $span_tree = $tree_id;
 
-        add_tree_link($span_tree, $parent, $p, $child);
+        ** add_tree_link($span_tree, $parent, $p, $child); **
     }
 
 ## GUIDS (example)
