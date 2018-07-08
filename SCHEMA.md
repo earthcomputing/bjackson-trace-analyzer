@@ -20,7 +20,7 @@ GitHub Flavored Markdown: https://github.github.com/gfm/
 
     : OBJECT { header body }
 
-## TRACE-METADATA:
+## Trace Metadata:
 
     /header : OBJECT { repo module function trace_type format - thread_id event_id - epoch }
 
@@ -50,152 +50,6 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         "schema_version": "0.1",
         "build_info": "...."
     }
-
-## BASE-FORMS:
-
-    1	/body : OBJECT { schema_version }
-    20	/body : OBJECT { cell_number }
-    13	/body : OBJECT { link_id left_cell left_port rite_cell rite_port }
-    68	/body : OBJECT { cell_id }
-
-    685	/body : OBJECT { cell_id tree_id }
-    291	/body : OBJECT { cell_id base_tree_id entry }
-    291	/body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
-    148	/body : OBJECT { cell_id base_tree_id stacked_tree_id }
-    31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
-    27	/body : OBJECT { cell_id port_no is_border }
-    18	/body : OBJECT { cell_id no_saved_msgs tree_id }
-    10	/body : OBJECT { cell_id sender_id vm_id }
-    10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
-
-    614	/body : OBJECT { cell_id msg_type port_nos tree_id }
-    340	/body : OBJECT { cell_id msg_type entry port_no tree_id }
-    297	/body : OBJECT { cell_id msg_type tree_id }
-    17	/body : OBJECT { cell_id msg_type parent_port tree_id }
-    10	/body : OBJECT { cell_id msg_type allowed_tree direction tcp_msg }
-    6	/body : OBJECT { cell_id msg_type port_nos }
-
-    333	/body : OBJECT { cell_id msg }
-    266	/body : OBJECT { cell_id msg port_nos tree_id }
-    117	/body : OBJECT { cell_id msg new_tree_id port_no }
-    100	/body : OBJECT { cell_id msg tree_id }
-    51	/body : OBJECT { cell_id msg no_saved tree_id }
-    19	/body : OBJECT { cell_id msg port_no tree_id }
-    18	/body : OBJECT { cell_id msg port_no save tree_id }
-    4	/body : OBJECT { cell_id msg entry new_tree_id }
-    2	/body : OBJECT { cell_id msg deploy_tree_id }
-
----
-
-    /body/entry : OBJECT { index inuse mask may_send other_indices parent tree_uuid }
-
-    /.../entry/index
-    /.../entry/inuse : BOOLEAN
-    /.../entry/mask : OBJECT { mask }
-    /.../entry/mask/mask
-    /.../entry/may_send : BOOLEAN
-    /.../entry/other_indices : ARRAY len=8
-    /.../entry/other_indices[]
-    /.../entry/parent : PORT_DESC
-    /.../entry/tree_uuid/uuid[] : SEQ 2 OF NUMBER
-
----
-
-    /body/gvm : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
-
-    /.../gvm/recv_eqn
-    /.../gvm/save_eqn
-    /.../gvm/send_eqn
-    /.../gvm/variables : ARRAY len=0
-    /.../gvm/xtnd_eqn
-
----
-
-    /body/msg : OBJECT { header payload }
-
-    /body/msg/header : OBJECT { direction msg_count msg_type sender_id tree_map }
-
-    /.../header/direction
-    /.../header/msg_count
-    /.../header/msg_type
-    /.../header/sender_id : NAMETYPE
-    /.../header/tree_map : OBJECT {  }
-    /.../header/tree_map : OBJECT { NocAgentMaster NocMasterAgent }
-    /.../header/tree_map/NocAgentMaster : NAMETYPE
-    /.../header/tree_map/NocMasterAgent : NAMETYPE
-
-## PAYLOAD-FORMS:
-
-    /.../payload : OBJECT { tree_id body }
-    /.../payload : OBJECT { tree_id fwd_index index }
-    /.../payload : OBJECT { tree_id gvm_eqn hops index path sending_cell_id }
-    /.../payload : OBJECT { tree_id my_index }
-    /.../payload : OBJECT { parent_tree_id gvm_eqn index new_tree_id }
-    /.../payload : OBJECT { deploy_tree_id manifest tree_name }
-
----
-
-    /.../payload/tree_id : NAMETYPE
-    /.../payload/parent_tree_id : NAMETYPE
-    /.../payload/deploy_tree_id : NAMETYPE
-    /.../payload/new_tree_id : NAMETYPE
-    /.../payload/sending_cell_id : NAMETYPE
-    /.../payload/tree_name : OBJECT { name }
-    /.../payload/tree_name/name
-
-    /.../payload/body
-    /.../payload/fwd_index
-    /.../payload/hops
-    /.../payload/index
-    /.../payload/my_index
-
-    /.../payload/path : OBJECT { port_number }
-    /.../payload/path/port_number : OBJECT { port_no }
-    /.../payload/path/port_number/port_no : PORT_DESC
-
----
-
-    /.../payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
-
-    /.../gvm_eqn/recv_eqn
-    /.../gvm_eqn/save_eqn
-    /.../gvm_eqn/send_eqn
-    /.../gvm_eqn/variables[] : SEQ OF OBJECT { value var_name var_type }
-    /.../gvm_eqn/variables[]/value
-    /.../gvm_eqn/variables[]/var_name
-    /.../gvm_eqn/variables[]/var_type
-    /.../gvm_eqn/xtnd_eqn
-
----
-
-    /payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
-
-    /.../manifest/allowed_trees[] : SEQ OF OBJECT { name }
-    /.../manifest/allowed_trees[]/name
-    /.../manifest/cell_config
-    /.../manifest/deployment_tree : OBJECT { name }
-    /.../manifest/deployment_tree/name
-    /.../manifest/id
-    /.../manifest/trees[] : SEQ OF OBJECT { id parent_list }
-    /.../manifest/trees[]/id
-    /.../manifest/trees[]/parent_list : ARRAY len=1
-    /.../manifest/trees[]/parent_list[]
-    /.../manifest/vms[] : SEQ OF OBJECT { allowed_trees containers id image required_config trees }
-    /.../manifest/vms[]/allowed_trees[] : SEQ OF OBJECT { name }
-    /.../manifest/vms[]/allowed_trees[]/name
-    /.../manifest/vms[]/containers[] : SEQ OF OBJECT { allowed_trees id image params }
-    /.../manifest/vms[]/containers[]/allowed_trees[] : SEQ OF OBJECT { name }
-    /.../manifest/vms[]/containers[]/allowed_trees[]/name
-    /.../manifest/vms[]/containers[]/id
-    /.../manifest/vms[]/containers[]/image
-    /.../manifest/vms[]/containers[]/params : ARRAY len=0
-    /.../manifest/vms[]/id
-    /.../manifest/vms[]/image
-    /.../manifest/vms[]/required_config
-    /.../manifest/vms[]/trees[] : SEQ OF OBJECT { id parent_list }
-    /.../manifest/vms[]/trees[]/id
-    /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
-    /.../manifest/vms[]/trees[]/parent_list[]
 
 ## Datacenter 'Complex' wiring diagram:
 
@@ -239,8 +93,7 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         print(join(' ', $cell_id, $port_id, ';'));
     }
 
-
-## DiscoverD spanning tree link identification:
+## Spanning Tree Link Identification (Discovery):
 
     ## IMPORTANT : Forest/DiscoverD
     # /body : OBJECT { cell_id port_no msg  }
@@ -288,6 +141,46 @@ Each record SHOULD have a unique "trace key".  In order to be defensive against 
         add_tree_link($span_tree, $parent, $p, $child);
     }
 
+## GUIDS (example)
+
+    a6c47326 0x0000000000000000007C5D07A6C47326 C:0
+    ed92353c 0x00000000000000005ECEC45FED92353C C:1
+    64706081 0x0000000000000000B1DC43ED64706081 C:2
+    00000000 0x00000000000000000000000000000000 NocAgentMaster
+    ae2efa9b 0x0000000000000000AF943EABAE2EFA9B Sender:C:0+CellAgent
+    5b0877ee 0x00000000000000004BBCCFCB5B0877EE Sender:C:0+VM:C:0+vm1
+    34dad883 0x000000000000000042F6C5CE34DAD883 Sender:C:1+CellAgent
+    eda6a9b1 0x000000000000000089436F38EDA6A9B1 Sender:C:1+VM:C:1+vm1
+    f064c137 0x0000000000000000B06112BDF064C137 Sender:C:2+BorderPort+2
+    dcce50a2 0x0000000000000000A70CAA9BDCCE50A2 Sender:C:2+CellAgent
+    08e000dc 0x0000000000000000A8FBFC6708E000DC Sender:C:2+VM:C:2+vm1
+    68afc0f8 0x0000000000000000E16C0E0568AFC0F8 Tree:C:0
+    45fc3d70 0x0000000000000000E43193C745FC3D70 Tree:C:0+Connected
+    372ecfca 0x00000000000000004850A27A372ECFCA Tree:C:0+Control
+    abc44384 0x0000000000000000A4899807ABC44384 Tree:C:1
+    11bb0267 0x000000000000000036EBB3A611BB0267 Tree:C:1+Connected
+    1f67615c 0x00000000000000000F3DB7991F67615C Tree:C:1+Control
+    29ef2d77 0x0000000000000000C89609D229EF2D77 Tree:C:2
+    6e5791fe 0x0000000000000000F137DD9A6E5791FE Tree:C:2+Connected
+    2b21a0d2 0x0000000000000000F18C70282B21A0D2 Tree:C:2+Control
+    cac7473d 0x00000000000000007E92A542CAC7473D Tree:C:2+Noc
+    91a34dde 0x000000000000000020AC786C91A34DDE Tree:C:2+NocAgentDeploy
+    17c2befe 0x00000000000000008291287217C2BEFE Tree:C:2+NocAgentMaster
+    6f576c5b 0x000000000000000000A5E0896F576C5B Tree:C:2+NocMasterAgent
+    8efbb9a0 0x000000000000000011C028F38EFBB9A0 Tree:C:2+NocMasterDeploy
+    45df39b7 0x00000000000000003636ECCE45DF39B7 VM:C:0+vm1
+    155c1e00 0x000000000000000065BEBDB6155C1E00 VM:C:1+vm1
+    3415de02 0x0000000000000000BD6F4E0F3415DE02 VM:C:2+vm1
+
+## Sender Names (typical)
+
+    Discover - "Sender:C:0+CellAgent"
+    DiscoverD - "Sender:C:0+CellAgent"
+    StackTree - "Sender:C:2+BorderPort+2"
+    StackTreeD - "Sender:C:2+BorderPort+2"
+    Manifest - "Sender:C:2+BorderPort+2"
+    Application - "Sender:C:9+VM:C:9+vm1"
+
 ## Spreadsheet Coding:
 
     For each sent message:
@@ -316,7 +209,9 @@ Ideally, this is an observation point for traffic that's going between the Cell 
 
 Alan and I are currently trying to untangle this a bit.  Alan was thinking that he's debugging what the Cell Agent is doing, and he leverages his simulator's GEV which makes names for things easier.  In a real world production systems (and looking at a "time window" of the telementry stream), we'd need to keep a running translation map for things (think uuid's) to make things more understandable for human beings.  The trick that GIT uses is to just use a few hex digits from the uuid (4 or 5, prefix or suffix), however I suspect being able to associate string tags (e.g. Alice, Bob) might be immensely helpful.
 
-Another idea being kicked around is to hash the msg body here and use that as a "msg ref" value.  A separate report/dump could be consulted if msg details are needed.  It's really not worth it to start doing deep packet inspection all over the place in order to show some useful values - that's really a code/debugging notion that really isn't useful in the streaming world.  Think  Wireshark rather than program printf's.
+Another idea being kicked around is to hash the msg body here and use that as a "msg ref" value.  A separate report/dump could be consulted if msg details are needed.  It's really not worth it to start doing deep packet inspection all over the place in order to show some useful values - that's really a code/debugging notion that really isn't useful in the streaming world.  Think Wireshark rather than program printf's.
+
+---
 
     # 'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
     sub meth_ca_send_msg2 {
@@ -422,17 +317,6 @@ Kinda confused here - I think this is the internals of the PE when it's interpre
 
 ---
 
-## Sender Names (typical)
-
-    Discover - "Sender:C:0+CellAgent"
-    DiscoverD - "Sender:C:0+CellAgent"
-    StackTree - "Sender:C:2+BorderPort+2
-    StackTreeD - "Sender:C:2+BorderPort+2
-    Manifest - "Sender:C:2+BorderPort+2
-    Application - "Sender:C:9+VM:C:9+vm1"
-
----
-
         send_msg C:0 C:0+Connected [v0,v1,v2,v3,v4,v5,v6,v7] Discover%%Sender:C:0+CellAgent%%Leafward%%gvm%% ;
 
     Discover>link#0       # table(C0:p1)
@@ -474,7 +358,153 @@ A generic tool should show all the message flow which would imply including the 
 
 In general, it would be useful to provide a "message hash" in the per-trace info, and also dump out the complete message details in a separate table (report).
 
-## Routing Table
+## Body Forms:
+
+    1	/body : OBJECT { schema_version }
+    20	/body : OBJECT { cell_number }
+    13	/body : OBJECT { link_id left_cell left_port rite_cell rite_port }
+    68	/body : OBJECT { cell_id }
+
+    685	/body : OBJECT { cell_id tree_id }
+    291	/body : OBJECT { cell_id base_tree_id entry }
+    291	/body : OBJECT { cell_id base_tree_id children gvm hops other_index port_number port_status }
+    148	/body : OBJECT { cell_id base_tree_id stacked_tree_id }
+    31	/body : OBJECT { cell_id base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+    27	/body : OBJECT { cell_id port_no is_border }
+    18	/body : OBJECT { cell_id no_saved_msgs tree_id }
+    10	/body : OBJECT { cell_id sender_id vm_id }
+    10	/body : OBJECT { cell_id deployment_tree_id tree_vm_map_keys up_tree_name }
+
+    614	/body : OBJECT { cell_id msg_type port_nos tree_id }
+    340	/body : OBJECT { cell_id msg_type entry port_no tree_id }
+    297	/body : OBJECT { cell_id msg_type tree_id }
+    17	/body : OBJECT { cell_id msg_type parent_port tree_id }
+    10	/body : OBJECT { cell_id msg_type allowed_tree direction tcp_msg }
+    6	/body : OBJECT { cell_id msg_type port_nos }
+
+    333	/body : OBJECT { cell_id msg }
+    266	/body : OBJECT { cell_id msg port_nos tree_id }
+    117	/body : OBJECT { cell_id msg new_tree_id port_no }
+    100	/body : OBJECT { cell_id msg tree_id }
+    51	/body : OBJECT { cell_id msg no_saved tree_id }
+    19	/body : OBJECT { cell_id msg port_no tree_id }
+    18	/body : OBJECT { cell_id msg port_no save tree_id }
+    4	/body : OBJECT { cell_id msg entry new_tree_id }
+    2	/body : OBJECT { cell_id msg deploy_tree_id }
+
+## Message Header:
+
+    /body/msg : OBJECT { header payload }
+
+    /body/msg/header : OBJECT { direction msg_count msg_type sender_id tree_map }
+
+    /.../header/direction
+    /.../header/msg_count
+    /.../header/msg_type
+    /.../header/sender_id : NAMETYPE
+    /.../header/tree_map : OBJECT {  }
+    /.../header/tree_map : OBJECT { NocAgentMaster NocMasterAgent }
+    /.../header/tree_map/NocAgentMaster : NAMETYPE
+    /.../header/tree_map/NocMasterAgent : NAMETYPE
+
+## Message Payload Forms:
+
+    /.../payload : OBJECT { tree_id body }
+    /.../payload : OBJECT { tree_id fwd_index index }
+    /.../payload : OBJECT { tree_id gvm_eqn hops index path sending_cell_id }
+    /.../payload : OBJECT { tree_id my_index }
+    /.../payload : OBJECT { parent_tree_id gvm_eqn index new_tree_id }
+    /.../payload : OBJECT { deploy_tree_id manifest tree_name }
+
+## Message Payload Notes:
+
+    /.../payload/tree_id : NAMETYPE
+    /.../payload/parent_tree_id : NAMETYPE
+    /.../payload/deploy_tree_id : NAMETYPE
+    /.../payload/new_tree_id : NAMETYPE
+    /.../payload/sending_cell_id : NAMETYPE
+    /.../payload/tree_name : OBJECT { name }
+    /.../payload/tree_name/name
+
+    /.../payload/body
+    /.../payload/fwd_index
+    /.../payload/hops
+    /.../payload/index
+    /.../payload/my_index
+
+    /.../payload/path : OBJECT { port_number }
+    /.../payload/path/port_number : OBJECT { port_no }
+    /.../payload/path/port_number/port_no : PORT_DESC
+
+## Forwarding Table Entries:
+
+    /body/entry : OBJECT { index inuse mask may_send other_indices parent tree_uuid }
+
+    /.../entry/index
+    /.../entry/inuse : BOOLEAN
+    /.../entry/mask : OBJECT { mask }
+    /.../entry/mask/mask
+    /.../entry/may_send : BOOLEAN
+    /.../entry/other_indices : ARRAY len=8
+    /.../entry/other_indices[]
+    /.../entry/parent : PORT_DESC
+    /.../entry/tree_uuid/uuid[] : SEQ 2 OF NUMBER
+
+## Graph Virtual Machine (GVM) Equations
+
+    /body/gvm : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+
+    /.../gvm/recv_eqn
+    /.../gvm/save_eqn
+    /.../gvm/send_eqn
+    /.../gvm/variables : ARRAY len=0
+    /.../gvm/xtnd_eqn
+
+---
+
+    /.../payload/gvm_eqn : OBJECT { recv_eqn save_eqn send_eqn variables xtnd_eqn }
+
+    /.../gvm_eqn/recv_eqn
+    /.../gvm_eqn/save_eqn
+    /.../gvm_eqn/send_eqn
+    /.../gvm_eqn/variables[] : SEQ OF OBJECT { value var_name var_type }
+    /.../gvm_eqn/variables[]/value
+    /.../gvm_eqn/variables[]/var_name
+    /.../gvm_eqn/variables[]/var_type
+    /.../gvm_eqn/xtnd_eqn
+
+## Software Bootstrap Manifest:
+
+    /payload/manifest : OBJECT { allowed_trees cell_config deployment_tree id trees vms }
+
+    /.../manifest/allowed_trees[] : SEQ OF OBJECT { name }
+    /.../manifest/allowed_trees[]/name
+    /.../manifest/cell_config
+    /.../manifest/deployment_tree : OBJECT { name }
+    /.../manifest/deployment_tree/name
+    /.../manifest/id
+    /.../manifest/trees[] : SEQ OF OBJECT { id parent_list }
+    /.../manifest/trees[]/id
+    /.../manifest/trees[]/parent_list : ARRAY len=1
+    /.../manifest/trees[]/parent_list[]
+    /.../manifest/vms[] : SEQ OF OBJECT { allowed_trees containers id image required_config trees }
+    /.../manifest/vms[]/allowed_trees[] : SEQ OF OBJECT { name }
+    /.../manifest/vms[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers[] : SEQ OF OBJECT { allowed_trees id image params }
+    /.../manifest/vms[]/containers[]/allowed_trees[] : SEQ OF OBJECT { name }
+    /.../manifest/vms[]/containers[]/allowed_trees[]/name
+    /.../manifest/vms[]/containers[]/id
+    /.../manifest/vms[]/containers[]/image
+    /.../manifest/vms[]/containers[]/params : ARRAY len=0
+    /.../manifest/vms[]/id
+    /.../manifest/vms[]/image
+    /.../manifest/vms[]/required_config
+    /.../manifest/vms[]/trees[] : SEQ OF OBJECT { id parent_list }
+    /.../manifest/vms[]/trees[]/id
+    /.../manifest/vms[]/trees[]/parent_list : ARRAY len=1
+    /.../manifest/vms[]/trees[]/parent_list[]
+
+## Routing Table (example)
 
     entry/index : NUMBER
     entry/tree_uuid/uuid : UUID (SEQ 2 of NUMBER)
@@ -503,32 +533,27 @@ In general, it would be useful to provide a "message hash" in the per-trace info
         15 "e9ef7cb9"  Yes    No        2 0000000000000100 [0, 0, 14, 0, 0, 0, 0, 0]
         16 "d548c82a"  Yes    Yes       2 0000000000000000 [0, 0, 16, 0, 0, 0, 0, 0]
 
-## LINK-TABLE:
-
-    C0:p1 -> C1:p1 [label="p1:p1, link#0"]
-    C1:p2 -> C2:p1 [label="p2:p1, link#1"]
-    C1:p3 -> C6:p1 [label="p3:p1, link#2"]
-    C3:p1 -> C4:p1 [label="p1:p1, link#3"]
-    C5:p1 -> C6:p2 [label="p1:p2, link#4"]
-    C6:p3 -> C7:p1 [label="p3:p1, link#5"]
-    C7:p3 -> C8:p1 [label="p3:p1, link#6"]
-    C8:p2 -> C9:p1 [label="p2:p1, link#7"]
-    C0:p2 -> C5:p2 [label="p2:p2, link#8"]
-    C2:p3 -> C3:p2 [label="p3:p2, link#9"]
-    C2:p4 -> C7:p4 [label="p4:p4, link#10"]
-    C3:p3 -> C8:p3 [label="p3:p3, link#11"]
-    C4:p2 -> C9:p2 [label="p2:p2, link#12"]
-    Internet -> C2:p2 [label="p2, link#13"]
+## Blueprint AND Spanning Trees (dot language):
 
     digraph G {
         rankdir=LR
-        C0 [label="C0  (a)"]
-        C1 [label="C1  (b)"]
-        C2 [label="C2  (c)"]
-        C0:p1 -> C1:p1 [label="d"]
-        C0:p2 -> C2:p1 [label="e"]
-        C1:p2 -> C2:p2 [label="f"]
-        Internet -> C1:p3 [label="g"]
+        C0:p1 -> C1:p1 [label="a"]
+        C0:p0 -> C0:p0 [label="b"]
+        C1:p0 -> C1:p0 [label="c"]
+        C0:p2 -> C2:p1 [label="d"]
+        C2:p0 -> C2:p0 [label="e"]
+        C1:p2 -> C2:p3 [label="f"]
+        Internet -> C2:p2 [label="g"]
+        C0 [label="C0  (b')"]
+        C1 [label="C1  (c')"]
+        C2 [label="C2  (e')"]
+
+        C2:p3 -> C1:p2 [label="( C1 )" color=blue]
+        C1:p2 -> C2:p3 [label="( C2 )" color=red]
+        C1:p1 -> C0:p1 [label="( C0 )" color=blue]
+        C0:p1 -> C1:p1 [label="( C1 )" color=red]
+        C2:p1 -> C0:p2 [label="( C0 )" color=blue]
+        C0:p2 -> C2:p1 [label="( C2 )" color=red]
     }
 
 ## VERBS:
@@ -713,7 +738,7 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     10	allowed_tree : OBJECT
     1	schema_version
 
----
+## misc notes:
 
     /body/tree_vm_map_keys[] : SEQ OF NAMETYPE
 
