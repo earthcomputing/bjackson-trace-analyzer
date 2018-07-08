@@ -6,15 +6,11 @@
 
 GitHub Flavored Markdown: https://github.github.com/gfm/
 
-## NAME_TYPE:
-
-    /.../name : STRING
-    /.../uuid/uuid[] : SEQ 2 OF NUMBER
-
-## PORT_DESC:
-
-    /.../ : OBJECT { v }
-    /.../v : NUMBER
+Trace records are only 'loosely' defined (constrained).
+Producers and Consumers need only agree on parts of an object's structure and scalar (value) types.
+This document uses 'xpath' notation to identify elements of an object.
+The term 'sequence' is used rather than 'array' because these are json text values, not data types.
+Ambiguity about duplicate names or name ordering is currently ignored.
 
 ## SCHEMA:
 
@@ -392,6 +388,16 @@ In general, it would be useful to provide a "message hash" in the per-trace info
     18	/body : OBJECT { cell_id msg port_no save tree_id }
     4	/body : OBJECT { cell_id msg entry new_tree_id }
     2	/body : OBJECT { cell_id msg deploy_tree_id }
+
+## NAME_TYPE:
+
+    /.../name : STRING
+    /.../uuid/uuid[] : SEQ 2 OF NUMBER
+
+## PORT_DESC:
+
+    /.../ : OBJECT { v }
+    /.../v : NUMBER
 
 ## Message Header:
 
