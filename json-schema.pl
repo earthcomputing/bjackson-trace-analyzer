@@ -23,9 +23,12 @@ my $code_filter;
 my %jschema;
 my %keyset;
 
+my $terse = 0;
+
 # --
 
 foreach my $fname (@ARGV) {
+    if ($fname =~ /-terse/) { $terse = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     print($endl, $fname, $endl);
@@ -36,6 +39,7 @@ foreach my $fname (@ARGV) {
 # --
 
 my %dedup;
+my %bodies;
 sub do_analyze {
     my ($href) = @_;
 
@@ -45,23 +49,34 @@ sub do_analyze {
         my $combined = join(' ;; ', @parts);
         $combined =~ s/ ;;  : / : /g; # yeah, hacky but effective
         $combined =~ s|//|/|g; # FIXME - change this in the code
+        $combined =~ s|SEQ OF ;;  : |SEQ OF |g;
+
+        my $hc = sha1_hex($combined);
+        my $hash = substr($hc, -5);
+
+        $bodies{$hash.' '.$combined}++;
 
         my $header = $json->{'header'};
         my $tag = methkey($header);
-        my $entry = join(' = ', $tag, $combined);
+        my $entry = join(' = ', $tag, $hash);
         # print($entry, $endl) unless $dedup{$entry};
         $dedup{$entry}++;
     }
 
     dump_histo('SCHEMA:', \%dedup);
+    dump_histo('BODY:', \%bodies);
 }
+
+my $context;
 
 # by frequency, descending
 sub dump_histo {
     my ($hdr, $href) = @_;
-    ## print SCHEMA ($endl);
+    print ($endl);
     ## print SCHEMA ($hdr, $endl);
     # foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
+    ## UGH, global context - bad, very bad!!
+    $context = $href;
     foreach my $item (sort order_dedup keys %{$href}) {
         print (join(' ', $href->{$item}, $item), $endl);
     }
@@ -69,7 +84,8 @@ sub dump_histo {
 
 sub order_dedup($$) {
     my ($left, $right) = @_;
-    return $dedup{$right} <=> $dedup{$left} unless $dedup{$right} == $dedup{$left};
+    my $href = $context;
+    return $href->{$right} <=> $href->{$left} unless $href->{$right} == $href->{$left};
     return $left cmp $right;
 }
 
@@ -103,7 +119,7 @@ sub process_file {
     foreach my $body (@records) {
         $lineno++;
         my $json = decode_json($body);
-        my @parts = walk_structure('/', $json);
+        my @parts = $terse ? walk_structure('/body', $json->{'body'}) : walk_structure('/', $json);
         my $key = construct_key($json, $lineno);
         $json->{'_SCHEMA'} = \@parts;
         $data{$key} = $json;
@@ -151,7 +167,7 @@ sub walk_structure {
             $keyset{$tag}++;
             ##
             my $nested = $path.'/'.$tag;
-            my @child_parts = walk_structure($nested, $json->{$tag});
+            my @child_parts = walk_structure($terse ? $tag : $nested, $json->{$tag});
             push @fields, @child_parts;
         }
         return ($path, $jtype, @fields);
@@ -163,17 +179,41 @@ sub walk_structure {
         $jschema{$path.$jtype}++;
 
         my @union;
+        my %subtypes;
         foreach my $val (@ary) {
             my $nested = $path.'[]';
-            my @child_parts = walk_structure($nested, $val);
-            # FIXME : check for homogenius
-            push @union, @child_parts;
-last;
+            my @child_parts = walk_structure($terse ? '' : $nested, $val);
+            my $combined = join(' ;; ', @child_parts);
+            ## $combined =~ s/ ;;  : / : /g; # yeah, hacky but effective
+            ## $combined =~ s|//|/|g; # FIXME - change this in the code
+            $subtypes{$combined}++;
         }
-        return ($path, ' : ARRAY', @union);
+
+        my @keys = keys %subtypes;
+        foreach my $item (sort @keys) {
+            push @union, $item;
+        }
+
+        return ($path, ' : SEQ OF', @union) unless $#keys > 0;
+
+        # FIXME : check for homogenius
+        print STDERR (join(' ', 'WARNING: hetergeneous array:', $path), $endl);
+        return ($path, ' : UNION <', @union, '>');
     }
 
     giveup(join(' ', 'unknown object type:', $rkind));
+}
+
+# tables of json_text for various objects
+sub note_value {
+    my ($href, $value) = @_;
+    return undef unless $value;
+    my $json_text = JSON->new->canonical->encode($value);
+    giveup('encode error') unless $json_text;
+    my $hc = sha1_hex($json_text);
+    giveup('hash error') unless $hc;
+    $href->{$json_text} = $hc;
+    return $hc;
 }
 
 sub giveup {
@@ -185,5 +225,11 @@ sub giveup {
 # --
 
 my $notes = << '_eof_';
+
+    /body/base_tree_map_keys : ARRAY ;;
+    /body/base_tree_map_values : ARRAY ;;
+    /body/children : ARRAY ;;
+    /body/tree_vm_map_keys : ARRAY ;;
+    /body/msg : ARRAY ;;
 
 _eof_
