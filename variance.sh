@@ -26,6 +26,7 @@ mkdir -p ${wdir}
 sha1sum.sh sample-data/${datafile} "${work}/${datafile}"
 # cp sample-data/${datafile} "$work/${datafile}"
 
+json-schema.pl sample-data/${datafile} > ${wdir}schema-use.txt
 analyze.pl -wdir=${wdir} sample-data/${datafile} > ${wdir}raw-analysis.txt
 
 set rc = $status
@@ -47,6 +48,7 @@ set files = ( \
     raw-analysis.txt \
     routing-table.txt \
     schema-data.txt \
+    schema-use.txt \
     threaded-analysis.txt \
 )
 
