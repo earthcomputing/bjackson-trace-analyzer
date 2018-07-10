@@ -354,7 +354,7 @@ sub order_mtable($$) {
 }
 
 # link#
-# $dir : cell-snd, pe-rcv, pe-snd
+# $dir : cell-rcv, cell-snd, pe-rcv, pe-snd
 sub add_msgcode {
     my ($c, $p, $msg_type, $event_code, $dir, $tree_id) = @_;
     # swimming against the flow, or not ??
@@ -1260,6 +1260,8 @@ sub meth_ca_got_msg {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     # my $port_no = portdesc($body->{'port_no'});
+    my $c = $cell_id; $c =~ s/C://;
+    # my $p = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
 
     my $summary = summarize_msg($msg);
@@ -1268,15 +1270,13 @@ sub meth_ca_got_msg {
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
     my $msg_type = $header->{'msg_type'};
+    my $sender_id = nametype($header->{'sender_id'});
+    my $tree_id = nametype($payload->{'tree_id'});
 
-##
-
-    # FIXME
+    ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = 0;
-    my $tree_id;
-    ## add_msgcode($c, $p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $virt_p = 0;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 }
 
 ## IMPORTANT : Forest/DiscoverD
@@ -1292,6 +1292,8 @@ sub meth_ca_got_msg_cmodel {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $port_no = portdesc($body->{'port_no'});
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
 
     my $summary = summarize_msg($msg);
@@ -1300,45 +1302,108 @@ sub meth_ca_got_msg_cmodel {
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
     my $msg_type = $header->{'msg_type'};
-
-    # FIXME
-    my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = 0;
-    ## add_msgcode($c, $p, $msg_type, $event_code, 'cell-rcv', $tree_id);
-
-    return unless $msg_type eq 'DiscoverD';
-
-    my $from_p = $body->{'port_no'}{'v'};
-    # my $link = ($parent, $from_p);
-    # my ($edge, $bias) = xxx($link);
-
-    ## Forest / DiscoverD
     my $sender_id = nametype($header->{'sender_id'});
     my $tree_id = nametype($payload->{'tree_id'});
 
-    my $child = $sender_id;
-    $child =~ s/Sender:C:/C/;
-    $child =~ s/\+CellAgent//;
-    add_tree_link($tree_id, $c, $from_p, $child);
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $virt_p = 0;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+
+    do_treelink($c, $p, $tree_id, $sender_id) if $msg_type eq 'DiscoverD';
+    do_treelink($c, $p, $tree_id, $sender_id) if $msg_type eq 'StackTreeD';
+    do_application($c, $p, $tree_id, $sender_id) if $msg_type eq 'Application';
+    do_manifest($c, $p, $tree_id, $sender_id) if $msg_type eq 'Manifest';
+}
+
+sub do_manifest {
+    my ($c, $p, $tree_id, $sender_id) = @_;
+    my $direction;
+    print STDERR (join(' ', 'MANIFEST:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+}
+
+my $note1 = << '_eor_';
+
+MANIFEST: C0p2  Sender:C:2+BorderPort+2
+MANIFEST: C1p2  Sender:C:2+BorderPort+2
+MANIFEST: C2p0  Sender:C:2+BorderPort+2
+
+
+    "direction": "Leafward",
+    "tree_map": {
+        "NocAgentMaster": { "name": "Tree:C:2+NocAgentMaster", "uuid": { "uuid": [ 9408345567043698430, 0 ] } },
+        "NocMasterAgent": { "name": "Tree:C:2+NocMasterAgent", "uuid": { "uuid": [ 46690252040399963, 0 ] } }
+    }
+
+    "tree_name": { "name": "NocAgentDeploy" }
+    "deploy_tree_id": { "name": "Tree:C:2+NocAgentDeploy", "uuid": { "uuid": [ 2354389112903126494, 0 ] } },
+    "manifest": {
+        "id": "NocAgent",
+        "cell_config": "Large",
+        "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
+        "deployment_tree": { "name": "NocAgentDeploy" },
+        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+        "vms": [ {
+                "id": "vm1",
+                "required_config": "Large",
+                "image": "Ubuntu",
+                "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ]
+                "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+                "containers": [ {
+                        "id": "NocAgent", "image": "NocAgent", "params": []
+                        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+                } ],
+        } ]
+    },
+
+_eor_
+
+sub do_application {
+    my ($c, $p, $tree_id, $sender_id) = @_;
+    my $direction;
+    print STDERR (join(' ', 'APPLICATION:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+}
+
+my $note2 = << '_eor_';
+
+APPLICATION: C0p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
+APPLICATION: C1p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
+APPLICATION: C2p1 Tree:C:2+NocAgentMaster Sender:C:0+VM:C:0+vm1
+APPLICATION: C2p3 Tree:C:2+NocAgentMaster Sender:C:1+VM:C:1+vm1
+
+    FIXME: sender_id
+    do_treelink 2 1 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
+    do_treelink 2 3 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
+    do_treelink 2 1 Tree:C:2+NocMasterAgent Sender:C:2+BorderPort+2
+    do_treelink 2 3 Tree:C:2+NocMasterAgent Sender:C:2+BorderPort+2
+
+_eor_
+
+sub do_treelink {
+    my ($c, $p, $tree_id, $sender_id) = @_;
+    # print STDERR (join(' ', 'do_treelink', $c, $p, $tree_id, $sender_id), $endl);
+
+    ## Forest / DiscoverD
+    my ($xtag, $cc, $child, $remain) = split(/[\+:]/, $sender_id);
+    add_tree_link($tree_id, $c, $p, $child);
 }
 
 sub add_tree_link {
-    my ($span_tree, $parent, $from_p, $child) = @_;
+    my ($tree_id, $c, $p, $child) = @_;
 
-    my $link_no = get_link_no($parent, $from_p);
+    my $link_no = get_link_no($c, $p);
     my $root;
     {
-        my ($x, $y, $c) = split(':', $span_tree);
+        my ($x, $y, $c) = split(':', $tree_id);
         $root = $c;
     }
-    $span_tree =~ s/C:/C/;
+    $tree_id =~ s/C:/C/;
 
     my $o = {
-        'span_tree' => $span_tree,
-        'parent' => 'C'.$parent,
-        'p' => $from_p,
-        'child' => $child,
+        'span_tree' => $tree_id,
+        'parent' => 'C'.$c,
+        'p' => $p,
+        'child' => 'C'.$child,
         'root' => $root,
         'link_no' => $link_no
     };
