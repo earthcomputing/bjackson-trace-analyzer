@@ -563,93 +563,69 @@ In general, it would be useful to provide a "message hash" in the per-trace info
         C0:p2 -> C2:p1 [label="( C2 )" color=red]
     }
 
-## VERBS:
+## One Oddity:
 
-    1	main.rs$MAIN
+The add_saved_msg method can save either a ManifestMsg or an ApplicationMsg.
+The null comes from Option None.  
+The signature is 
 
-    685	cellagent.rs$get_base_tree_id
-    582	cellagent.rs$update_traph
-    333	cellagent.rs$listen_pe_loop
-    266	cellagent.rs$send_msg
-    148	cellagent.rs$update_base_tree_map
-    90	cellagent.rs$add_saved_discover
-    90	cellagent.rs$process_discover_msg
-    31	cellagent.rs$stack_tree
-    30	cellagent.rs$add_saved_stack_tree
-    27	cellagent.rs$process_stack_tree_msg
-    27	cellagent.rs$port_connected
-    21	cellagent.rs$add_saved_msg
-    18	cellagent.rs$get_saved_msgs
-    18	cellagent.rs$process_stack_treed_msg
-    18	cellagent.rs$process_application_msg
-    10	cellagent.rs$listen_pe
-    10	cellagent.rs$tcp_application
-    10	cellagent.rs$listen_uptree
-    10	cellagent.rs$process_manifest_msg
-    10	cellagent.rs$deploy
-    10	cellagent.rs$listen_uptree_loop
-    9	cellagent.rs$process_discoverd_msg
-    6	cellagent.rs$forward_saved
-    4	cellagent.rs$tcp_stack_tree
-    3	cellagent.rs$forward_stack_tree
-    2	cellagent.rs$tcp_manifest
-    23	datacenter.rs$initialize
-    10	nalcell.rs$new
-    10	nalcell.rs$start_cell
-    10	nalcell.rs$start_packet_engine
-    628	packet_engine.rs$forward
-    340	packet_engine.rs$process_packet
-    297	packet_engine.rs$listen_ca_loop
-    10	packet_engine.rs$listen_port
-    10	packet_engine.rs$listen_ca
+    add_saved_msg(&mut self, tree_id: &TreeID, _: Mask, options: (Option<ApplicationMsg>, Option<ManifestMsg>), trace_header: &mut TraceHeader)
 
----
+Call these "positionally assigned" - application=0, manifest=1.
 
-    1	main.rs$$MAIN$$Trace$$trace_schema
+## EMITTERS:
 
-    27	cellagent.rs$$port_connected$$Trace$$ca_send_msg
-    13	datacenter.rs$$initialize$$Trace$$connect_link
-    8	datacenter.rs$$initialize$$Trace$$interior_cell_start
-    2	datacenter.rs$$initialize$$Trace$$border_cell_start
-    10	nalcell.rs$$new$$Trace$$nalcell_port_setup
-    10	nalcell.rs$$start_cell$$Trace$$nalcell_start_ca
-    10	nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe
+    CellAgent$$main.rs$$MAIN$$trace_schema$$Trace
 
-    291	cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry
-    291	cellagent.rs$$update_traph$$Debug$$ca_update_traph
+    CellAgent$$cellagent.rs$$add_saved_discover$$ca_save_discover_msg$$Debug
+    CellAgent$$cellagent.rs$$add_saved_msg$$ca_add_saved_msg$$Debug
+    CellAgent$$cellagent.rs$$add_saved_stack_tree$$ca_save_stack_tree_msg$$Debug
+    CellAgent$$cellagent.rs$$deploy$$ca_deploy$$Debug
+    CellAgent$$cellagent.rs$$forward_saved_application$$ca_forward_saved_msg$$Debug
+    CellAgent$$cellagent.rs$$forward_saved_manifest$$ca_forward_saved_msg$$Debug
+    CellAgent$$cellagent.rs$$forward_stack_tree$$ca_forward_stack_tree_msg$$Debug
+    CellAgent$$cellagent.rs$$get_base_tree_id$$ca_get_base_tree_id$$Debug
+    CellAgent$$cellagent.rs$$get_saved_msgs$$ca_get_saved_msgs$$Debug
+    CellAgent$$cellagent.rs$$listen_cm$$ca_listen_cm$$Debug
+    CellAgent$$cellagent.rs$$listen_cm_loop$$ca_got_msg$$Debug
+    CellAgent$$cellagent.rs$$listen_uptree$$ca_listen_vm$$Debug
+    CellAgent$$cellagent.rs$$listen_uptree_loop$$ca_got_from_uptree$$Debug
+    CellAgent$$cellagent.rs$$port_connected$$ca_send_msg$$Trace
+    CellAgent$$cellagent.rs$$process_application_msg$$ca_process_application_msg$$Debug
+    CellAgent$$cellagent.rs$$process_discover_msg$$ca_process_discover_msg$$Debug
+    CellAgent$$cellagent.rs$$process_discoverd_msg$$ca_process_discover_d_msg$$Debug
+    CellAgent$$cellagent.rs$$process_manifest_msg$$ca_process_manifest_msg$$Debug
+    CellAgent$$cellagent.rs$$process_stack_tree_msg$$ca_process_stack_tree_msg$$Debug
+    CellAgent$$cellagent.rs$$process_stack_treed_msg$$ca_process_stack_tree_d_msg$$Debug
+    CellAgent$$cellagent.rs$$send_msg$$ca_send_msg$$Debug
+    CellAgent$$cellagent.rs$$stack_tree$$ca_stack_tree$$Debug
+    CellAgent$$cellagent.rs$$tcp_application$$ca_got_tcp_application_msg$$Debug
+    CellAgent$$cellagent.rs$$tcp_manifest$$ca_got_manifest_tcp_msg$$Debug
+    CellAgent$$cellagent.rs$$tcp_stack_tree$$ca_got_stack_tree_tcp_msg$$Debug
+    CellAgent$$cellagent.rs$$update_base_tree_map$$ca_update_base_tree_map$$Debug
+    CellAgent$$cellagent.rs$$update_traph$$ca_update_traph$$Debug
+    CellAgent$$cellagent.rs$$update_traph$$ca_updated_traph_entry$$Debug
+    CellAgent$$cmodel.rs$$listen_ca_loop$$cm_bytes_from_ca$$Debug
+    CellAgent$$cmodel.rs$$process_packet$$cm_bytes_to_ca$$Debug
+    CellAgent$$datacenter.rs$$initialize$$border_cell_start$$Trace
+    CellAgent$$datacenter.rs$$initialize$$connect_link$$Trace
+    CellAgent$$datacenter.rs$$initialize$$interior_cell_start$$Trace
+    CellAgent$$nalcell.rs$$new$$nalcell_port_setup$$Trace
+    CellAgent$$nalcell.rs$$start_cell$$nalcell_start_ca$$Trace
+    CellAgent$$nalcell.rs$$start_packet_engine$$nalcell_start_pe$$Trace
+    CellAgent$$packet_engine.rs$$forward$$pe_forward_leafward$$Debug
+    CellAgent$$packet_engine.rs$$listen_cm_loop$$pe_packet_from_cm$$Debug
+    CellAgent$$packet_engine.rs$$listen_port$$pe_listen_ports$$Debug
+    CellAgent$$packet_engine.rs$$process_packet$$pe_process_packet$$Debug
 
-    90	cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg
-    27	cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg
-    18	cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg
-    18	cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg
-    10	cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg
-    9	cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg
-
-    685	cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id
-    333	cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg
-    266	cellagent.rs$$send_msg$$Debug$$ca_send_msg
-    148	cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map
-    90	cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg
-    31	cellagent.rs$$stack_tree$$Debug$$ca_stack_tree
-    30	cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg
-    21	cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg
-    18	cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs
-    10	cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg
-    10	cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree
-    10	cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm
-    10	cellagent.rs$$listen_pe$$Debug$$ca_listen_pe
-    10	cellagent.rs$$deploy$$Debug$$ca_deploy
-    6	cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg
-    4	cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg
-    3	cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg
-    2	cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg
-
-    611	packet_engine.rs$$forward$$Debug$$pe_forward_leafward
-    340	packet_engine.rs$$process_packet$$Debug$$pe_process_packet
-    297	packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca
-    17	packet_engine.rs$$forward$$Debug$$pe_forward_rootward
-    10	packet_engine.rs$$listen_port$$Debug$$pe_listen_ports
-    10	packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca
+    # multiple forms:
+    CellAgent$$cellagent.rs$$add_saved_msg$$ca_add_saved_msg$$Debug
+    CellAgent$$cellagent.rs$$listen_cm_loop$$ca_got_msg$$Debug
+    CellAgent$$cellagent.rs$$send_msg$$ca_send_msg$$Debug
+    CellAgent$$cellagent.rs$$update_traph$$ca_update_traph$$Debug
+    CellAgent$$cmodel.rs$$listen_ca_loop$$cm_bytes_from_ca$$Debug
+    CellAgent$$cmodel.rs$$process_packet$$cm_bytes_to_ca$$Debug
+    CellAgent$$packet_engine.rs$$forward$$pe_forward_leafward$$Debug
 
 ## FIELDS:
 
