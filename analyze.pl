@@ -53,6 +53,7 @@ my $op_table = {
 };
 
 my $arrow_code = {
+    'cell-rcv' => '<',
     'cell-snd' => '>',
     'pe-rcv' => '<-',
     'pe-snd' => '->'
@@ -716,6 +717,8 @@ sub meth_ca_send_msg_generic {
     my $pay_body = $msg_payload->{'body'}; # STRING # "Reply from Container:VM:C:9+vm1+2"
 
     #FIXME -bj
+    # confirm that a later record captures forwarding,
+    # then switch this to indicate port #0
     # this really just adds a msg to the CA=>PE queue
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
@@ -812,27 +815,12 @@ sub meth_pe_process_packet {
     ## Routing Table:
     update_routing_table($cell_id, $entry);
 
-# FIXME - maybe this isn't a msgcode per-se (redundant/excess) ??
+    # FIXME - maybe this isn't a msgcode per-se (redundant/excess) ??
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'port_no'}{'v'};
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
-}
-
-# Cell Agent Control Plane - msg processing (ie. worker)
-# Leafward => micro service request (set)
-# Rootward => response to application/client (singleton)
-
-## IMPORTANT : Spreadsheet
-# /body : OBJECT { cell_id msg }
-# 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
-sub meth_ca_got_msg {
-    my ($body) = @_;
-    my $cell_id = nametype($body->{'cell_id'});
-    my $summary = summarize_msg($body->{'msg'});
-# FIXME
-    print(join(' ', $cell_id, $summary, ';'));
 }
 
 # --
@@ -1164,7 +1152,7 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id') { meth_ca_get_base_tree_id($body); return; }
     if ($methkey eq 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs') { meth_ca_get_saved_msgs($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe') { meth_ca_listen_pe($body); return; }
-    if ($methkey eq 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg') { meth_ca_got_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg') { meth_ca_got_msg($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') { meth_ca_listen_vm($body); return; }
     if ($methkey eq 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree') { meth_ca_got_from_uptree($body); return; }
     if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg_port_connected($body); return; }
@@ -1188,7 +1176,7 @@ sub dispatch {
     if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body); return; }
     if ($methkey eq 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca') { meth_cm_bytes_to_ca($body); return; }
     if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm') { meth_pe_packet_from_cm($body); return; }
-    if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body); return; }
+    if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
 
@@ -1261,6 +1249,36 @@ sub meth_pe_packet_from_cm {
     print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
 }
 
+# Cell Agent Control Plane - msg processing (ie. worker)
+# Leafward => micro service request (set)
+# Rootward => response to application/client (singleton)
+
+## IMPORTANT : Spreadsheet
+# /body : OBJECT { cell_id msg }
+# 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
+sub meth_ca_got_msg {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    # my $port_no = portdesc($body->{'port_no'});
+    my $msg = $body->{'msg'};
+
+    my $summary = summarize_msg($msg);
+    print(join(' ', $cell_id, $summary, ';'));
+
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+##
+
+    # FIXME
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = 0;
+    my $tree_id;
+    ## add_msgcode($c, $p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+}
+
 ## IMPORTANT : Forest/DiscoverD
 # /body : OBJECT { cell_id port_no msg  }
 # 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
@@ -1271,64 +1289,55 @@ sub meth_pe_packet_from_cm {
 # child :     /body/msg/header/sender_id : NAME_TYPE  # "Sender:C:1+CellAgent"
 # span-tree : /body/msg/payload/tree_id : NAME_TYPE   # "Tree:C:0"
 sub meth_ca_got_msg_cmodel {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $port_no = portdesc($body->{'port_no'});
-    my $summary = summarize_msg($body->{'msg'});
+    my $msg = $body->{'msg'};
 
+    my $summary = summarize_msg($msg);
     print(join(' ', $cell_id, $port_no, $summary, ';'));
 
-    # /.../msg/header/msg_type
-    # /.../msg/header/sender_id
-    my $msg = $body->{'msg'};
     my $header = $msg->{'header'};
     my $payload = $msg->{'payload'};
-
     my $msg_type = $header->{'msg_type'};
+
+    # FIXME
+    my $event_code = ec_fromkey($key);
+    my $c = $cell_id; $c =~ s/C://;
+    my $p = 0;
+    ## add_msgcode($c, $p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 
     return unless $msg_type eq 'DiscoverD';
 
-    ## sort out link/edge/bias:
-
-    # FIXME
-    my $p = $body->{'port_no'}{'v'};
-    # my $link = ($parent, $p);
-    # my ($edge, $bias) = ($link);
+    my $from_p = $body->{'port_no'}{'v'};
+    # my $link = ($parent, $from_p);
+    # my ($edge, $bias) = xxx($link);
 
     ## Forest / DiscoverD
     my $sender_id = nametype($header->{'sender_id'});
     my $tree_id = nametype($payload->{'tree_id'});
 
-    # FIXME : parse names
-    my $parent = $cell_id;
     my $child = $sender_id;
-    my $span_tree = $tree_id;
-
-    add_tree_link($span_tree, $parent, $p, $child);
+    $child =~ s/Sender:C:/C/;
+    $child =~ s/\+CellAgent//;
+    add_tree_link($tree_id, $c, $from_p, $child);
 }
 
 sub add_tree_link {
-    my ($span_tree, $parent, $p, $child) = @_;
+    my ($span_tree, $parent, $from_p, $child) = @_;
 
-    my $link_no;
-    {
-        my ($x, $c) = split(':', $parent);
-        $link_no = get_link_no($c, $p);
-    }
+    my $link_no = get_link_no($parent, $from_p);
     my $root;
     {
         my ($x, $y, $c) = split(':', $span_tree);
         $root = $c;
     }
     $span_tree =~ s/C:/C/;
-    $parent =~ s/://;
-    $child =~ s/Sender:C:/C/;
-    $child =~ s/\+CellAgent//;
 
     my $o = {
         'span_tree' => $span_tree,
-        'parent' => $parent,
-        'p' => $p,
+        'parent' => 'C'.$parent,
+        'p' => $from_p,
         'child' => $child,
         'root' => $root,
         'link_no' => $link_no
@@ -1481,33 +1490,31 @@ sub build_port_list {
     return '['.join(',', map { 'v'.$_->{'v'} } @{$port_nos}).']';
 }
 
+# /msg/header/direction
+# /msg/header/msg_type
+# /msg/header/sender_id
+# /msg/payload/gvm_eqn
+# /msg/payload/manifest
 sub summarize_msg {
     my ($msg) = @_;
     return '' unless defined $msg;
 
     my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $payload_hash = note_value(\%msg_table, $payload);
-
-    # /msg/header/direction
-    # /msg/header/msg_type
-    # /msg/header/sender_id
     my $direction = $header->{'direction'};
     my $msg_type = $header->{'msg_type'};
     my $sender_id = $header->{'sender_id'}{'name'};
 
-    # /msg/payload/gvm_eqn
-    # /msg/payload/manifest
+    my $payload = $msg->{'payload'};
     my $gvm_eqn = $payload->{'gvm_eqn'};
-    my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
-
     my $manifest = $payload->{'manifest'};
+
+    my $payload_hash = note_value(\%msg_table, $payload);
+    my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
     my $man_hash = note_value(\%manifest_table, $manifest);
 
+    my $hint = substr($payload_hash, -5);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
-
-    my $hint = substr($payload_hash, -5);
     return join('%%', $hint, $direction, $msg_type, $sender_id, 'gvm='.$opt_gvm, 'manifest='.$opt_manifest);
 }
 
