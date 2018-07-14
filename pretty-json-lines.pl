@@ -1,3 +1,4 @@
+#!/usr/local/bin/perl -w
 #!/usr/bin/perl -w
 
 my $exec = 'python -mjson.tool';

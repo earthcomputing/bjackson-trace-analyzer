@@ -1,5 +1,5 @@
-#!/usr/bin/perl -w
 #!/usr/local/bin/perl -w
+#!/usr/bin/perl -w
 # json-schema.pl xx.json
 # python -mjson.tool
 
@@ -131,7 +131,7 @@ sub process_file {
 sub inhale {
     my ($path) = @_;
     my $gzip = $path =~ m/.gz$/;
-    my $openspec = ($gzip) ?  'gzcat '.$path.'|' : '<'.$path;
+    my $openspec = ($gzip) ?  'zcat '.$path.'|' : '<'.$path;
     open(FD, $openspec) or die $path.': '.$!;
     my @body = <FD>;
     close(FD);
