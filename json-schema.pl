@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+#!/usr/local/bin/perl -w
 # json-schema.pl xx.json
 # python -mjson.tool
 
@@ -158,18 +159,20 @@ sub walk_structure {
     }
 
     if ($rkind eq 'HASH') {
-        my $jtype = ' : OBJECT { '.join(' ', sort keys $json).' }';
+        my $jtype = ' : OBJECT { '.join(' ', sort keys %{$json}).' }';
         $jschema{$path.$jtype}++;
 
         my @fields;
         # canonicalize field order:
-        foreach my $tag (sort keys $json) {
+        foreach my $tag (sort keys %{$json}) {
             $keyset{$tag}++;
             ##
             my $nested = $path.'/'.$tag;
             my @child_parts = walk_structure($terse ? $tag : $nested, $json->{$tag});
             push @fields, @child_parts;
         }
+
+## identify sub-structures here:
         return ($path, $jtype, @fields);
     }
 
@@ -198,7 +201,7 @@ sub walk_structure {
 
         # FIXME : check for homogenius
         print STDERR (join(' ', 'WARNING: hetergeneous array:', $path), $endl);
-        return ($path, ' : UNION <', @union, '>');
+        return ($path, ' : UNION <', @union, '>'); # violates pair structure
     }
 
     giveup(join(' ', 'unknown object type:', $rkind));

@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+#!/usr/local/bin/perl -w
 # analyze xx.json
 ## A microservice is not a 'subroutine' !!
 # python -mjson.tool
@@ -263,7 +264,7 @@ sub add_overlay {
         my $link_no = $o->{'link_no'};
 
         $target{$link_no} = [] unless $target{$link_no}; # ensure defined
-        push($target{$link_no}, $root);
+        push(@{$target{$link_no}}, $root);
 
     }
     foreach my $l (sort keys %target) {
@@ -332,7 +333,7 @@ sub dump_msgs {
     my $path = $result_dir.$file;
     open(FD, '>'.$path) or die $path.': '.$!;
 
-    foreach my $key (sort keys $href) {
+    foreach my $key (sort keys %{$href}) {
         my $hint = substr($href->{$key}, -5);
         print FD (join(' ', $hint, $key), $endl);
     }
@@ -1666,9 +1667,9 @@ sub walk_structure {
     return unless $rkind;
     if ($rkind eq 'HASH') {
         # special case: include type
-        my $jtype = ' : OBJECT { '.join(' ', sort keys $json).' }';
+        my $jtype = ' : OBJECT { '.join(' ', sort keys %{$json}).' }';
         $jschema{$path.$jtype}++;
-        foreach my $tag (keys $json) {
+        foreach my $tag (keys %{$json}) {
             $keyset{$tag}++;
             my $nested = $path.'/'.$tag;
             ## $jschema{$nested}++;
