@@ -47,9 +47,9 @@ At this time the reports are:
 
 ## How to build and start the Docker container image:
 
-docker build -t bjackson-analyzer .
+    docker build -t bjackson-analyzer .
 
-docker run --interactive --tty --rm --name analyzer bjackson-analyzer
+    docker run --interactive --tty --rm --name analyzer bjackson-analyzer
 
 ## How to drive it:
 
