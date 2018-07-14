@@ -51,6 +51,17 @@ At this time the reports are:
 
     docker run --interactive --tty --rm --name analyzer bjackson-analyzer
 
+Note: I picked the container (instance) name: 'analyzer' here at random.
+Instructions below include this value - you can change it to your heart's content (you're on your own to know when the name is being used ;)
+
+## Uploading Trace Data files:
+
+    docker cp sample-data/multicell-trace-triangle-1530634503352636.json.gz analyzer:sample-data/
+
+## Offloading results:
+
+    docker cp analyzer:/tmp/triangle-1530634503352636/events.csv /tmp/
+
 ## How to drive it:
 
 Unlike conventional usage of Docker containers, this setup DOES NOT automatically run the application.
