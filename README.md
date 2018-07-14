@@ -21,28 +21,28 @@ A number of the reports include a 'nickname' which is the last few hex digits (5
 
 At this time the reports are:
 
-complex.gv - the datacenter wiring diagram (blueprint) overlaid with edges indicating which "ground plane" spanning trees utilize edges, colored by "bias direction".
+    complex.gv - the datacenter wiring diagram (blueprint) overlaid with edges indicating which "ground plane" spanning trees utilize edges, colored by "bias direction".
 
-forest.gv - the set of "ground plane" spanning trees (traph links) and stacked "application trees".
+    forest.gv - the set of "ground plane" spanning trees (traph links) and stacked "application trees".
 
-events.csv - trace of message traffic through the network, compacted such that independent operations appear together.
-The packing heuristic models queues (mostly Forwarding Engine) associated with the wiring.
-Note that this model allows the pair of unidirectional channels of a edge in the network's graph to hold (contain) messages even while either end is pushing or popping a message onto transmit and receive queues.
-Uses "Alan Notation".
+    events.csv - trace of message traffic through the network, compacted such that independent operations appear together.
+    The packing heuristic models queues (mostly Forwarding Engine) associated with the wiring.
+    Note that this model allows the pair of unidirectional channels of a edge in the network's graph to hold (contain) messages even while either end is pushing or popping a message onto transmit and receive queues.
+    Uses "Alan Notation".
 
-routing-table.txt - a dump of the final state of each cell's routing table entries
+    routing-table.txt - a dump of the final state of each cell's routing table entries
 
-msg-dump.txt - a digest of all observed Message values
-guid-table.txt - a simple table of all GUID values
-gvm-table.txt - a simple table of all GVM equation values
-manifest-table.txt - a simple table of all Manifest values
+    msg-dump.txt - a digest of all observed Message values
+    guid-table.txt - a simple table of all GUID values
+    gvm-table.txt - a simple table of all GVM equation values
+    manifest-table.txt - a simple table of all Manifest values
 
-raw-analysis.txt - captured 'stdout' of the script ; densely organized into one line per emitter
+    raw-analysis.txt - captured 'stdout' of the script ; densely organized into one line per emitter
 
-threaded-analysis.txt - post-processed output that rearranges (sorts) the raw output using a heuristic that groups emitters (by their first action) and expands each into a block of lines
+    threaded-analysis.txt - post-processed output that rearranges (sorts) the raw output using a heuristic that groups emitters (by their first action) and expands each into a block of lines
 
-schema-use.txt - a machine-coded breakdown of the defacto-schema of the input JSON file meta-structure which may for the basis of automatic detection of incompatible format changes (ref: json-schema.pl)
-schema-data.txt - stats and info about JSON meta-structure (obsolete)
+    schema-use.txt - a machine-coded breakdown of the defacto-schema of the input JSON file meta-structure which may for the basis of automatic detection of incompatible format changes (ref: json-schema.pl)
+    schema-data.txt - stats and info about JSON meta-structure (obsolete)
 
 
 ## How to build and start the Docker container image:
@@ -59,10 +59,10 @@ You need to supply input data and configure a helper script to indicate which da
 
 In order to facilitate processing of different 'configurations' for and independent runs of the simulator along with changes to the simulator (i.e. data formats) or to analysis processing, there are a pair of "helper scripts" which have internal shell variables that can be modified (hand edited) to indicate the dataset to be processed.
 
-variance.sh - wraps the execution of analyze.pl so that all resultant report files are generated into independently named subdirectories of /tmp/.
-At the conclusion of processing the generated results are "regression tested" (i.e. diff'ed) against an archive direction (presumed to be the last good run), if any.
+    variance.sh - wraps the execution of analyze.pl so that all resultant report files are generated into independently named subdirectories of /tmp/.
+    At the conclusion of processing the generated results are "regression tested" (i.e. diff'ed) against an archive direction (presumed to be the last good run), if any.
 
-pickle.sh - a duplicate copy of variance.sh which rather than comparing the results, archives them (redoes a fresh analysis to ensure stale results are NOT archived).
+    pickle.sh - a duplicate copy of variance.sh which rather than comparing the results, archives them (does a fresh analysis to ensure stale results are NOT archived).
 
 Note: everything lives in /usr/local/bin/ - alter the Dockerfile if you prefer something different.
 
@@ -76,7 +76,7 @@ Here's one example:
 
 sample-data/multicell-trace-triangle-1530634503352636.json.gz
 
-The helper (csh) script: variance.sh has two variable you can set (modify via text editor):
+The helper (csh) script: variance.sh has two variables you can set (modify via text editor):
 
     set tag = "triangle-"
     set epoch = 1530634503352636
