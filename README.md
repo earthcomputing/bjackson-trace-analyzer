@@ -56,11 +56,13 @@ Instructions below include this value - you can change it to your heart's conten
 
 ## Uploading Trace Data files:
 
-    docker cp sample-data/multicell-trace-triangle-1530634503352636.json.gz analyzer:sample-data/
+    docker cp sample-data/multicell-trace-${tag}${epoch}.json.gz analyzer:sample-data/
+
+    docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:sample-data/
 
 ## Offloading results:
 
-    docker cp analyzer:/tmp/triangle-1530634503352636/events.csv /tmp/
+    docker cp analyzer:/tmp/${tag}${epoch}/events.csv /tmp/
 
 ## How to drive it:
 
