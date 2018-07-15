@@ -18,6 +18,6 @@ COPY post-process.sh /usr/local/bin/
 COPY pretty-json-lines.pl /usr/local/bin/
 COPY variance.sh /usr/local/bin/
 COPY sha1sum.sh /usr/local/bin/
-COPY sample-data/multicell-trace-triangle-1530634503352636.json.gz sample-data/
+# COPY sample-data/multicell-trace-triangle-1530634503352636.json.gz sample-data/
 
 CMD /bin/sh
