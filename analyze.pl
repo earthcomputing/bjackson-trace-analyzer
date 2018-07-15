@@ -354,6 +354,21 @@ sub order_mtable($$) {
     return $href->{$left} cmp $href->{$right};
 }
 
+## Spreadsheet Coding:
+sub add_msgcode2 {
+    my ($tag, $tree_id, $port, $body, $key) = @_;
+    my $event_code = ec_fromkey($key); # aka lineno
+
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    add_msgcode($c, $port, $msg_type, $event_code, $tag, $tree_id);
+}
+
 # link#
 # $dir : cell-rcv, cell-snd, pe-rcv, pe-snd
 sub add_msgcode {
@@ -705,34 +720,30 @@ sub meth_ca_send_msg_generic {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
-    my $port_list = build_port_list($body->{'port_nos'});
+    my $port_nos = $body->{'port_nos'};
+    my $port_list = build_port_list($port_nos);
     my $summary = summarize_msg($body->{'msg'});
 
     print(join(' ', $cell_id, $tree_id, $port_list, $summary, ';'));
 
-    ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $c = $cell_id; $c =~ s/C://;
-    my $port_nos = $body->{'port_nos'};
-
-    my $msg_hdr = $body->{'msg'}{'header'};
-    my $msg_type = $msg_hdr->{'msg_type'}; # STRING # Application, Discover, DiscoverD, Manifest, StackTree, StackTreeD
-    my $direction = $msg_hdr->{'direction'}; # STRING # Leafward, Rootward
-    my $msg_count = $msg_hdr->{'msg_count'}; # NUMBER
-    my $sender_id = nametype($msg_hdr->{'sender_id'}); # "Sender:..."
-    my $tree_map = $msg_hdr->{'tree_map'};
+    # my $msg_hdr = $body->{'msg'}{'header'};
+    # my $msg_type = $msg_hdr->{'msg_type'};
+    # my $direction = $msg_hdr->{'direction'};
+    # my $msg_count = $msg_hdr->{'msg_count'};
+    # my $sender_id = nametype($msg_hdr->{'sender_id'});
+    # my $tree_map = $msg_hdr->{'tree_map'};
 
     my $msg_payload = $body->{'msg'}{'payload'};
     my $pay_tree_id = nametype($msg_payload->{'tree_id'}); # "C:2+NocAgentMaster"
-    my $pay_body = $msg_payload->{'body'}; # STRING # "Reply from Container:VM:C:9+vm1+2"
 
     #FIXME -bj
     # confirm that a later record captures forwarding,
     # then switch this to indicate port #0
     # this really just adds a msg to the CA=>PE queue
+    my $tag = 'cell-snd';
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
-        add_msgcode($c, $p, $msg_type, $event_code, 'cell-snd', $tree_id); # $tree_id.' '.$port_list);
+        add_msgcode2($tag, $tree_id, $p, $body, $key);
     }
 }
 
@@ -759,6 +770,7 @@ sub meth_pe_packet_from_ca {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = 0;
+    ## add_msgcode2($tag, $tree_id, $p, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
@@ -781,6 +793,7 @@ sub meth_pe_forward_leafward {
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
         my $p = $item->{'v'};
+        # add_msgcode2($tag, $tree_id, $port, $body, $key);
         add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
     }
 }
@@ -800,6 +813,7 @@ sub meth_pe_forward_rootward {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'parent_port'}{'v'};
+    # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
 }
 
@@ -830,6 +844,7 @@ sub meth_pe_process_packet {
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
     my $p = $body->{'port_no'}{'v'};
+    # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
@@ -998,16 +1013,9 @@ sub meth_ca_got_stack_tree_tcp_msg {
     print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
 
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $msg = $body->{'msg'};
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-
-    my $c = $cell_id; $c =~ s/C://;
     my $virt_p = 0;
-    my $tree_id = $new_tree_id;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $new_tree_id, $virt_p, $body, $key);
 }
 
 # IMPORTANT : Stacking
@@ -1022,15 +1030,9 @@ sub meth_ca_save_stack_tree_msg {
     print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $msg = $body->{'msg'};
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-
-    my $c = $cell_id; $c =~ s/C://;
     my $virt_p = 0;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 }
 
 # /body : OBJECT { cell_id msg no_saved tree_id }
@@ -1094,16 +1096,9 @@ sub meth_ca_got_manifest_tcp_msg {
     print(join(' ', $cell_id, $deploy_tree_id, $summary, ';'));
 
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $msg = $body->{'msg'};
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-
-    my $c = $cell_id; $c =~ s/C://;
     my $virt_p = 0;
-    my $tree_id = $deploy_tree_id;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $deploy_tree_id, $virt_p, $body, $key);
 }
 
 # /body : OBJECT { cell_id msg tree_id }
@@ -1116,15 +1111,9 @@ sub meth_ca_got_tcp_application_msg {
     print(join(' ', $cell_id, $tree_id, $summary, ';'));
 
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $msg = $body->{'msg'};
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-
-    my $c = $cell_id; $c =~ s/C://;
     my $virt_p = 0;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 }
 
 ## IMPORTANT : stacking
@@ -1286,17 +1275,12 @@ sub meth_cm_bytes_from_ca {
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $summary, ';'));
 
-    ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
-    my $msg = $body->{'msg'};
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-
-    my $c = $cell_id; $c =~ s/C://;
-    my $virt_p = 0;
+    # FIXME
     my $tree_id;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-snd', $tree_id);
+    ## Spreadsheet Coding:
+    my $virt_p = 0;
+    my $tag = 'cell-snd';
+    add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 }
 
 # /body : OBJECT { cell_id msg  }
@@ -1326,6 +1310,7 @@ sub meth_pe_packet_from_cm {
 
     my $c = $cell_id; $c =~ s/C://;
     my $virt_p = 0;
+    # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $virt_p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
@@ -1339,24 +1324,16 @@ sub meth_pe_packet_from_cm {
 sub meth_ca_got_msg {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
-    # my $port_no = portdesc($body->{'port_no'});
-    my $c = $cell_id; $c =~ s/C://;
-    # my $p = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
-
     my $summary = summarize_msg($msg);
     print(join(' ', $cell_id, $summary, ';'));
 
-    my $header = $msg->{'header'};
-    my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-    my $sender_id = nametype($header->{'sender_id'});
-    my $tree_id = nametype($payload->{'tree_id'});
-
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
+    my $payload = $msg->{'payload'};
+    my $tree_id = nametype($payload->{'tree_id'});
     my $virt_p = 0;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 }
 
 ## IMPORTANT : Forest/DiscoverD
@@ -1372,24 +1349,23 @@ sub meth_ca_got_msg_cmodel {
     my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $port_no = portdesc($body->{'port_no'});
-    my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'port_no'}{'v'};
     my $msg = $body->{'msg'};
-
     my $summary = summarize_msg($msg);
     print(join(' ', $cell_id, $port_no, $summary, ';'));
 
-    my $header = $msg->{'header'};
+    my $p = $body->{'port_no'}{'v'};
     my $payload = $msg->{'payload'};
-    my $msg_type = $header->{'msg_type'};
-    my $sender_id = nametype($header->{'sender_id'});
     my $tree_id = nametype($payload->{'tree_id'});
 
     ## Spreadsheet Coding:
-    my $event_code = ec_fromkey($key);
     my $virt_p = 0;
-    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
+    my $tag = 'cell-rcv';
+    add_msgcode2($tag, $tree_id, $p, $body, $key);
 
+    my $c = $cell_id; $c =~ s/C://;
+    my $header = $msg->{'header'};
+    my $msg_type = $header->{'msg_type'};
+    my $sender_id = nametype($header->{'sender_id'});
     do_treelink($c, $p, $tree_id, $sender_id) if $msg_type eq 'DiscoverD';
     do_treelink($c, $p, $tree_id, $sender_id) if $msg_type eq 'StackTreeD';
     do_application($c, $p, $tree_id, $sender_id) if $msg_type eq 'Application';
