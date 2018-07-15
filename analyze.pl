@@ -1651,7 +1651,7 @@ sub order_numseq_basic($$) {
 sub inhale {
     my ($path) = @_;
     my $gzip = $path =~ m/.gz$/;
-    my $openspec = ($gzip) ?  'zcat '.$path.'|' : '<'.$path;
+    my $openspec = ($gzip) ?  'gunzip -c '.$path.'|' : '<'.$path;
     open(FD, $openspec) or die $path.': '.$!;
     my @body = <FD>;
     close(FD);
