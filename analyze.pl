@@ -394,7 +394,7 @@ print STDERR (join(' ', 'msgcode',
 $msg_type,
 $o->{'event_code'},
 $o->{'tree_id'},
-$o->{'cell_no'},
+'C'.$o->{'cell_no'}.'p'.$p,
 $o->{'link_no'},
 $o->{'arrow'},
 $o->{'code'}
@@ -1276,7 +1276,7 @@ sub meth_cm_bytes_from_ca {
     print(join(' ', $cell_id, $summary, ';'));
 
     # FIXME
-    my $tree_id;
+    my $tree_id = nametype($body->{'missing'});;
     ## Spreadsheet Coding:
     my $virt_p = 0;
     my $tag = 'cell-snd';
