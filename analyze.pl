@@ -375,6 +375,15 @@ sub add_msgcode {
         'code' => $code
     };
 
+print STDERR (join(' ', 'msgcode', 
+$msg_type,
+$o->{'event_code'},
+$o->{'tree_id'},
+$o->{'cell_no'},
+$o->{'link_no'},
+$o->{'arrow'},
+$o->{'code'}
+), $endl);
     push(@msgqueue, $o);
 }
 
@@ -975,7 +984,7 @@ sub meth_ca_stack_tree {
 # /body : OBJECT { cell_id msg entry new_tree_id }
 # 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
 sub meth_ca_got_stack_tree_tcp_msg {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $new_tree_id = nametype($body->{'new_tree_id'});
     my $summary = summarize_msg($body->{'msg'});
@@ -987,18 +996,41 @@ sub meth_ca_got_stack_tree_tcp_msg {
 
     # FIXME
     print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    my $tree_id = $new_tree_id;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 }
 
 # IMPORTANT : Stacking
 # /body : OBJECT { cell_id msg no_saved tree_id }
 # 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
 sub meth_ca_save_stack_tree_msg {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $no_saved = $body->{'no_saved'};
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 }
 
 # /body : OBJECT { cell_id msg no_saved tree_id }
@@ -1011,6 +1043,7 @@ sub meth_ca_add_saved_msg {
     my $summary = 'BUG'; # summarize_msg($body->{'msg'}); ## msg became an array, with [0] = null ??
     print(join(' ', $cell_id, $tree_id, $no_saved, $summary, ';'));
 }
+# bj
 
 # best guess - launch of VM (Cell Agent Control Plane work action)
 
@@ -1054,21 +1087,44 @@ sub meth_ca_got_from_uptree {
 # /body : OBJECT { cell_id msg deploy_tree_id }
 # 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
 sub meth_ca_got_manifest_tcp_msg {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $deploy_tree_id = nametype($body->{'deploy_tree_id'});
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $deploy_tree_id, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    my $tree_id = $deploy_tree_id;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 }
 
 # /body : OBJECT { cell_id msg tree_id }
 # 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
 sub meth_ca_got_tcp_application_msg {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-rcv', $tree_id);
 }
 
 ## IMPORTANT : stacking
@@ -1146,7 +1202,7 @@ sub dispatch {
 
     if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg') { meth_ca_save_stack_tree_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg') { meth_ca_save_stack_tree_msg($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$deploy$$Debug$$ca_deploy') { meth_ca_deploy($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg') { meth_ca_forward_stack_tree_msg($body); return; }
@@ -1159,9 +1215,9 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg_port_connected($body); return; }
     if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg_generic($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg') { meth_ca_got_stack_tree_tcp_msg($body); return; }
+    if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body, $key); return; }
+    if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body, $key); return; }
+    if ($methkey eq 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg') { meth_ca_got_stack_tree_tcp_msg($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map') { meth_ca_update_base_tree_map($body); return; }
 
     if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
@@ -1174,9 +1230,9 @@ sub dispatch {
     if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
 
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe') { meth_ca_listen_pe_cmodel($body); return; }
-    if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body); return; }
+    if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body, $key); return; }
     if ($methkey eq 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca') { meth_cm_bytes_to_ca($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm') { meth_pe_packet_from_cm($body); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm') { meth_pe_packet_from_cm($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body, $key); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
@@ -1225,10 +1281,22 @@ sub meth_ca_listen_pe_cmodel {
 # /body : OBJECT { cell_id msg  }
 # 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
 sub meth_cm_bytes_from_ca {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $summary, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    my $tree_id;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'cell-snd', $tree_id);
 }
 
 # /body : OBJECT { cell_id msg  }
@@ -1243,11 +1311,22 @@ sub meth_cm_bytes_to_ca {
 # /body : OBJECT { cell_id msg_type tree_id }
 # 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
 sub meth_pe_packet_from_cm {
-    my ($body) = @_;
+    my ($body, $key) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $msg_type = $body->{'msg_type'};
     my $tree_id = nametype($body->{'tree_id'});
     print(join(' ', $cell_id, $msg_type, $tree_id, ';'));
+
+    ## Spreadsheet Coding:
+    my $event_code = ec_fromkey($key);
+    my $msg = $body->{'msg'};
+    my $header = $msg->{'header'};
+    my $payload = $msg->{'payload'};
+    #my $msg_type = $header->{'msg_type'};
+
+    my $c = $cell_id; $c =~ s/C://;
+    my $virt_p = 0;
+    add_msgcode($c, $virt_p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
 # Cell Agent Control Plane - msg processing (ie. worker)
