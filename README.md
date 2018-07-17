@@ -144,6 +144,15 @@ In the meantime, here's a toy that seems to have the necessary moving parts:
 NOTE: I'm working towards having analyze.pl support reading trace data from Kafka.
 Therefore, these two things (upload/analyze) will emulate what the Rust simulation and the Datacenter Control UI need to do.
 
+## limping along:
+
+    docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
+
+    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
+    upload.pl sample-data/multicell-trace-triangle-1530634503352636.json.gz
+
+    kafka-console-consumer.sh --bootstrap-server 192.168.0.71:9092 --topic CellAgent --from-beginning
+
 ## Obsolete Notes, etc.
 
 usage: analyze.pl sample-data/* | post-process.sh 
