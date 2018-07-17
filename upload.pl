@@ -38,35 +38,20 @@ my $code_filter;
 # --
  
 my $server = '192.168.0.71'; # localhost:9092
-my $partition = 0;
-my $topic = 'mytopic';
-
-my @msg_set = [
-    'The first message',
-    'The second message',
-    'The third message',
-];
 
 my $connection;
 my $producer;
 my $consumer;
 
-use Data::Dumper;
-
 try {
     $connection = Kafka::Connection->new(host => $server);
-    # print Dumper $connection;
-
     $producer = Kafka::Producer->new(Connection => $connection);
-    $producer->send($topic, $partition, 'Single message');
-    $producer->send($topic, $partition, @msg_set);
- 
     $consumer = Kafka::Consumer->new(Connection => $connection);
-    dump_offsets($consumer, $topic, $partition);
- 
-    my $offset = 0;
-    my $messages = $consumer->fetch($topic, $partition, $offset, $DEFAULT_MAX_BYTES);
-    dump_msgs($messages) if $messages;
+
+    # dump_offsets($consumer, $topic, $partition);
+    # dump_all_msgs($consumer, $topic, $partition);
+
+    upload_tool($producer);
 }
 catch {
     my $error = $_;
@@ -78,8 +63,6 @@ catch {
         die $error;
     }
 };
- 
-upload_tool($producer);
 
 undef $consumer;
 undef $producer;
@@ -212,6 +195,13 @@ sub dump_offsets {
     else {
         warn "Error: Offsets are not received\n";
     }
+}
+
+sub dump_all_msgs {
+    my ($consumer, $topic, $partition) = @_;
+    my $offset = 0;
+    my $messages = $consumer->fetch($topic, $partition, $offset, $DEFAULT_MAX_BYTES);
+    dump_msgs($messages) if $messages;
 }
 
 sub dump_msgs {
