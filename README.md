@@ -153,6 +153,17 @@ Therefore, these two things (upload/analyze) will emulate what the Rust simulati
 
     kafka-console-consumer.sh --bootstrap-server 192.168.0.71:9092 --topic CellAgent --from-beginning
 
+## Cleaning up stale data:
+
+Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).  In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
+
+    kafka-topics.sh --zookeeper 192.168.0.71:2181 --delete --topic CellAgent
+    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
+
+CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.properties):
+
+    delete.topic.enable=true
+
 ## Obsolete Notes, etc.
 
 usage: analyze.pl sample-data/* | post-process.sh 
