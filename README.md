@@ -133,6 +133,8 @@ I'm working to create a tool that will upload a trace data file into a topic.
 In the meantime, here's a toy that seems to have the necessary moving parts:
 
     docker cp upload.pl analyzer:/root/
+
+    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic mytopic --partitions 1 --replication-factor 1
     env PERL_KAFKA_DEBUG=1 upload.pl
 
     PERL_KAFKA_DEBUG=1
