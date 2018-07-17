@@ -104,6 +104,44 @@ This is a handy way to inspect all the new output - rather than having differenc
 
 --
 
+## Integrating with Kafka
+
+With thanks to David Francoeur, it's possible to use existing Docker images built by confluent to run a completely off-the-shelf version of Kafka.
+The one niggly little detail that's needed is the ip-addr of the host:
+
+    ifconfig -a | grep -w inet
+    launch-kafka.sh <your-ipaddr-here>
+
+Complete details on how configuration works (TL;DR):
+
+    https://davidfrancoeur.com/post/kafka-on-docker-for-mac/
+    https://www.ianlewis.org/en/almighty-pause-container
+    https://www.ianlewis.org/en/what-are-kubernetes-pods-anyway
+    https://kubernetes.io/docs/concepts/workloads/pods/pod/
+
+## Operating Kafka
+
+Here's a generic test that can be used to confirm everything is properly operating:
+
+    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic test --partitions 1 --replication-factor 1
+    seq 1 45 | kafka-console-producer.sh --broker-list 192.168.0.71:9092 --topic test
+    kafka-console-consumer.sh --bootstrap-server 192.168.0.71:9092 --topic test --from-beginning
+
+## Interim perl tool (upload.pl)
+
+I'm working to create a tool that will upload a trace data file into a topic.
+In the meantime, here's a toy that seems to have the necessary moving parts:
+
+    docker cp upload.pl analyzer:/root/
+    env PERL_KAFKA_DEBUG=1 upload.pl
+
+    PERL_KAFKA_DEBUG=1
+    PERL_KAFKA_DEBUG=IO:1
+    PERL_KAFKA_DEBUG=Connection:1
+
+NOTE: I'm working towards having analyze.pl support reading trace data from Kafka.
+Therefore, these two things (upload/analyze) will emulate what the Rust simulation and the Datacenter Control UI need to do.
+
 ## Obsolete Notes, etc.
 
 usage: analyze.pl sample-data/* | post-process.sh 
