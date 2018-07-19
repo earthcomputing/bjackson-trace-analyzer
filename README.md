@@ -113,7 +113,7 @@ The one niggly little detail that's needed is the ip-addr of the host:
     export advert_host='192.168.0.71'
 
 The value above can be used either in your normal laptop shell,
-or within containers in or to access the 'outside' network/host.
+or within containers to access the 'outside' network/host.
 
 CAVEAT: Be careful about moving among DHCP hosts or networks.  Docker doesn't intercept host address changes, so the whole environment may need to be torn down and built up again.  This may so be required even if the bindings "wink out" and are then restored to their previous value(s).  If it happens to work in that case, thank your lucky stars.
 
@@ -161,7 +161,8 @@ Inside the analyzer container do:
     export advert_host='192.168.0.71'
     verify-kafka.sh ${advert_host}
 
-And then this to process the data (for now, TOPIC is the 'repo' value from the first, i.e. schema, trace record):
+And then this to process the data
+(for now, TOPIC is hardwired to the 'repo' value from the first trace record, i.e. MAIN/schema):
 
     export TOPIC=CellAgent
     kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic ${TOPIC} --partitions 1 --replication-factor 1
@@ -173,8 +174,18 @@ When things goes sideways these flags may be useful:
     PERL_KAFKA_DEBUG=IO:1
     PERL_KAFKA_DEBUG=Connection:1
 
+## Process Stream Data:
+
 NOTE: A fork of analyze.pl (analyze-queue.pl) supports reading trace data from Kafka.
 The stream reader is operated via the from-queue.sh helper script.
+
+    from-queue.sh ${advert_host}
+
+As the fork of analyze.pl retains all the file processing logic it assumes that all data is uploaded,
+and it's not really "live streaming".  The assumption is that the simulation has completed and what's modelled
+is everything from start-of-time to current-end.
+
+TBD: Eenhancing things to understand 'bookmark' records from a meta-topic would allow for "animated processing" in chunks.
 
 ## to inspect that uploaded data, use:
 
