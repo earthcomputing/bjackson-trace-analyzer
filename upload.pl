@@ -37,7 +37,9 @@ my $code_filter;
 
 # --
  
-my $server = '192.168.0.71'; # localhost:9092
+my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
+
+giveup('must specify ${advert_host}') unless $server;
 
 my $connection;
 my $producer;
