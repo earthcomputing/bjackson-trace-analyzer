@@ -31,6 +31,7 @@ COPY post-process.sh /usr/local/bin/
 COPY pretty-json-lines.pl /usr/local/bin/
 COPY variance.sh /usr/local/bin/
 COPY sha1sum.sh /usr/local/bin/
+COPY verify-kafka.sh /usr/local/bin/
 
 COPY upload.pl /root/
 
