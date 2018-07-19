@@ -104,13 +104,26 @@ This is a handy way to inspect all the new output - rather than having differenc
 
 --
 
-## Integrating with Kafka
+## Server Naming:
 
-With thanks to David Francoeur, it's possible to use existing Docker images built by confluent to run a completely off-the-shelf version of Kafka.
 The one niggly little detail that's needed is the ip-addr of the host:
 
     ifconfig -a | grep -w inet
-    launch-kafka.sh <your-ipaddr-here>
+    # your ip-addr here:
+    export advert_host='192.168.0.71'
+
+The value above can be used either in your normal laptop shell,
+or within containers in or to access the 'outside' network/host.
+
+CAVEAT: Be careful about moving among DHCP hosts or networks.  Docker doesn't intercept host address changes, so the whole environment may need to be torn down and built up again.  This may so be required even if the bindings "wink out" and are then restored to their previous value(s).  If it happens to work in that case, thank your lucky stars.
+
+TL;DR : We can't use 'localhost' because within Docker containers name translation is done locally AND also the ipaddr 127.0.0.1 is intercepted to be the container itself.
+
+## Integrating with Kafka
+
+With thanks to David Francoeur, it's possible to use existing Docker images built by confluent to run a completely off-the-shelf version of Kafka.
+
+    launch-kafka.sh ${advert_host}
 
 Complete details on how configuration works (TL;DR):
 
@@ -125,7 +138,8 @@ Here's a generic test that can be used to confirm everything is properly operati
 This uses utilities that are packaged with the Kafka distribution.
 To use outside of a docker contain, download the distribution and put the 'bin' directory on the path.
 
-Within the analyzer container, it's packaged up into the helper script : verify-kafka.sh, which does this (don't forget to set ${advert_host})
+Within the analyzer container, it's packaged up into the helper script : verify-kafka.sh,
+which does this (passing ${advert_host} as a CLI parameter):
 
     kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic test --partitions 1 --replication-factor 1
     seq 1 45 | kafka-console-producer.sh --broker-list ${advert_host}:9092 --topic test
@@ -135,15 +149,23 @@ Use ^C to exit the consumer.
 
 ## Interim perl tool (upload.pl)
 
+The two parts (upload/analyze-queue) emulate what the Rust simulation and the Datacenter Control UI need to do.
+
 Here's a work-in-progress utility that will upload a trace data file into a topic.
+First upload some data into the analyzer container:
+
+    docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
+
 Inside the analyzer container do:
 
     export advert_host='192.168.0.71'
-
     verify-kafka.sh ${advert_host}
 
-    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic mytopic --partitions 1 --replication-factor 1
-    upload.pl
+And then this to process the data (for now, TOPIC is the 'repo' value from the first, i.e. schema, trace record):
+
+    export TOPIC=CellAgent
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic ${TOPIC} --partitions 1 --replication-factor 1
+    upload.pl sample-data/multicell-trace-triangle-1530634503352636.json.gz
 
 When things goes sideways these flags may be useful:
 
@@ -153,23 +175,17 @@ When things goes sideways these flags may be useful:
 
 NOTE: A fork of analyze.pl (analyze-queue.pl) supports reading trace data from Kafka.
 The stream reader is operated via the from-queue.sh helper script.
-These two parts (upload/analyze) emulate what the Rust simulation and the Datacenter Control UI need to do.
 
-## limping along:
+## to inspect that uploaded data, use:
 
-    docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
-
-    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
-    upload.pl sample-data/multicell-trace-triangle-1530634503352636.json.gz
-
-    kafka-console-consumer.sh --bootstrap-server ${advert_host}:9092 --topic CellAgent --from-beginning
+    kafka-console-consumer.sh --bootstrap-server ${advert_host}:9092 --topic ${TOPIC} --from-beginning
 
 ## Cleaning up stale data:
 
 Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).  In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
 
-    kafka-topics.sh --zookeeper ${advert_host}:2181 --delete --topic CellAgent
-    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --delete --topic ${TOPIC}
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic ${TOPIC} --partitions 1 --replication-factor 1
 
 CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.properties):
 
@@ -177,6 +193,7 @@ CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.pro
 
 ## Obsolete Notes, etc.
 
+    setenv advert_host 192.168.0.71
     docker cp upload.pl analyzer:/root/
 
 usage: analyze.pl sample-data/* | post-process.sh 
