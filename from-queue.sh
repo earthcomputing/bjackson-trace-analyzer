@@ -1,5 +1,12 @@
 #!/bin/csh -fx
 
+set advert_host = 'localhost'
+set advert_host = '192.168.0.71'
+
+if ( $#argv > 0 ) then
+    set advert_host = $1:q
+endif
+
 set tag = "triangle-"
 set epoch = 1530634503352636
 
@@ -9,7 +16,7 @@ set archive = "${work}/${tag}${epoch}"
 
 mkdir -p ${wdir}
 
-analyze-queue.pl -wdir=${wdir} -topic=CellAgent > ${wdir}raw-analysis.txt
+analyze-queue.pl -wdir=${wdir} -server=${advert_host} -topic=CellAgent > ${wdir}raw-analysis.txt
 
 set rc = $status
 if ($rc != 0) then
