@@ -121,50 +121,63 @@ Complete details on how configuration works (TL;DR):
 
 ## Operating Kafka
 
-Here's a generic test that can be used to confirm everything is properly operating:
+Here's a generic test that can be used to confirm everything is properly operating.
+This uses utilities that are packaged with the Kafka distribution.
+To use outside of a docker contain, download the distribution and put the 'bin' directory on the path.
 
-    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic test --partitions 1 --replication-factor 1
-    seq 1 45 | kafka-console-producer.sh --broker-list 192.168.0.71:9092 --topic test
-    kafka-console-consumer.sh --bootstrap-server 192.168.0.71:9092 --topic test --from-beginning
+Within the analyzer container, it's packaged up into the helper script : verify-kafka.sh, which does this (don't forget to set ${advert_host})
+
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic test --partitions 1 --replication-factor 1
+    seq 1 45 | kafka-console-producer.sh --broker-list ${advert_host}:9092 --topic test
+    kafka-console-consumer.sh --bootstrap-server ${advert_host}:9092 --topic test --from-beginning
+
+Use ^C to exit the consumer.
 
 ## Interim perl tool (upload.pl)
 
-I'm working to create a tool that will upload a trace data file into a topic.
-In the meantime, here's a toy that seems to have the necessary moving parts:
+Here's a work-in-progress utility that will upload a trace data file into a topic.
+Inside the analyzer container do:
 
-    docker cp upload.pl analyzer:/root/
+    export advert_host='192.168.0.71'
 
-    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic mytopic --partitions 1 --replication-factor 1
-    env PERL_KAFKA_DEBUG=1 upload.pl
+    verify-kafka.sh ${advert_host}
+
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic mytopic --partitions 1 --replication-factor 1
+    upload.pl
+
+When things goes sideways these flags may be useful:
 
     PERL_KAFKA_DEBUG=1
     PERL_KAFKA_DEBUG=IO:1
     PERL_KAFKA_DEBUG=Connection:1
 
-NOTE: I'm working towards having analyze.pl support reading trace data from Kafka.
-Therefore, these two things (upload/analyze) will emulate what the Rust simulation and the Datacenter Control UI need to do.
+NOTE: A fork of analyze.pl (analyze-queue.pl) supports reading trace data from Kafka.
+The stream reader is operated via the from-queue.sh helper script.
+These two parts (upload/analyze) emulate what the Rust simulation and the Datacenter Control UI need to do.
 
 ## limping along:
 
     docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
 
-    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
     upload.pl sample-data/multicell-trace-triangle-1530634503352636.json.gz
 
-    kafka-console-consumer.sh --bootstrap-server 192.168.0.71:9092 --topic CellAgent --from-beginning
+    kafka-console-consumer.sh --bootstrap-server ${advert_host}:9092 --topic CellAgent --from-beginning
 
 ## Cleaning up stale data:
 
 Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).  In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
 
-    kafka-topics.sh --zookeeper 192.168.0.71:2181 --delete --topic CellAgent
-    kafka-topics.sh --zookeeper 192.168.0.71:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --delete --topic CellAgent
+    kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic CellAgent --partitions 1 --replication-factor 1
 
 CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.properties):
 
     delete.topic.enable=true
 
 ## Obsolete Notes, etc.
+
+    docker cp upload.pl analyzer:/root/
 
 usage: analyze.pl sample-data/* | post-process.sh 
 
