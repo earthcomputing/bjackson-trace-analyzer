@@ -32,6 +32,8 @@ if ( $#ARGV < 0 ) {
     exit -1
 }
 
+my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
+
 # --
 
 my $dotfile = 'complex.gv';
@@ -125,6 +127,7 @@ foreach my $fname (@ARGV) {
     if ($fname eq '-NOT_ALAN') { $NOT_ALAN = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
+    if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     print($endl, $fname, $endl);
 
     my $href = process_file($fname);
@@ -1744,7 +1747,6 @@ sub inhale_all_msgs {
 
 sub kafka_inhale {
     my ($topic) = @_;
-    my $server = '192.168.0.71'; # localhost:9092
     my $partition = 0;
 
     my $connection;
