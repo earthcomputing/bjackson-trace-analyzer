@@ -14,14 +14,14 @@ docker run -d --name pause \
     -p 2181:2181 \
     gcr.io/google_containers/pause-amd64:3.0
 
-docker run -d \
+docker run -d --name cp-zk \
     --net=container:pause \
     --ipc=container:pause \
     --pid=container:pause \
     -e "ZOOKEEPER_CLIENT_PORT=2181" \
     confluentinc/cp-zookeeper:4.1.1
 
-docker run -d \
+docker run -d --name cp-kafka \
     --net=container:pause \
     --ipc=container:pause \
     --pid=container:pause \
