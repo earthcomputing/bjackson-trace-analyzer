@@ -7,7 +7,7 @@ The heart of this tool is analyze.pl, which reads in a sequence of values in JSO
 Keys of the map are constructing using trace header values augmented with a "stream position value" that is used to disambiguate when keys turn out to NOT be unique (technically an error, but tolerated).
 The keys only create a "partial order" in that records may not be strictly sequential (causually related) as they are a consolidation of multiple, independent observers/emitters.
 
-After reading in all that data, multiple passes of analysis are done over the date by a 'modeller' which attempts to re-build an independent, parallel imitation of the state(s) of the ECCF simulation based upon the changes impled by the event data.
+After reading in all that data, multiple passes of analysis are done over the data by a 'modeller' which attempts to re-build an independent, parallel imitation of the state(s) of the ECCF simulation based upon the changes impled by the event data.
 
 Processing of the data is tolerant of excess "carried data" in the JSON objects and additional knowledge is synthesized utilizing a GEV of the emulated datacenter.
 
@@ -45,7 +45,7 @@ At this time the reports are:
     schema-data.txt - stats and info about JSON meta-structure (obsolete)
 
 
-## How to build and start the Docker container image:
+## How to build and start the Docker container image (macosx terminal):
 
     docker build -t bjackson-analyzer .
 
@@ -54,13 +54,13 @@ At this time the reports are:
 Note: I picked the container (instance) name: 'analyzer' here at random.
 Instructions below include this value - you can change it to your heart's content (you're on your own to know when the name is being used ;)
 
-## Uploading Trace Data files:
+## Uploading Trace Data files (macosx terminal):
 
     docker cp sample-data/multicell-trace-${tag}${epoch}.json.gz analyzer:/root/sample-data/
 
     docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
 
-## Offloading results:
+## Offloading results (macosx terminal):
 
     docker cp analyzer:/tmp/${tag}${epoch}/events.csv /tmp/
 
@@ -79,7 +79,7 @@ In order to facilitate processing of different 'configurations' for and independ
 
 Note: everything lives in /usr/local/bin/ - alter the Dockerfile if you prefer something different.
 
-## Managing Trace Data and Results
+## Managing Trace Data and Results:
 
 Input data uses a file naming pattern : sample-data/multicell-trace-${tag}${epoch}.json.gz.
 The idea is that 'tag' reflects something useful to you - possibly the blueprint configuration and/or simulation run conditions.
@@ -104,7 +104,7 @@ This is a handy way to inspect all the new output - rather than having differenc
 
 --
 
-## Server Naming:
+## Server Naming(both macosx and analyzer container);:
 
 The one niggly little detail that's needed is the ip-addr of the host:
 
@@ -119,7 +119,7 @@ CAVEAT: Be careful about moving among DHCP hosts or networks.  Docker doesn't in
 
 TL;DR : We can't use 'localhost' because within Docker containers name translation is done locally AND also the ipaddr 127.0.0.1 is intercepted to be the container itself.
 
-## Integrating with Kafka
+## Integrating with Kafka (macosx terminal):
 
 With thanks to David Francoeur, it's possible to use existing Docker images built by confluent to run a completely off-the-shelf version of Kafka.
 
@@ -132,7 +132,7 @@ Complete details on how configuration works (TL;DR):
     https://www.ianlewis.org/en/what-are-kubernetes-pods-anyway
     https://kubernetes.io/docs/concepts/workloads/pods/pod/
 
-## Operating Kafka
+## Confirming Kafka is Operational (analyzer container):
 
 Here's a generic test that can be used to confirm everything is properly operating.
 This uses utilities that are packaged with the Kafka distribution.
@@ -147,16 +147,16 @@ which does this (passing ${advert_host} as a CLI parameter):
 
 Use ^C to exit the consumer.
 
-## Interim perl tool (upload.pl)
+## Interim perl tool (upload.pl):
 
 The two parts (upload/analyze-queue) emulate what the Rust simulation and the Datacenter Control UI need to do.
 
 Here's a work-in-progress utility that will upload a trace data file into a topic.
-First upload some data into the analyzer container:
+First upload some data into the analyzer container (macosx terminal):
 
     docker cp "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data/multicell-trace-triangle-1530634503352636.json.gz" analyzer:/root/sample-data/
 
-Inside the analyzer container do:
+Then the real work (analyzer container);
 
     export advert_host='192.168.0.71'
     verify-kafka.sh ${advert_host}
@@ -168,13 +168,15 @@ And then this to process the data
     kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic ${TOPIC} --partitions 1 --replication-factor 1
     upload.pl sample-data/multicell-trace-triangle-1530634503352636.json.gz
 
+---
+
 When things goes sideways these flags may be useful:
 
     PERL_KAFKA_DEBUG=1
     PERL_KAFKA_DEBUG=IO:1
     PERL_KAFKA_DEBUG=Connection:1
 
-## Process Stream Data:
+## Process Stream Data (analyzer container):
 
 NOTE: A fork of analyze.pl (analyze-queue.pl) supports reading trace data from Kafka.
 The stream reader is operated via the from-queue.sh helper script.
@@ -187,11 +189,11 @@ is everything from start-of-time to current-end.
 
 TBD: Eenhancing things to understand 'bookmark' records from a meta-topic would allow for "animated processing" in chunks.
 
-## to inspect that uploaded data, use:
+## to inspect that uploaded data, use (analyzer container):
 
     kafka-console-consumer.sh --bootstrap-server ${advert_host}:9092 --topic ${TOPIC} --from-beginning
 
-## Cleaning up stale data:
+## Cleaning up stale data (analyzer container):
 
 Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).  In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
 
