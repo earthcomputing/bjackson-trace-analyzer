@@ -24,16 +24,18 @@ RUN mkdir -p sample-data
 ## .gitignore
 ## README.md
 ## SCHEMA.md
+COPY analyze-queue.pl /usr/local/bin/
 COPY analyze.pl /usr/local/bin/
+COPY from-queue.sh /usr/local/bin/
 COPY json-schema.pl /usr/local/bin/
+## launch-kafka.sh
 COPY pickle.sh /usr/local/bin/
 COPY post-process.sh /usr/local/bin/
 COPY pretty-json-lines.pl /usr/local/bin/
-COPY variance.sh /usr/local/bin/
 COPY sha1sum.sh /usr/local/bin/
+COPY upload.pl /usr/local/bin/
+COPY variance.sh /usr/local/bin/
 COPY verify-kafka.sh /usr/local/bin/
-
-COPY upload.pl /root/
 
 # COPY sample-data/multicell-trace-triangle-1530634503352636.json.gz sample-data/
 
