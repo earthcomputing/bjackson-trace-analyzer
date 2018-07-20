@@ -204,6 +204,43 @@ CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.pro
 
     delete.topic.enable=true
 
+## Alan's Master Orchestrator:
+
+The Master Orchestrator (TMO), which lives outside the ECCF (i.e. on the Internet) makes requests of the CellAgent whose "border port" is connected to the Internet (and which has properly authenticated and authorized the TMO.  In the "toy scenario" performed by the simulation, TMO requests the creation of 2 "stacked trees" using a pair of related GVM equations.  The effect is that one cell is selected to be the 'client', and all other cells in the datacenter are to be come "hello world servers" (or if you prefer owners of indpendent holders of parts of a sharded K/V store object space).
+
+Once the "hello client" and "hello world servers" are 'launched', the client sends a message (request, leafward) to the set of servers, which then each send a message back (response, rootward) to the client.
+
+The TMO's 'deploy' operation results in the creation of a GEV cluster of "service instances" - i.e. the cluster(s) table.
+The table captures the set of clusters (i.e. class information), and for each cluster the set of running instances (i.e. instance information).
+
+Once the 2 hello world clusters are 'ready', application traffic flows with the result being a set of "hello there (from instance x)" data being delivered and (printf) reported by the client.
+
+Here's the snippets of the trace data that's involved which needs to be transformed into the cluster table content and the client's console output:
+
+    grep AgentDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+    grep MasterDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+    grep Manifest /tmp/triangle-1530634503352636/threaded-analysis.txt | grep process_manifest_msg
+    grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+
+    # grep AgentDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+
+        listen_cm_loop C:0 StackTreeD Tree:C:2+NocAgentDeploy ;
+        listen_cm_loop C:1 StackTreeD Tree:C:2+NocAgentDeploy ;
+
+    # grep MasterDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+
+    # grep Manifest /tmp/triangle-1530634503352636/threaded-analysis.txt | grep process_manifest_msg
+
+         process_manifest_msg C:0 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
+         process_manifest_msg C:1 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
+         process_manifest_msg C:2 Tree:C:2+NocMasterDeploy v0 b1c99     Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=98ef3 ;
+
+    # grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+
+         tcp_application C:0 Tree:C:2+NocAgentMaster 5d3f0      Rootward        Application     Sender:C:0+VM:C:0+vm1   gvm=    manifest= ;
+         tcp_application C:1 Tree:C:2+NocAgentMaster b49af      Rootward        Application     Sender:C:1+VM:C:1+vm1   gvm=    manifest= ;
+         tcp_application C:2 Tree:C:2+NocMasterAgent a83b1      Leafward        Application     Sender:C:2+VM:C:2+vm1   gvm=    manifest= ;
+
 ## Obsolete Notes, etc.
 
     setenv advert_host 192.168.0.71
