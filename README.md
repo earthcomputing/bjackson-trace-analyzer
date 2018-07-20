@@ -246,43 +246,43 @@ Here's the snippets of the trace data that's involved which needs to be transfor
         process_manifest_msg C:2 Tree:C:2+NocMasterDeploy v0 b1c99     Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=98ef3 ;
 
 
-{
-    "nick": "ccced",
-    "id": "NocAgent",
-    "deployment_tree": { "name": "NocAgentDeploy" },
-    "cell_config": "Large",
-    "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
-    "vms": [ {
-        "id": "vm1",
-        "image": "Ubuntu",
-        "required_config": "Large",
-        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-        "containers": [ {
-            "id": "NocAgent",
-            "image": "NocAgent",
-            "params": []
-        } ],
-    } ]
-}
+    {
+        "nick": "ccced",
+        "id": "NocAgent",
+        "deployment_tree": { "name": "NocAgentDeploy" },
+        "cell_config": "Large",
+        "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
+        "vms": [ {
+            "id": "vm1",
+            "image": "Ubuntu",
+            "required_config": "Large",
+            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+            "containers": [ {
+                "id": "NocAgent",
+                "image": "NocAgent",
+                "params": []
+            } ],
+        } ]
+    }
 
-{
-    "nick": "98ef3",
-    "id": "NocMaster",
-    "deployment_tree": { "name": "NocMasterDeploy" },
-    "cell_config": "Large",
-    "trees": [ { "id": "NocMaster", "parent_list": [ 0 ] } ],
-    "vms": [ {
-        "id": "vm1",
-        "image": "Ubuntu",
-        "required_config": "Large",
-        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-        "containers": [ {
-            "id": "NocMaster",
-            "image": "NocMaster",
-            "params": []
-        } ],
-    } ]
-}
+    {
+        "nick": "98ef3",
+        "id": "NocMaster",
+        "deployment_tree": { "name": "NocMasterDeploy" },
+        "cell_config": "Large",
+        "trees": [ { "id": "NocMaster", "parent_list": [ 0 ] } ],
+        "vms": [ {
+            "id": "vm1",
+            "image": "Ubuntu",
+            "required_config": "Large",
+            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+            "containers": [ {
+                "id": "NocMaster",
+                "image": "NocMaster",
+                "params": []
+            } ],
+        } ]
+    }
 
     grep listen_cm_loop /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep NocMasterAgent
     grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
