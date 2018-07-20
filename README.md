@@ -228,6 +228,9 @@ Once the 2 hello world clusters are 'ready', application traffic flows ("Hello")
 
 Here are snippets of trace data involved which needs to be transformed into the cluster table content and the client's console output:
 
+    98eac {"recv_eqn":"hops == 0","save_eqn":"false","send_eqn":"true","variables":[{"value":"","var_name":"hops","var_type":"PathLength"}],"xtnd_eqn":"false"}
+    a19f6 {"recv_eqn":"hops > 0","save_eqn":"true","send_eqn":"true","variables":[{"value":"","var_name":"hops","var_type":"PathLength"}],"xtnd_eqn":"true"}
+
     # grep StackTree /tmp/triangle-1530634503352636/threaded-analysis.txt | grep Deploy | grep listen_cm_loop
 
         listen_cm_loop C:0 StackTree Tree:C:2+NocAgentDeploy ;
@@ -284,6 +287,9 @@ Here are snippets of trace data involved which needs to be transformed into the 
 
 ## Application Communications: MasterAgent & AgentMaster
 
+    06de9 {"recv_eqn":"true","save_eqn":"true","send_eqn":"hops == 0","variables":[{"value":"","var_name":"hops","var_type":"PathLength"}],"xtnd_eqn":"true"}
+    4b60b {"recv_eqn":"hops == 0","save_eqn":"true","send_eqn":"true","variables":[{"value":"","var_name":"hops","var_type":"PathLength"}],"xtnd_eqn":"true"}
+
     # grep MasterAgent /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTree | grep listen_cm_loop
 
         listen_cm_loop C:0 StackTree Tree:C:2+NocMasterAgent ;
@@ -303,6 +309,11 @@ Here are snippets of trace data involved which needs to be transformed into the 
         listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
         listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
 
+    # grep tcp_stack_tree /tmp/triangle-1530634503352636/threaded-analysis.txt | egrep 'MasterAgent|AgentMaster'
+
+        tcp_stack_tree C:2 Tree:C:2+NocMasterAgent a8614       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=06de9       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocAgentMaster 23572       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=4b60b       manifest= ;
+
 ---
 
     # grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
@@ -319,15 +330,6 @@ Here are snippets of trace data involved which needs to be transformed into the 
             Reply from Container:VM:C:0+vm1+2
         b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
             Reply from Container:VM:C:1+vm1+2
-
-## What? No Response ??
-
-    # grep tcp_stack_tree /tmp/triangle-1530634503352636/threaded-analysis.txt
-
-        tcp_stack_tree C:2 Tree:C:2+NocMasterDeploy 1c377      Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=98eac       manifest= ;
-        tcp_stack_tree C:2 Tree:C:2+NocAgentDeploy ba6ad       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=a19f6       manifest= ;
-        tcp_stack_tree C:2 Tree:C:2+NocMasterAgent a8614       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=06de9       manifest= ;
-        tcp_stack_tree C:2 Tree:C:2+NocAgentMaster 23572       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=4b60b       manifest= ;
 
 ## Obsolete Notes, etc.
 
