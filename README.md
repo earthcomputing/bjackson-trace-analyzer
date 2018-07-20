@@ -195,7 +195,8 @@ TBD: Eenhancing things to understand 'bookmark' records from a meta-topic would 
 
 ## Cleaning up stale data (analyzer container):
 
-Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).  In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
+Ideally, there could/should be a meta-topic to hold 'bookmarks' for interesting 'offset' values which consumers would use to control processing of the data (queue).
+In lieu of that there's two options : kill everything (i.e. restart Moby, etc.), or delete/create the topic:
 
     kafka-topics.sh --zookeeper ${advert_host}:2181 --delete --topic ${TOPIC}
     kafka-topics.sh --zookeeper ${advert_host}:2181 --create --topic ${TOPIC} --partitions 1 --replication-factor 1
@@ -206,7 +207,9 @@ CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.pro
 
 ## Alan's Master Orchestrator:
 
-The Master Orchestrator (TMO), which lives outside the ECCF (i.e. on the Internet) makes requests of the CellAgent whose "border port" is connected to the Internet (and which has properly authenticated and authorized the TMO.  In the "toy scenario" performed by the simulation, TMO requests the creation of 2 "stacked trees" using a pair of related GVM equations.  The effect is that one cell is selected to be the 'client', and all other cells in the datacenter are to be come "hello world servers" (or if you prefer owners of indpendent holders of parts of a sharded K/V store object space).
+The Master Orchestrator (TMO), which lives outside the ECCF (i.e. on the Internet) makes requests of the CellAgent whose "border port" is connected to the Internet (and which has properly authenticated and authorized the TMO).
+In the "toy scenario" performed by the simulation, TMO requests the creation of 2 "stacked trees" using a pair of related GVM equations.
+The effect is that one cell is selected to be the 'client', and all other cells in the datacenter are to be come "hello world servers" (or if you prefer owners of indpendent holders of parts of a sharded K/V store object space).
 
 Once the "hello client" and "hello world servers" are 'launched', the client sends a message (request, leafward) to the set of servers, which then each send a message back (response, rootward) to the client.
 
@@ -231,28 +234,73 @@ Here's the snippets of the trace data that's involved which needs to be transfor
 
     # grep Manifest /tmp/triangle-1530634503352636/threaded-analysis.txt | grep process_manifest_msg
 
-         process_manifest_msg C:0 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
-         process_manifest_msg C:1 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
-         process_manifest_msg C:2 Tree:C:2+NocMasterDeploy v0 b1c99     Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=98ef3 ;
+        process_manifest_msg C:0 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
+        process_manifest_msg C:1 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
+        process_manifest_msg C:2 Tree:C:2+NocMasterDeploy v0 b1c99     Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=98ef3 ;
 
-    # grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+{
+    "nick": "ccced",
+    "id": "NocAgent",
+    "deployment_tree": { "name": "NocAgentDeploy" },
+    "cell_config": "Large",
+    "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
+    "vms": [ {
+        "id": "vm1",
+        "image": "Ubuntu",
+        "required_config": "Large",
+        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+        "containers": [ {
+            "id": "NocAgent",
+            "image": "NocAgent",
+            "params": []
+        } ],
+    } ]
+}
 
-         tcp_application C:0 Tree:C:2+NocAgentMaster 5d3f0      Rootward        Application     Sender:C:0+VM:C:0+vm1   gvm=    manifest= ;
-         tcp_application C:1 Tree:C:2+NocAgentMaster b49af      Rootward        Application     Sender:C:1+VM:C:1+vm1   gvm=    manifest= ;
-         tcp_application C:2 Tree:C:2+NocMasterAgent a83b1      Leafward        Application     Sender:C:2+VM:C:2+vm1   gvm=    manifest= ;
+{
+    "nick": "98ef3",
+    "id": "NocMaster",
+    "deployment_tree": { "name": "NocMasterDeploy" },
+    "cell_config": "Large",
+    "trees": [ { "id": "NocMaster", "parent_list": [ 0 ] } ],
+    "vms": [ {
+        "id": "vm1",
+        "image": "Ubuntu",
+        "required_config": "Large",
+        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+        "containers": [ {
+            "id": "NocMaster",
+            "image": "NocMaster",
+            "params": []
+        } ],
+    } ]
+}
+
+# grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+
+    tcp_application C:0 Tree:C:2+NocAgentMaster 5d3f0      Rootward        Application     Sender:C:0+VM:C:0+vm1   gvm=    manifest= ;
+    tcp_application C:1 Tree:C:2+NocAgentMaster b49af      Rootward        Application     Sender:C:1+VM:C:1+vm1   gvm=    manifest= ;
+    tcp_application C:2 Tree:C:2+NocMasterAgent a83b1      Leafward        Application     Sender:C:2+VM:C:2+vm1   gvm=    manifest= ;
+
+    a83b1 {"body":[72,101,108,108,111,32,70,114,111,109,32,77,97,115,116,101,114], ...}
+        Hello From Master
+    5d3f0 {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,48,43,118,109,49,43,50], ...}
+        Reply from Container:VM:C:0+vm1+2
+    b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
+        Reply from Container:VM:C:1+vm1+2
 
 ## Obsolete Notes, etc.
 
     setenv advert_host 192.168.0.71
     docker cp upload.pl analyzer:/root/
 
-usage: analyze.pl sample-data/* | post-process.sh 
+    usage: analyze.pl sample-data/* | post-process.sh 
 
---
+    --
 
-Here's a more sophisticated scenario - compare 2 runs :
+    Here's a more sophisticated scenario - compare 2 runs :
 
-analyze.pl tmp/multicell-trace.json | post-process.sh > /tmp/z1.txt
-analyze.pl tmp/multicell-trace1.json | post-process.sh > /tmp/z2.txt
-p4-merge.sh /tmp/z[12].txt
+    analyze.pl tmp/multicell-trace.json | post-process.sh > /tmp/z1.txt
+    analyze.pl tmp/multicell-trace1.json | post-process.sh > /tmp/z2.txt
+    p4-merge.sh /tmp/z[12].txt
 
