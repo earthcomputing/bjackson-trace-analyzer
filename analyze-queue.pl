@@ -85,7 +85,20 @@ my $gamut = {
     'Tree:C6' => 'navy',
     'Tree:C7' => 'green',
     'Tree:C8' => 'maroon',
-    'Tree:C9' => 'turquoise4' # teal, 'olive'
+    'Tree:C9' => 'turquoise4', # teal, 'olive'
+
+    'Tree:C2+NocAgentDeploy' => 'cyan',
+    'Tree:C2+NocMasterDeploy' => 'magenta',
+    'Tree:C2+NocAgentMaster' => 'navy',
+    'Tree:C2+NocMasterAgent' => 'maroon',
+    'Tree:C2+Noc' => 'maroon',
+
+    'Tree:C0+Connected' => 'black',
+    'Tree:C1+Connected' => 'black',
+    'Tree:C2+Connected' => 'black',
+    'Tree:C0+Control' => 'black',
+    'Tree:C1+Control' => 'black',
+    'Tree:C2+Control' => 'black'
 };
 
 sub pick_color {
@@ -1500,6 +1513,20 @@ sub dump_forest {
         my $child = $o->{'child'};
         my $span_tree = $o->{'span_tree'};
         my $port = $o->{'p'};
+        my $link_no = $o->{'link_no'};
+
+        # FIXME - child is other side of link!
+        my $compass = $link_no % 2;
+        my $edge_no = int($link_no / 2);
+        my $e = find_edge($edge_no);
+        my $lc = $e->{'left_cell'};
+        my $lp = $e->{'left_port'};
+        my $rc = $e->{'right_cell'};
+        my $rp = $e->{'right_port'};
+        giveup('bad link') if ($lc == -1); # 'Internet'
+        my $left = 'C'.$lc.':p'.$lp;
+        my $right = 'C'.$rc.':p'.$rp;
+        $child = ($compass) ? $left : $right;
 
         my $dst_link = $parent.':p'.$port;
         my $src_link = $child;
