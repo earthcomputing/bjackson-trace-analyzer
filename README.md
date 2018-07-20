@@ -216,28 +216,65 @@ CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.pro
 ## Alan's Master Orchestrator:
 
 The Master Orchestrator (TMO), which lives outside the ECCF (i.e. on the Internet) makes requests of the CellAgent whose "border port" is connected to the Internet (and which has properly authenticated and authorized the TMO).
-In the "toy scenario" performed by the simulation, TMO requests the creation of 2 "stacked trees" using a pair of related GVM equations.
-The effect is that one cell is selected to be the 'client', and all other cells in the datacenter are to be come "hello world servers" (or if you prefer owners of indpendent holders of parts of a sharded K/V store object space).
+In the "toy scenario" performed by the simulation, TMO effects the deployment of a pair of service clusters by first requestng the creation of 2 "stacked trees" using a pair of related GVM equations.
+The effect is that one cell is selected to be the 'client' cluster, and all other cells in the datacenter become members of the "hello world servers" cluster (or if you prefer you might imagine them as being owners of independent parts of a sharded K/V store object space).
 
-Once the "hello client" and "hello world servers" are 'launched', the client sends a message (request, leafward) to the set of servers, which then each send a message back (response, rootward) to the client.
+Once the "hello client" and "hello world servers" are 'launched', the client sends a message (request / leafward) to the set of servers, which then each send a message back (response / rootward) to the client.
 
-The TMO's 'deploy' operation results in the creation of a GEV cluster of "service instances" - i.e. the cluster(s) table.
+The TMO's 'deploy' operation results in the creation of a GEV active clusters of "service instances" - i.e. the cluster(s) table.
 The table captures the set of clusters (i.e. class information), and for each cluster the set of running instances (i.e. instance information).
 
-Once the 2 hello world clusters are 'ready', application traffic flows with the result being a set of "hello there (from instance x)" data being delivered and (printf) reported by the client.
+Once the 2 hello world clusters are 'ready', application traffic flows ("Hello") with the result being a set of "Reply from (instance x)" data being delivered and reported (printf) by the client.
 
-Here's the snippets of the trace data that's involved which needs to be transformed into the cluster table content and the client's console output:
+Here are snippets of trace data involved which needs to be transformed into the cluster table content and the client's console output:
 
-    grep AgentDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
-    grep MasterDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
-    grep Manifest /tmp/triangle-1530634503352636/threaded-analysis.txt | grep process_manifest_msg
+    # grep StackTree /tmp/triangle-1530634503352636/threaded-analysis.txt | grep Deploy | grep listen_cm_loop
 
-    # grep AgentDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+        listen_cm_loop C:0 StackTree Tree:C:2+NocAgentDeploy ;
+        listen_cm_loop C:1 StackTree Tree:C:2+NocAgentDeploy ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentDeploy ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentDeploy ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentDeploy ;
 
         listen_cm_loop C:0 StackTreeD Tree:C:2+NocAgentDeploy ;
         listen_cm_loop C:1 StackTreeD Tree:C:2+NocAgentDeploy ;
 
-    # grep MasterDeploy /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep listen_cm_loop
+    # grep StackTree /tmp/triangle-1530634503352636/threaded-analysis.txt | grep Deploy | grep tcp_stack_tree
+
+        tcp_stack_tree C:2 Tree:C:2+NocMasterDeploy 1c377      Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=98eac       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocAgentDeploy ba6ad       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=a19f6       manifest= ;
+
+---
+
+    {
+        "id": "NocAgent",
+        "nick": "ccced",
+        "cell_config": "Large",
+        "deployment_tree": { "name": "NocAgentDeploy" },
+        "vms": [ {
+            "id": "vm1",
+            "image": "Ubuntu",
+            "containers": [ { "id": "NocAgent", "image": "NocAgent", "params": [] } ],
+            "required_config": "Large",
+            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+        } ]
+        "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
+    }
+
+    {
+        "id": "NocMaster",
+        "nick": "98ef3",
+        "cell_config": "Large",
+        "deployment_tree": { "name": "NocMasterDeploy" },
+        "vms": [ {
+            "id": "vm1",
+            "image": "Ubuntu",
+            "containers": [ { "id": "NocMaster", "image": "NocMaster", "params": [] } ],
+            "required_config": "Large",
+            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
+        } ]
+        "trees": [ { "id": "NocMaster", "parent_list": [ 0 ] } ],
+    }
 
     # grep Manifest /tmp/triangle-1530634503352636/threaded-analysis.txt | grep process_manifest_msg
 
@@ -245,82 +282,52 @@ Here's the snippets of the trace data that's involved which needs to be transfor
         process_manifest_msg C:1 Tree:C:2+NocAgentDeploy v2 83060      Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=ccced ;
         process_manifest_msg C:2 Tree:C:2+NocMasterDeploy v0 b1c99     Leafward        Manifest        Sender:C:2+BorderPort+2 gvm=    manifest=98ef3 ;
 
+## Application Communications: MasterAgent & AgentMaster
 
-    {
-        "nick": "ccced",
-        "id": "NocAgent",
-        "deployment_tree": { "name": "NocAgentDeploy" },
-        "cell_config": "Large",
-        "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
-        "vms": [ {
-            "id": "vm1",
-            "image": "Ubuntu",
-            "required_config": "Large",
-            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-            "containers": [ {
-                "id": "NocAgent",
-                "image": "NocAgent",
-                "params": []
-            } ],
-        } ]
-    }
+    # grep MasterAgent /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTree | grep listen_cm_loop
 
-    {
-        "nick": "98ef3",
-        "id": "NocMaster",
-        "deployment_tree": { "name": "NocMasterDeploy" },
-        "cell_config": "Large",
-        "trees": [ { "id": "NocMaster", "parent_list": [ 0 ] } ],
-        "vms": [ {
-            "id": "vm1",
-            "image": "Ubuntu",
-            "required_config": "Large",
-            "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-            "containers": [ {
-                "id": "NocMaster",
-                "image": "NocMaster",
-                "params": []
-            } ],
-        } ]
-    }
-
-    grep listen_cm_loop /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep NocMasterAgent
-    grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
-
-# grep listen_cm_loop /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTreeD | grep NocMasterAgent
+        listen_cm_loop C:0 StackTree Tree:C:2+NocMasterAgent ;
+        listen_cm_loop C:1 StackTree Tree:C:2+NocMasterAgent ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocMasterAgent ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocMasterAgent ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocMasterAgent ;
 
         listen_cm_loop C:0 StackTreeD Tree:C:2+NocMasterAgent ;
         listen_cm_loop C:1 StackTreeD Tree:C:2+NocMasterAgent ;
 
-# grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+    # grep AgentMaster /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTree | grep listen_cm_loop
 
-    tcp_application C:0 Tree:C:2+NocAgentMaster 5d3f0      Rootward        Application     Sender:C:0+VM:C:0+vm1   gvm=    manifest= ;
-    tcp_application C:1 Tree:C:2+NocAgentMaster b49af      Rootward        Application     Sender:C:1+VM:C:1+vm1   gvm=    manifest= ;
-    tcp_application C:2 Tree:C:2+NocMasterAgent a83b1      Leafward        Application     Sender:C:2+VM:C:2+vm1   gvm=    manifest= ;
+        listen_cm_loop C:0 StackTree Tree:C:2+NocAgentMaster ;
+        listen_cm_loop C:1 StackTree Tree:C:2+NocAgentMaster ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
+        listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
 
-    a83b1 {"body":[72,101,108,108,111,32,70,114,111,109,32,77,97,115,116,101,114], ...}
-        Hello From Master
-    5d3f0 {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,48,43,118,109,49,43,50], ...}
-        Reply from Container:VM:C:0+vm1+2
-    b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
-        Reply from Container:VM:C:1+vm1+2
+---
+
+    # grep Application /tmp/triangle-1530634503352636/threaded-analysis.txt | grep tcp_application
+
+        tcp_application C:2 Tree:C:2+NocMasterAgent a83b1      Leafward        Application     Sender:C:2+VM:C:2+vm1   gvm=    manifest= ;
+
+        tcp_application C:0 Tree:C:2+NocAgentMaster 5d3f0      Rootward        Application     Sender:C:0+VM:C:0+vm1   gvm=    manifest= ;
+        tcp_application C:1 Tree:C:2+NocAgentMaster b49af      Rootward        Application     Sender:C:1+VM:C:1+vm1   gvm=    manifest= ;
+
+        a83b1 {"body":[72,101,108,108,111,32,70,114,111,109,32,77,97,115,116,101,114], ...}
+            Hello From Master
+
+        5d3f0 {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,48,43,118,109,49,43,50], ...}
+            Reply from Container:VM:C:0+vm1+2
+        b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
+            Reply from Container:VM:C:1+vm1+2
 
 ## What? No Response ??
 
-# grep NocAgentMaster /tmp/triangle-1530634503352636/threaded-analysis.txt | grep StackTree | grep listen_cm_loop
+    # grep tcp_stack_tree /tmp/triangle-1530634503352636/threaded-analysis.txt
 
-    listen_cm_loop C:0 StackTree Tree:C:2+NocAgentMaster ;
-    listen_cm_loop C:1 StackTree Tree:C:2+NocAgentMaster ;
-    listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
-    listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
-    listen_cm_loop C:2 StackTree Tree:C:2+NocAgentMaster ;
-
-# grep tcp_stack_tree /tmp/triangle-1530634503352636/threaded-analysis.txt
-
-    tcp_stack_tree C:2 Tree:C:2+NocMasterDeploy 1c377      Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=98eac       manifest= ;
-    tcp_stack_tree C:2 Tree:C:2+NocAgentDeploy ba6ad       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=a19f6       manifest= ;
-    tcp_stack_tree C:2 Tree:C:2+NocMasterAgent a8614       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=06de9       manifest= ;
-    tcp_stack_tree C:2 Tree:C:2+NocAgentMaster 23572       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=4b60b       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocMasterDeploy 1c377      Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=98eac       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocAgentDeploy ba6ad       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=a19f6       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocMasterAgent a8614       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=06de9       manifest= ;
+        tcp_stack_tree C:2 Tree:C:2+NocAgentMaster 23572       Leafward        StackTree       Sender:C:2+BorderPort+2 gvm=4b60b       manifest= ;
 
 ## Obsolete Notes, etc.
 
