@@ -109,21 +109,21 @@ If you're not interesting, just 'q'uit your way about of the sequence of diff ex
 
 ## Server Naming (both macosx and analyzer container):
 
-The one niggly little detail that's needed is the ip-addr of the host:
+The one niggly little detail that's needed is the ip-addr of the macosx host:
 
     ifconfig -a | grep -w inet
     # your ip-addr here:
     export advert_host='192.168.0.71'
 
 The value above can be used either in your normal laptop shell,
-or within containers to access the 'outside' network/host.
+or within container shells to access the 'outside' network/host.
 
 CAVEAT: Be careful about moving among DHCP hosts or networks.
 Docker doesn't intercept host address changes, so the whole environment may need to be torn down and built up again.
 This may so be required even if the bindings "wink out" and are then restored to their previous value(s).
 If it happens to work in that case, thank your lucky stars.
 
-TL;DR : We can't use 'localhost' because within Docker containers name translation is done locally AND also the ipaddr 127.0.0.1 is intercepted to be the container itself.
+TL;DR : We can't use 'localhost' because within a Docker container name translation is done locally AND also the ipaddr 127.0.0.1 is intercepted to be the container itself.
 
 ## Integrating with Kafka (macosx terminal):
 
@@ -148,7 +148,6 @@ To use this utilities yourself natively, outside of that container, download the
 Within the analyzer container, it's packaged up into the helper script : verify-kafka.sh,
 which does this (passing ${advert_host} as a CLI parameter):
 
-    export advert_host='192.168.0.71'
     verify-kafka.sh ${advert_host}
 
 Use ^C to exit the consumer.
@@ -345,4 +344,6 @@ Here are snippets of trace data involved which needs to be transformed into the 
     analyze.pl tmp/multicell-trace.json | post-process.sh > /tmp/z1.txt
     analyze.pl tmp/multicell-trace1.json | post-process.sh > /tmp/z2.txt
     p4-merge.sh /tmp/z[12].txt
+
+GitHub Flavored Markdown: https://github.github.com/gfm/
 
