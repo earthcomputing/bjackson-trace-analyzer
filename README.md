@@ -332,6 +332,48 @@ Here are snippets of trace data involved which needs to be transformed into the 
         b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
             Reply from Container:VM:C:1+vm1+2
 
+## Interim (stderr) Output:
+
+The Abstract Modeller (AM) of the analyzer has a number of GEV internal data structures (generally tables),
+which are useful to users.  They're starting to become unmanagable simply due to the number of them.
+In lieu of created yet more per-table output file reports, I'm dumping things to STDERR.
+Obviously some of this is "Cluster Table", and some is "Stacked Trees Table".
+TBD: Everything that someone might like to (easily) know from these - brief form and full verbose form.
+
+    Layer Tree: Tree:C:0 Tree:C:0
+    Layer Tree: Tree:C:1 Tree:C:1
+    Layer Tree: Tree:C:2 Tree:C:2
+    Layer Tree: Tree:C:2 Tree:C:2+NocAgentDeploy
+    Layer Tree: Tree:C:2 Tree:C:2+NocAgentMaster
+    Layer Tree: Tree:C:2 Tree:C:2+NocMasterAgent
+    Layer Tree: Tree:C:2 Tree:C:2+NocMasterDeploy
+
+    Launch Application: Tree:C:2+NocAgentDeploy C:0 NocAgent manifest=ccced
+    Launch Application: Tree:C:2+NocAgentDeploy C:1 NocAgent manifest=ccced
+    Launch Application: Tree:C:2+NocMasterDeploy C:2 NocMaster manifest=98ef3
+
+    MANIFEST: C0p2  Sender:C:2+BorderPort+2
+    MANIFEST: C1p2  Sender:C:2+BorderPort+2
+    MANIFEST: C2p0  Sender:C:2+BorderPort+2
+
+    Deploy: C:0 vm1 Tree:C:2+NocAgentDeploy
+    Deploy: C:1 vm1 Tree:C:2+NocAgentDeploy
+    Deploy: C:2 vm1 Tree:C:2+NocMasterDeploy
+
+    Application Tree: Tree:C:2+NocAgentDeploy gvm=a19f6
+    Application Tree: Tree:C:2+NocAgentMaster gvm=4b60b
+    Application Tree: Tree:C:2+NocMasterAgent gvm=06de9
+    Application Tree: Tree:C:2+NocMasterDeploy gvm=98eac
+
+    APPLICATION: C0p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
+    APPLICATION: C1p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
+    APPLICATION: C2p1 Tree:C:2+NocAgentMaster Sender:C:0+VM:C:0+vm1
+    APPLICATION: C2p3 Tree:C:2+NocAgentMaster Sender:C:1+VM:C:1+vm1
+
+    TCP_APP: C:2 Hello From Master
+    TCP_APP: C:0 Reply from Container:VM:C:0+vm1+2
+    TCP_APP: C:1 Reply from Container:VM:C:1+vm1+2
+
 ## Obsolete Notes, etc.
 
     setenv advert_host 192.168.0.71
