@@ -332,6 +332,55 @@ Here are snippets of trace data involved which needs to be transformed into the 
         b49af {"body":[82,101,112,108,121,32,102,114,111,109,32,67,111,110,116,97,105,110,101,114,58,86,77,58,67,58,49,43,118,109,49,43,50], ...}
             Reply from Container:VM:C:1+vm1+2
 
+## Understanding GVM equations:
+
+Each StackTreeMsg has four GVM equations that evaluate to booleans.
+In each case "true" means
+
+    Send: This cell may send messages on this tree
+    Recv: This cell will receive messages on this tree
+    Save: Save messages for late child arrivals on this tree
+    Xtnd: Send this message to children of this tree's parent
+
+---
+
+    StackTreeMsg: Create a new tree, stacked on a parent tree, containing a subset of the cells of the parent tree.
+    ManifestMsg: Deploy the service specified in the manifest, on all cells that receive this message - i.e. on the tree the message is sent on
+    ApplicationMsg: Send a message originating in a service, here either NocMaster or NocAgent, on the specified tree
+
+---
+
+    NocMasterDeploy: A ManifestMsg sent on this tree will be processed only by the cell originating this StackTreeMsg.
+        The result is a NocMaster service running on one cell.
+
+    Send: "hops == 0" => only the cell this StackTreeMsg originates on can send messages on this tree
+    Recv: "hops == 0" => only the cell this StackTreeMsg originates on can receive messages on this tree
+    Save: "false"         => do not save messages on this tree for late child arrivals
+    Xtnd: "false"          => do not forward to children of the parent tree
+
+    NocAgentDeploy: A ManifestMsg sent on this tree will be processed by all cells except the cell sending the StackTreeMsg.
+        The result is a NocAgent service running on every cell except the one running the NocMaster service.
+        Only the cell sending this StackTreeMsg can send that ManifestMsg.
+
+    Send: "hops == 0" => only the cell sending this StackTreeMsg can send messages on this tree
+    Recv: "hops > 0"   => every cell except the one the StackTreeMsg originates from can receive messages on this tree
+    Save: "true"           => save messages on this tree for late child arrivals
+    Xtnd: "true"            => forward to children of the parent tree
+
+    NocMasterAgent: A tree on which only the NocMaster service can send and all NocAgent service instances will receive
+
+    Send: "hops == 0" => only the cell that originates this StackTreeMsg may send on this tree
+    Recv: "hops > 0"   => every cell but the one sending this StackTreeMsg will receive messages sent on this tree
+    Save: "true"           => save messages on this tree for late child arrivals
+    Xtnd: "true"            => forward to children of the parent tree
+
+    NocAgentMaster: A tree on which only the NocAgent service instances can send and only the NocMaster service will receive
+
+    Send: "hops > 0"   => every cell except the one sending this StackTreeMsg can send messages on this tree
+    Recv: "hops == 0" => only the cell that sent this StackTreeMsg will receive on this tree
+    Save: "true"           => save messages on this tree for late child arrivals
+    Xtnd: "true"            => forward to children of the parent tree
+
 ## Interim (stderr) Output:
 
 The Abstract Modeller (AM) of the analyzer has a number of GEV internal data structures (generally tables),
@@ -379,7 +428,7 @@ TBD: Everything that someone might like to (easily) know from these - brief form
     setenv advert_host 192.168.0.71
     docker cp upload.pl analyzer:/root/
 
-    usage: analyze.pl sample-data/* | post-process.sh 
+    usage: analyze.pl sample-data/* | post-process.sh
 
     --
 
