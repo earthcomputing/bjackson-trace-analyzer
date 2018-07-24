@@ -335,7 +335,8 @@ sub dump_routing_tables {
             my $parent = $entry->{'parent'}{'v'};
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
             my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
-            print FD (join("\t", $index, $hint, $inuse, $may_send, $parent, $mask, $other_indices), $endl);
+            my $guid_name = grab_name($entry->{'tree_uuid'});
+            print FD (join("\t", $index, $hint, $inuse, $may_send, $parent, $mask, $other_indices, $guid_name), $endl);
         }
     }
     close(FD);
@@ -597,6 +598,12 @@ sub nametype {
     my $guid = xlate_uuid($uuid);
     $guid_table{$guid} = $name;
     return $name;
+}
+
+sub grab_name {
+    my ($ref) = @_;
+    my $guid = xlate_uuid($ref);
+    my $guid_name = $guid_table{$guid};
 }
 
 sub portdesc {
@@ -946,6 +953,14 @@ sub meth_ca_process_manifest_msg {
     my $port_no = portdesc($body->{'port_no'});
     my $summary = summarize_msg($body->{'msg'});
     print(join(' ', $cell_id, $tree_id, $port_no, $summary, ';'));
+
+    my $msg = $body->{'msg'};
+    my $payload = $msg->{'payload'};
+    my $manifest = $payload->{'manifest'};
+    my $app_name = $manifest->{'id'};
+    my $man_hash = note_value(\%manifest_table, $manifest);
+    my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
+    print STDERR (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
 # 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
@@ -992,6 +1007,8 @@ sub meth_ca_update_base_tree_map {
     my $base_tree_id = nametype($body->{'base_tree_id'});
     my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
+
+    print STDERR (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
 ## IMPORTANT : Stacking
@@ -1024,6 +1041,13 @@ sub meth_ca_got_stack_tree_tcp_msg {
 
     # FIXME
     print(join(' ', $cell_id, $new_tree_id, $summary, ';'));
+
+    my $msg = $body->{'msg'};
+    my $payload = $msg->{'payload'};
+    my $gvm_eqn = $payload->{'gvm_eqn'};
+    my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
+    my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
+    print STDERR (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
     my $virt_p = 0;
@@ -1495,6 +1519,7 @@ sub dump_forest {
         my $port = $o->{'p'};
         my $link_no = $o->{'link_no'};
 
+{
         # FIXME - child is other side of link!
         my $compass = $link_no % 2;
         my $edge_no = int($link_no / 2);
@@ -1507,7 +1532,7 @@ sub dump_forest {
         my $left = 'C'.$lc.':p'.$lp;
         my $right = 'C'.$rc.':p'.$rp;
         $child = ($compass) ? $left : $right;
-
+}
         my $dst_link = $parent.':p'.$port;
         my $src_link = $child;
 
