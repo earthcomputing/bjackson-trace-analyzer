@@ -225,6 +225,8 @@ The table captures the set of clusters (i.e. class information), and for each cl
 
 Once the 2 hello world clusters are 'ready', application traffic flows ("Hello") with the result being a set of "Reply from (instance x)" data being delivered and reported (printf) by the client.
 
+## Application Launch: NocMasterDeploy & NocAgentDeploy
+
 Here are snippets of trace data involved which needs to be transformed into the cluster table content and the client's console output:
 
     98eac {"recv_eqn":"hops == 0","save_eqn":"false","send_eqn":"true","variables":[{"value":"","var_name":"hops","var_type":"PathLength"}],"xtnd_eqn":"false"}
