@@ -29,6 +29,7 @@ my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
 
 # --
 
+my $dbg_file = 'debug.txt';
 my $dotfile = 'complex.gv';
 my $schemafile = 'schema-data.txt';
 my $routingfile = 'routing-table.txt';
@@ -135,6 +136,7 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     print($endl, $fname, $endl);
+    open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -150,6 +152,7 @@ dump_guids();
 dump_forest();
 msg_sheet();
 
+close(DBGOUT);
 exit 0;
 
 # --
@@ -413,15 +416,15 @@ sub add_msgcode {
         'code' => $code
     };
 
-print STDERR (join(' ', 'msgcode', 
-$msg_type,
-$o->{'event_code'},
-$o->{'tree_id'},
-'C'.$o->{'cell_no'}.'p'.$p,
-$o->{'link_no'},
-$o->{'arrow'},
-$o->{'code'}
-), $endl);
+    print DBGOUT (join(' ', 'msgcode', 
+        $msg_type,
+        $o->{'event_code'},
+        $o->{'tree_id'},
+        'C'.$o->{'cell_no'}.'p'.$p,
+        $o->{'link_no'},
+        $o->{'arrow'},
+        $o->{'code'}
+        ), $endl);
     push(@msgqueue, $o);
 }
 
@@ -969,7 +972,7 @@ sub meth_ca_process_manifest_msg {
     my $app_name = $manifest->{'id'};
     my $man_hash = note_value(\%manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
-    print STDERR (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
+    print DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
 # 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
@@ -1017,7 +1020,7 @@ sub meth_ca_update_base_tree_map {
     my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 
-    print STDERR (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
+    print DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
 ## IMPORTANT : Stacking
@@ -1056,7 +1059,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $gvm_eqn = $payload->{'gvm_eqn'};
     my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
-    print STDERR (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
+    print DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
     my $virt_p = 0;
@@ -1106,7 +1109,7 @@ sub meth_ca_deploy {
     # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 
-    print STDERR (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
+    print DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
 # /body : OBJECT { cell_id sender_id vm_id }
@@ -1163,7 +1166,7 @@ sub meth_ca_got_tcp_application_msg {
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 
     my $str = decode_octets($body->{'msg'});
-    print STDERR (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
+    print DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
 }
 
 sub decode_octets {
@@ -1442,7 +1445,7 @@ sub meth_ca_got_msg_cmodel {
 sub do_manifest {
     my ($c, $p, $tree_id, $sender_id) = @_;
     my $direction;
-    print STDERR (join(' ', 'MANIFEST:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+    print DBGOUT (join(' ', 'MANIFEST:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
 }
 
 my $note1 = << '_eor_';
@@ -1484,7 +1487,7 @@ _eor_
 sub do_application {
     my ($c, $p, $tree_id, $sender_id) = @_;
     my $direction;
-    print STDERR (join(' ', 'APPLICATION:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+    print DBGOUT (join(' ', 'APPLICATION:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
 }
 
 my $note2 = << '_eor_';
