@@ -4,13 +4,17 @@
 ## A microservice is not a 'subroutine' !!
 # python -mjson.tool
 
+use 5.010;
 use strict;
+use warnings;
 
 use lib '/Users/bjackson/perl5/lib/perl5';
 use JSON qw(decode_json encode_json);
 use Data::Dumper;
 use Digest::SHA qw(sha1_hex);
 use Data::GUID;
+
+# --
 
 my $endl = "\n";
 my $dquot = '"';
@@ -20,6 +24,10 @@ if ( $#ARGV < 0 ) {
     print('usage: [-dump] [-NOT_ALAN] [-filter=C:2] analyze xx.json ...', $endl);
     exit -1
 }
+
+my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
+
+# --
 
 my $dotfile = 'complex.gv';
 my $schemafile = 'schema-data.txt';
@@ -125,6 +133,7 @@ foreach my $fname (@ARGV) {
     if ($fname eq '-NOT_ALAN') { $NOT_ALAN = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
+    if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     print($endl, $fname, $endl);
     my $href = process_file($fname);
     do_analyze($href);
@@ -1094,9 +1103,10 @@ sub meth_ca_deploy {
     my $cell_id = nametype($body->{'cell_id'});
     my $deployment_tree_id = nametype($body->{'deployment_tree_id'});
     my $up_tree_name = $body->{'up_tree_name'}; # STRING # "vm1"
-    my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
-    # FIXME
+    # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
+
+    print STDERR (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
 # /body : OBJECT { cell_id sender_id vm_id }
@@ -1151,6 +1161,26 @@ sub meth_ca_got_tcp_application_msg {
     my $virt_p = 0;
     my $tag = 'cell-rcv';
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
+
+    my $str = decode_octets($body->{'msg'});
+    print STDERR (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
+}
+
+sub decode_octets {
+    my ($msg) = @_;
+    my $payload = $msg->{'payload'};
+    my $octets = $payload->{'body'};
+    my $content = convert_string($octets);
+}
+
+sub convert_string {
+    my ($ref) = @_;
+    my $str = '';
+    foreach my $i (@{$ref}) {
+        my $c = chr($i);
+        $str .= $c;
+    }
+    return $str;
 }
 
 ## IMPORTANT : stacking
@@ -1464,7 +1494,6 @@ APPLICATION: C1p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
 APPLICATION: C2p1 Tree:C:2+NocAgentMaster Sender:C:0+VM:C:0+vm1
 APPLICATION: C2p3 Tree:C:2+NocAgentMaster Sender:C:1+VM:C:1+vm1
 
-    FIXME: sender_id
     do_treelink 2 1 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
     do_treelink 2 3 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
     do_treelink 2 1 Tree:C:2+NocMasterAgent Sender:C:2+BorderPort+2
@@ -1520,7 +1549,7 @@ sub dump_forest {
         my $link_no = $o->{'link_no'};
 
 {
-        # FIXME - child is other side of link!
+        # child is other side of link!
         my $compass = $link_no % 2;
         my $edge_no = int($link_no / 2);
         my $e = find_edge($edge_no);
@@ -1596,8 +1625,7 @@ sub get_link_no {
     return $link_table{$k};
 }
 
-# FIXME
-# should indicate EAST/WEST direction (a, a')
+# indicate EAST/WEST direction (a, a')
 # do that with even/odd numbers
 # ISSUE : knows direction, so key really matters (don't allow both!)
 # could canonicalize by sorting cell numbers (uuid)
@@ -1695,6 +1723,7 @@ sub construct_key {
     my ($hdr, $lineno) = @_;
     my $thread_id = $hdr->{'thread_id'};
     my $event_id = $hdr->{'event_id'};
+    my $line_tag = $hdr->{'_lineno'}; $lineno = $line_tag if $line_tag;
     $event_id = e_massage($event_id);
     my $key = join('::', $thread_id, $event_id, $lineno);
     return $key;
@@ -1755,6 +1784,66 @@ sub order_numseq_basic($$) {
     return $len_cmp;
 }
 
+# --
+
+my $kafka_notes = << '_eor_';
+
+sub inhale_all_msgs {
+    my ($consumer, $topic, $partition) = @_;
+    my $offset = 0;
+    my $messages = $consumer->fetch($topic, $partition, $offset, $DEFAULT_MAX_BYTES);
+    return undef unless  $messages;
+
+    my @bodies;
+    foreach my $m (@$messages) {
+        unless ($m->valid) {
+            print STDERR (join(' ', 'ERROR:', $m->error), $endl);
+            next;
+        }
+
+        ## $m->key; $m->offset; $m->next_offset;
+        push(@bodies, $m->payload);
+    }
+    return @bodies;
+}
+
+sub kafka_inhale {
+    my ($topic) = @_;
+    my $partition = 0;
+
+    my $connection;
+    my $producer;
+    my $consumer;
+
+    my @bodies;
+    try {
+        $connection = Kafka::Connection->new(host => $server);
+        $producer = Kafka::Producer->new(Connection => $connection);
+        $consumer = Kafka::Consumer->new(Connection => $connection);
+
+        @bodies = inhale_all_msgs($consumer, $topic, $partition);
+    }
+    catch {
+        my $error = $_;
+        if (blessed($error) && $error->isa('Kafka::Exception')) {
+            warn 'Error: (', $error->code, ') ',  $error->message, "\n";
+            exit;
+        }
+        else {
+            die $error;
+        }
+    };
+
+    undef $consumer;
+    undef $producer;
+    $connection->close;
+    undef $connection;
+
+    return @bodies;
+}
+
+_eor_
+
 sub inhale {
     my ($path) = @_;
     my $gzip = $path =~ m/.gz$/;
@@ -1764,6 +1853,8 @@ sub inhale {
     close(FD);
     return @body;
 }
+
+# --
 
 # accumulate $jschema
 # JSON::is_bool

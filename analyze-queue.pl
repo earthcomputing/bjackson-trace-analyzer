@@ -142,7 +142,6 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     print($endl, $fname, $endl);
-
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -1114,9 +1113,10 @@ sub meth_ca_deploy {
     my $cell_id = nametype($body->{'cell_id'});
     my $deployment_tree_id = nametype($body->{'deployment_tree_id'});
     my $up_tree_name = $body->{'up_tree_name'}; # STRING # "vm1"
-    my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
-    # FIXME
+    # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
+
+    print STDERR (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
 # /body : OBJECT { cell_id sender_id vm_id }
@@ -1171,6 +1171,26 @@ sub meth_ca_got_tcp_application_msg {
     my $virt_p = 0;
     my $tag = 'cell-rcv';
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
+
+    my $str = decode_octets($body->{'msg'});
+    print STDERR (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
+}
+
+sub decode_octets {
+    my ($msg) = @_;
+    my $payload = $msg->{'payload'};
+    my $octets = $payload->{'body'};
+    my $content = convert_string($octets);
+}
+
+sub convert_string {
+    my ($ref) = @_;
+    my $str = '';
+    foreach my $i (@{$ref}) {
+        my $c = chr($i);
+        $str .= $c;
+    }
+    return $str;
 }
 
 ## IMPORTANT : stacking
@@ -1484,7 +1504,6 @@ APPLICATION: C1p2 Tree:C:2+NocMasterAgent Sender:C:2+VM:C:2+vm1
 APPLICATION: C2p1 Tree:C:2+NocAgentMaster Sender:C:0+VM:C:0+vm1
 APPLICATION: C2p3 Tree:C:2+NocAgentMaster Sender:C:1+VM:C:1+vm1
 
-    FIXME: sender_id
     do_treelink 2 1 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
     do_treelink 2 3 Tree:C:2+NocAgentDeploy Sender:C:2+BorderPort+2
     do_treelink 2 1 Tree:C:2+NocMasterAgent Sender:C:2+BorderPort+2
@@ -1539,7 +1558,8 @@ sub dump_forest {
         my $port = $o->{'p'};
         my $link_no = $o->{'link_no'};
 
-        # FIXME - child is other side of link!
+{
+        # child is other side of link!
         my $compass = $link_no % 2;
         my $edge_no = int($link_no / 2);
         my $e = find_edge($edge_no);
@@ -1551,7 +1571,7 @@ sub dump_forest {
         my $left = 'C'.$lc.':p'.$lp;
         my $right = 'C'.$rc.':p'.$rp;
         $child = ($compass) ? $left : $right;
-
+}
         my $dst_link = $parent.':p'.$port;
         my $src_link = $child;
 
@@ -1615,8 +1635,7 @@ sub get_link_no {
     return $link_table{$k};
 }
 
-# FIXME
-# should indicate EAST/WEST direction (a, a')
+# indicate EAST/WEST direction (a, a')
 # do that with even/odd numbers
 # ISSUE : knows direction, so key really matters (don't allow both!)
 # could canonicalize by sorting cell numbers (uuid)
