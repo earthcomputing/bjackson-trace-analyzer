@@ -39,6 +39,7 @@ cat ${wdir}raw-analysis.txt | post-process.sh > ${wdir}threaded-analysis.txt
 
 set files = ( \
     complex.gv \
+    debug.txt \
     events.csv \
     forest.gv \
     guid-table.txt \
