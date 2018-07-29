@@ -28,7 +28,7 @@ my $dquot = '"';
 my $blank = ' ';
 
 if ( $#ARGV < 0 ) {
-    print('usage: [-dump] [-NOT_ALAN] [-filter=C:2] analyze xx.json ...', $endl);
+    print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
     exit -1
 }
 
@@ -111,9 +111,10 @@ sub pick_color {
 
 # --
 
+my $debug;
 my $NOT_ALAN;
 my $code_filter;
-my $debug;
+my $last_epoch;
 my $result_dir = '/tmp/'; # can be blank!?
 
 my $max_cell = -1;
@@ -142,6 +143,7 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
+    if ($fname =~ /-epoch=/) { my ($a, $b) = split('=', $fname); $last_epoch = $b; next; }
     print($endl, $fname, $endl);
     open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
     my $href = process_file($fname);
@@ -570,6 +572,11 @@ sub do_analyze {
         my $kind = $header->{'trace_type'}; # importance (simple trace, extra detail [debug])
         my $epoch = $header->{'epoch'}; # human domain indicator uses for managing streaming data (think lifetime of data)
         # key contains "basic causal ordering" - thread_id/event_id (and stream position for ties)
+
+# animation filter
+if ($last_epoch) {
+    next if $epoch > $last_epoch;
+}
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
         $verb{join('$', $module, $function)}++;
