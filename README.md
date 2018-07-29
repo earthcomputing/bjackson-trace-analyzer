@@ -423,6 +423,33 @@ TBD: Everything that someone might like to (easily) know from these - brief form
     TCP_APP: C:0 Reply from Container:VM:C:0+vm1+2
     TCP_APP: C:1 Reply from Container:VM:C:1+vm1+2
 
+## Log Messaging Substrate (LMS)
+
+    Here's a higher level (features) description of "Bill's message bus" - the point being that it really doesn't fit the old, simplistic definition of a message bus.
+    Please do also read the kafka intro - it's a bit complex in how it sets out reader groups and how topics might be (randomly) broken into independent sets.
+
+    Think of this material as "user requirements".  It happens that Kafka meets all these requirements and can be used as-is, "off-the-shelf".
+    I'm more than happy to consider other implementations, options, or changes to this feature list.
+
+    Log Messaging Substrate (LMS) - aka Stream Processing System
+    Kafka Model (highly scalable)
+
+    messages as segregated by 'topic' - i.e. no implicit casual relationship exists between msgs from different topics
+    message may contain a 'key'
+
+    a topic may be published to by many simultaneous writers (publishers) - in which case no implicit casual relationship exists between msgs from different publishers
+
+    a topic may be processed (not consumed!) by many simultaneous readers
+
+    a logical reader (group) may be effected by a set of reader processes that share a "read finger".  Messages from a topic are read exactly once by adding transaction semantics to updating the finger.  Finger values represent a happens-before relationship between topic messages.
+
+    a topic can be configured to break implied ordering - thereby allowing a topic to be separated into independent message sets (each sequenced) allowing for more rapid writing by producers.  This separation could be done randomly (e.g. round-robin), or by interpreting message keys (assuming they have one - i.e. semantic separation).
+
+    separate streams (persistently) may reside on independent hosts - allowing independent resources to be applied allowing for scale-out - in which case clients maintain communication connections to many data sources.
+
+    Messages for topics are retained for a 'modest' period of time, thereby buffering the exchange between publishers and readers.  Buffering may introduce a lag in the direct realtime transfer between parties,
+    However there's a limit on how long message are held (in part subject to persistent storage resource availability). When storage is exhausted, age (oldest) determines how message are discarded, although priority may be specified by topic.
+
 ## Obsolete Notes, etc.
 
     setenv advert_host 192.168.0.71
