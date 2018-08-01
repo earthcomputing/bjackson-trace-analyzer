@@ -839,6 +839,19 @@ sub meth_pe_packet_from_ca {
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
+# /body : OBJECT { cell_id msg_type port_nos tree_id - ait_state }
+# ait_state : SCALAR ;;
+# 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
+sub meth_yyy {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
+    my $msg_type = $body->{'msg_type'};
+    my $ait_state = $body->{'ait_state'};
+    print(join(' ', $cell_id, $msg_type, $port_list, 'tree='.$tree_id, $ait_state, ';'));
+}
+
 # guts of the Packet Engine (forwarding)
 
 ## IMPORTANT : Spreadsheet
@@ -1331,6 +1344,8 @@ sub dispatch {
 
 # NEW:
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
+
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
 
     print($endl);
 
@@ -2005,6 +2020,8 @@ my @mformats = qw(
     'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
     'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca'
     'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
+
+    'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
 );
 
 my $notes = << '_eof_';
