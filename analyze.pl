@@ -346,7 +346,7 @@ sub dump_routing_tables {
             my $hint = hint4uuid($entry->{'tree_uuid'});
             my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
             my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
-            my $parent = $entry->{'parent'}{'v'};
+            my $parent = port_index($entry->{'parent'});
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
             my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
             my $guid_name = grab_name($entry->{'tree_uuid'});
@@ -625,9 +625,23 @@ sub grab_name {
     my $guid_name = $guid_table{$guid};
 }
 
+sub port_index {
+    my ($portref) = @_;
+
+    my $rkind = ref($portref);
+    if ($rkind eq 'HASH') {
+        my $id = $portref->{'v'};
+        return $id;
+    }
+    # Can't use string ("1") as a HASH ref while "strict refs" in use at analyze.pl line 640.
+    else {
+        return $portref;
+    }
+}
+
 sub portdesc {
     my ($portref) = @_;
-    my $id = $portref->{'v'};
+    my $id = port_index($portref);
     return 'v'.$id;
 }
 
@@ -781,7 +795,7 @@ sub meth_ca_send_msg_generic {
     # this really just adds a msg to the CA=>PE queue
     my $tag = 'cell-snd';
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
+        my $p = port_index($item);
         add_msgcode2($tag, $tree_id, $p, $body, $key);
     }
 }
@@ -831,7 +845,7 @@ sub meth_pe_forward_leafward {
     my $c = $cell_id; $c =~ s/C://;
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
+        my $p = port_index($item);
         # add_msgcode2($tag, $tree_id, $port, $body, $key);
         add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
     }
@@ -851,7 +865,7 @@ sub meth_pe_forward_rootward {
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'parent_port'}{'v'};
+    my $p = port_index($body->{'parent_port'});
     # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
 }
@@ -882,7 +896,7 @@ sub meth_pe_process_packet {
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'port_no'}{'v'};
+    my $p = port_index($body->{'port_no'});
     # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
@@ -1430,7 +1444,7 @@ sub meth_ca_got_msg_cmodel {
     my $summary = summarize_msg($msg);
     print(join(' ', $cell_id, $port_no, $summary, ';'));
 
-    my $p = $body->{'port_no'}{'v'};
+    my $p = port_index($body->{'port_no'});
     my $payload = $msg->{'payload'};
     my $tree_id = nametype($payload->{'tree_id'});
 
@@ -1698,7 +1712,7 @@ sub border_port {
 sub build_port_list {
     my ($port_nos) = @_;
     return '' unless defined $port_nos;
-    return '['.join(',', map { 'v'.$_->{'v'} } @{$port_nos}).']';
+    return '['.join(',', map { portdesc($_) } @{$port_nos}).']';
 }
 
 # /msg/header/direction
@@ -2055,5 +2069,64 @@ https://en.wikipedia.org/wiki/Web_colors
 // lime=green
 // aqua=cyan
 // fuchsia=magenta
+
+# --
+
+sample-data/multicell-trace-distributed-1533085651118541.json.gz
+sample-data/multicell-trace-triangle-1530634503352636.json.gz
+
+CellAgent$$cellagent.rs$$forward_stack_tree$$ca_forward_stack_tree_msg$$Debug
+
+/ : OBJECT { body header } ;;
+
+/header : OBJECT { epoch event_id format function module repo thread_id trace_type } ;;
+    /header/epoch : SCALAR ;;
+    /header/event_id : SEQ OF ;;
+    /header/event_id[] : SCALAR ;;
+    /header/format : SCALAR ;;
+    /header/function : SCALAR ;;
+    /header/module : SCALAR ;;
+    /header/repo : SCALAR ;;
+    /header/thread_id : SCALAR ;;
+    /header/trace_type : SCALAR
+
+/body : OBJECT { cell_number } ;; /body/cell_number : SCALAR ;;
+/body : OBJECT { schema_version } ;; /body/schema_version : SCALAR ;;
+
+--
+
+/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
+
+cell_id:
+
+/body : OBJECT { ait_state entry msg_type port_no tree_id }
+/body : OBJECT { ait_state msg_type port_nos tree_id }
+/body : OBJECT { ait_state msg_type tree_id }
+/body : OBJECT { allowed_tree direction msg_type tcp_msg }
+/body : OBJECT { base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+/body : OBJECT { base_tree_id children gvm hops other_index port_number port_status }
+/body : OBJECT { base_tree_id children gvm hops port_number port_status }
+/body : OBJECT { base_tree_id entry }
+/body : OBJECT { base_tree_id stacked_tree_id }
+/body : OBJECT { deploy_tree_id msg }
+/body : OBJECT { deployment_tree_id tree_vm_map_keys up_tree_name }
+/body : OBJECT { entry msg new_tree_id }
+/body : OBJECT { entry msg_type port_no tree_id }
+/body : OBJECT { is_border port_no }
+/body : OBJECT { msg new_tree_id port_no }
+/body : OBJECT { msg no_saved tree_id }
+/body : OBJECT { msg port_no save tree_id }
+/body : OBJECT { msg port_no tree_id }
+/body : OBJECT { msg port_no }
+/body : OBJECT { msg port_nos tree_id }
+/body : OBJECT { msg tree_id }
+/body : OBJECT { msg }
+/body : OBJECT { msg_type port_nos tree_id }
+/body : OBJECT { msg_type port_nos }
+/body : OBJECT { msg_type tree_id }
+/body : OBJECT { no_saved_msgs tree_id }
+/body : OBJECT { sender_id vm_id }
+/body : OBJECT { tree_id }
+/body : OBJECT { }
 
 _eof_
