@@ -27,6 +27,9 @@ my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
 
+my $null_uuid = '0x00000000000000000000000000000000';
+
+
 if ( $#ARGV < 0 ) {
     print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
     exit -1
@@ -130,7 +133,7 @@ my %forest; # map : int -> { span_tree parent p child }
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
 my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
 my %msg_table; # map : {$payload_text} = $payload_hash
-my %routing_table; # map : {$cell_id}{$entry->{'index'}} => $entry
+my %routing_table; # map : {$cell_id}{$entry->{'tree_uuid'}} => $entry
 my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
 my %guid_table; # map : guid -> name
 
@@ -296,6 +299,7 @@ sub add_overlay {
         my $o = $forest{$k};
         my $root = $o->{'root'};
         my $link_no = $o->{'link_no'};
+        next unless defined $root; # defensive against parse errors
 
         $target{$link_no} = [] unless $target{$link_no}; # ensure defined
         push(@{$target{$link_no}}, $root);
@@ -319,9 +323,9 @@ sub dump_schema {
 
 sub update_routing_table {
     my ($cell_id, $entry) = @_;
-    my $key = $entry->{'index'};
-    # my $key = $entry->{'tree_uuid'};
-    $routing_table{$cell_id} = { '0' => 0 } unless defined $routing_table{$cell_id};
+    # my $key = $entry->{'index'};
+    my $key = $entry->{'tree_uuid'};
+    $routing_table{$cell_id} = { } unless defined $routing_table{$cell_id};
     my $table = $routing_table{$cell_id};
     $table->{$key} = $entry;
     # FIXME : should we indicate updates ??
@@ -349,15 +353,15 @@ sub dump_routing_tables {
         my $routes = $routing_table{$cell_id};
         foreach my $key (sort { $a cmp $b } keys %{$routes}) {
             my $entry = $routes->{$key};
-            my $index = $entry->{'index'};
+            # my $index = $entry->{'index'};
             my $hint = hint4uuid($entry->{'tree_uuid'});
             my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
             my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
-            my $parent = $entry->{'parent'}{'v'};
+            my $parent = port_index($entry->{'parent'});
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
-            my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
+            # my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
             my $guid_name = grab_name($entry->{'tree_uuid'});
-            print FD (join("\t", $index, $hint, $inuse, $may_send, $parent, $mask, $other_indices, $guid_name), $endl);
+            print FD (join("\t", $hint, $inuse, $may_send, $parent, $mask, $guid_name), $endl); # $index, $other_indices
         }
     }
     close(FD);
@@ -603,21 +607,33 @@ if ($last_epoch) {
 
 sub xlate_uuid {
     my ($ref) = @_;
+    return $null_uuid unless ref($ref) eq 'HASH';
     my $words = $ref->{'uuid'};
-    return '0x00000000000000000000000000000000' unless $#$words == 1;
 
-    my $w0 = $words->[0];
-    my $w1 = $words->[1];
+    my $rkind = ref($words);
+    if ($rkind eq 'ARRAY') {
+        return $null_uuid unless $#$words == 1;
 
-    unless (defined $w0) {
-        print STDERR (Dumper $ref, $endl);
-        exit 0;
+        my $w0 = $words->[0];
+        my $w1 = $words->[1];
+
+        unless (defined $w0) {
+            print STDERR (Dumper $ref, $endl);
+            exit 0;
+        }
+
+        my $str = sprintf("0x%016x%016x", $w1, $w0);
+        my $guid = Data::GUID->from_hex($str);
+        my $hex_guid = $guid->as_hex;
+        return $hex_guid;
     }
-
-    my $str = sprintf("0x%016x%016x", $w1, $w0);
-    my $guid = Data::GUID->from_hex($str);
-    my $hex_guid = $guid->as_hex;
-    return $hex_guid;
+    # Can't use string ("400d426d-8eee-4230-92b4-5557cdbd"...) as an ARRAY ref while "strict refs" in use at analyze.pl line 597.
+    else {
+        return $null_uuid unless $words;
+        my $guid = Data::GUID->from_string($words);
+        my $hex_guid = $guid->as_hex;
+        return $hex_guid;
+    }
 }
 
 sub nametype {
@@ -635,9 +651,23 @@ sub grab_name {
     my $guid_name = $guid_table{$guid};
 }
 
+sub port_index {
+    my ($portref) = @_;
+
+    my $rkind = ref($portref);
+    if ($rkind eq 'HASH') {
+        my $id = $portref->{'v'};
+        return $id;
+    }
+    # Can't use string ("1") as a HASH ref while "strict refs" in use at analyze.pl line 640.
+    else {
+        return $portref;
+    }
+}
+
 sub portdesc {
     my ($portref) = @_;
-    my $id = $portref->{'v'};
+    my $id = port_index($portref);
     return 'v'.$id;
 }
 
@@ -791,7 +821,7 @@ sub meth_ca_send_msg_generic {
     # this really just adds a msg to the CA=>PE queue
     my $tag = 'cell-snd';
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
+        my $p = port_index($item);
         add_msgcode2($tag, $tree_id, $p, $body, $key);
     }
 }
@@ -823,6 +853,19 @@ sub meth_pe_packet_from_ca {
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
 
+# /body : OBJECT { cell_id msg_type port_nos tree_id - ait_state }
+# ait_state : SCALAR ;;
+# 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
+sub meth_yyy {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $tree_id = nametype($body->{'tree_id'});
+    my $port_list = build_port_list($body->{'port_nos'});
+    my $msg_type = $body->{'msg_type'};
+    my $ait_state = $body->{'ait_state'};
+    print(join(' ', $cell_id, $msg_type, $port_list, 'tree='.$tree_id, $ait_state, ';'));
+}
+
 # guts of the Packet Engine (forwarding)
 
 ## IMPORTANT : Spreadsheet
@@ -841,7 +884,7 @@ sub meth_pe_forward_leafward {
     my $c = $cell_id; $c =~ s/C://;
     my $event_code = ec_fromkey($key);
     foreach my $item (@{$port_nos}) {
-        my $p = $item->{'v'};
+        my $p = port_index($item);
         # add_msgcode2($tag, $tree_id, $port, $body, $key);
         add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
     }
@@ -861,7 +904,7 @@ sub meth_pe_forward_rootward {
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'parent_port'}{'v'};
+    my $p = port_index($body->{'parent_port'});
     # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-snd', $tree_id);
 }
@@ -881,9 +924,9 @@ sub meth_pe_process_packet {
     my $msg_type = $body->{'msg_type'};
 
     my $entry = $body->{'entry'};
-    my $index = $entry->{'index'};
+    # my $index = $entry->{'index'};
     my $parent = portdesc($entry->{'parent'});
-    print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
+    print(join(' ', $cell_id, $port_no, $tree_id, $msg_type, 'parent='.$parent, ';')); # 'index='.$index
 
     ## Routing Table:
     update_routing_table($cell_id, $entry);
@@ -892,7 +935,7 @@ sub meth_pe_process_packet {
     ## Spreadsheet Coding:
     my $event_code = ec_fromkey($key);
     my $c = $cell_id; $c =~ s/C://;
-    my $p = $body->{'port_no'}{'v'};
+    my $p = port_index($body->{'port_no'});
     # add_msgcode2($tag, $tree_id, $port, $body, $key);
     add_msgcode($c, $p, $msg_type, $event_code, 'pe-rcv', $tree_id);
 }
@@ -909,12 +952,12 @@ sub meth_ca_update_traph {
     my $port_status = $body->{'port_status'}; # STRING # Parent, Child, Pruned
     my $base_tree_id = nametype($body->{'base_tree_id'}); # "C:2", "C:2+Control", "C:2+Connected", "C:2+Noc"
     my $hops = $body->{'hops'}; # NUMBER
-    my $other_index = $body->{'other_index'}; # NUMBER
+    # my $other_index = $body->{'other_index'}; # NUMBER
     # 'children' => [],
     # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
     my $gvm = $body->{'gvm'};
     my $gvm_hash = note_value(\%gvm_table, $gvm);
-    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, 'gvm='.substr($gvm_hash, -5), ';'));
+    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, 'gvm='.substr($gvm_hash, -5), ';')); # $other_index
 }
 
 ## IMPORTANT : Routing
@@ -1316,6 +1359,8 @@ sub dispatch {
 # NEW:
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
 
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
+
     print($endl);
 
     print STDERR (join(' ', $methkey), $endl);
@@ -1440,7 +1485,7 @@ sub meth_ca_got_msg_cmodel {
     my $summary = summarize_msg($msg);
     print(join(' ', $cell_id, $port_no, $summary, ';'));
 
-    my $p = $body->{'port_no'}{'v'};
+    my $p = port_index($body->{'port_no'});
     my $payload = $msg->{'payload'};
     my $tree_id = nametype($payload->{'tree_id'});
 
@@ -1538,6 +1583,8 @@ sub add_tree_link {
     {
         my ($x, $y, $c) = split(':', $tree_id);
         $root = $c;
+        $root = $y unless defined $root; # removed Tree:
+        print STDERR (join(' ', 'WARNING: parse error', $tree_id, $link_no), $endl) unless defined $root;
     }
     $tree_id =~ s/C:/C/;
 
@@ -1708,7 +1755,7 @@ sub border_port {
 sub build_port_list {
     my ($port_nos) = @_;
     return '' unless defined $port_nos;
-    return '['.join(',', map { 'v'.$_->{'v'} } @{$port_nos}).']';
+    return '['.join(',', map { portdesc($_) } @{$port_nos}).']';
 }
 
 # /msg/header/direction
@@ -1985,6 +2032,8 @@ my @mformats = qw(
     'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
     'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca'
     'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
+
+    'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
 );
 
 my $notes = << '_eof_';
@@ -2061,5 +2110,64 @@ https://en.wikipedia.org/wiki/Web_colors
 // lime=green
 // aqua=cyan
 // fuchsia=magenta
+
+# --
+
+sample-data/multicell-trace-distributed-1533085651118541.json.gz
+sample-data/multicell-trace-triangle-1530634503352636.json.gz
+
+CellAgent$$cellagent.rs$$forward_stack_tree$$ca_forward_stack_tree_msg$$Debug
+
+/ : OBJECT { body header } ;;
+
+/header : OBJECT { epoch event_id format function module repo thread_id trace_type } ;;
+    /header/epoch : SCALAR ;;
+    /header/event_id : SEQ OF ;;
+    /header/event_id[] : SCALAR ;;
+    /header/format : SCALAR ;;
+    /header/function : SCALAR ;;
+    /header/module : SCALAR ;;
+    /header/repo : SCALAR ;;
+    /header/thread_id : SCALAR ;;
+    /header/trace_type : SCALAR
+
+/body : OBJECT { cell_number } ;; /body/cell_number : SCALAR ;;
+/body : OBJECT { schema_version } ;; /body/schema_version : SCALAR ;;
+
+--
+
+/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
+
+cell_id:
+
+/body : OBJECT { ait_state entry msg_type port_no tree_id }
+/body : OBJECT { ait_state msg_type port_nos tree_id }
+/body : OBJECT { ait_state msg_type tree_id }
+/body : OBJECT { allowed_tree direction msg_type tcp_msg }
+/body : OBJECT { base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
+/body : OBJECT { base_tree_id children gvm hops other_index port_number port_status }
+/body : OBJECT { base_tree_id children gvm hops port_number port_status }
+/body : OBJECT { base_tree_id entry }
+/body : OBJECT { base_tree_id stacked_tree_id }
+/body : OBJECT { deploy_tree_id msg }
+/body : OBJECT { deployment_tree_id tree_vm_map_keys up_tree_name }
+/body : OBJECT { entry msg new_tree_id }
+/body : OBJECT { entry msg_type port_no tree_id }
+/body : OBJECT { is_border port_no }
+/body : OBJECT { msg new_tree_id port_no }
+/body : OBJECT { msg no_saved tree_id }
+/body : OBJECT { msg port_no save tree_id }
+/body : OBJECT { msg port_no tree_id }
+/body : OBJECT { msg port_no }
+/body : OBJECT { msg port_nos tree_id }
+/body : OBJECT { msg tree_id }
+/body : OBJECT { msg }
+/body : OBJECT { msg_type port_nos tree_id }
+/body : OBJECT { msg_type port_nos }
+/body : OBJECT { msg_type tree_id }
+/body : OBJECT { no_saved_msgs tree_id }
+/body : OBJECT { sender_id vm_id }
+/body : OBJECT { tree_id }
+/body : OBJECT { }
 
 _eof_
