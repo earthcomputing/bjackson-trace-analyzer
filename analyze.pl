@@ -281,7 +281,7 @@ sub dump_complex {
         my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letters($link_no);
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
-    # add_overlay();
+    add_overlay();
     print DOT ('}', $endl);
     close(DOT);
 }
@@ -292,6 +292,7 @@ sub add_overlay {
         my $o = $forest{$k};
         my $root = $o->{'root'};
         my $link_no = $o->{'link_no'};
+        next unless defined $root; # defensive against parse errors
 
         $target{$link_no} = [] unless $target{$link_no}; # ensure defined
         push(@{$target{$link_no}}, $root);
@@ -1572,6 +1573,8 @@ sub add_tree_link {
     {
         my ($x, $y, $c) = split(':', $tree_id);
         $root = $c;
+        $root = $y unless defined $root;
+        print STDERR (join(' ', 'WARNING: parse error', $tree_id, $link_no), $endl) unless defined $root;
     }
     $tree_id =~ s/C:/C/;
 
