@@ -185,6 +185,7 @@ sub walk_structure {
         my %subtypes;
         foreach my $val (@ary) {
             my $nested = $path.'[]';
+            next unless defined $val; # ignore null references
             my @child_parts = walk_structure($terse ? '' : $nested, $val);
             my $combined = join(' ;; ', @child_parts);
             ## $combined =~ s/ ;;  : / : /g; # yeah, hacky but effective
