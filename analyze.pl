@@ -20,6 +20,9 @@ my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
 
+my $null_uuid = '0x00000000000000000000000000000000';
+
+
 if ( $#ARGV < 0 ) {
     print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
     exit -1
@@ -278,7 +281,7 @@ sub dump_complex {
         my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letters($link_no);
         printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
     }
-    add_overlay();
+    # add_overlay();
     print DOT ('}', $endl);
     close(DOT);
 }
@@ -314,7 +317,7 @@ sub update_routing_table {
     my ($cell_id, $entry) = @_;
     # my $key = $entry->{'index'};
     my $key = $entry->{'tree_uuid'};
-    $routing_table{$cell_id} = { '0' => 0 } unless defined $routing_table{$cell_id};
+    $routing_table{$cell_id} = { } unless defined $routing_table{$cell_id};
     my $table = $routing_table{$cell_id};
     $table->{$key} = $entry;
     # FIXME : should we indicate updates ??
@@ -348,9 +351,9 @@ sub dump_routing_tables {
             my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
             my $parent = port_index($entry->{'parent'});
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
-            my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
+            # my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
             my $guid_name = grab_name($entry->{'tree_uuid'});
-            print FD (join("\t", $hint, $inuse, $may_send, $parent, $mask, $other_indices, $guid_name), $endl); # $index
+            print FD (join("\t", $hint, $inuse, $may_send, $parent, $mask, $guid_name), $endl); # $index, $other_indices
         }
     }
     close(FD);
@@ -593,12 +596,12 @@ if ($last_epoch) {
 
 sub xlate_uuid {
     my ($ref) = @_;
-    return '0x00000000000000000000000000000000' unless ref($ref) eq 'HASH';
+    return $null_uuid unless ref($ref) eq 'HASH';
     my $words = $ref->{'uuid'};
 
     my $rkind = ref($words);
     if ($rkind eq 'ARRAY') {
-        return '0x00000000000000000000000000000000' unless $#$words == 1;
+        return $null_uuid unless $#$words == 1;
 
         my $w0 = $words->[0];
         my $w1 = $words->[1];
@@ -615,7 +618,7 @@ sub xlate_uuid {
     }
     # Can't use string ("400d426d-8eee-4230-92b4-5557cdbd"...) as an ARRAY ref while "strict refs" in use at analyze.pl line 597.
     else {
-        return '0x00000000000000000000000000000000' unless $words;
+        return $null_uuid unless $words;
         my $guid = Data::GUID->from_string($words);
         my $hex_guid = $guid->as_hex;
         return $hex_guid;
