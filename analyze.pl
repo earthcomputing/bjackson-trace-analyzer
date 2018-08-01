@@ -593,21 +593,33 @@ if ($last_epoch) {
 
 sub xlate_uuid {
     my ($ref) = @_;
+    return '0x00000000000000000000000000000000' unless ref($ref) eq 'HASH';
     my $words = $ref->{'uuid'};
-    return '0x00000000000000000000000000000000' unless $#$words == 1;
 
-    my $w0 = $words->[0];
-    my $w1 = $words->[1];
+    my $rkind = ref($words);
+    if ($rkind eq 'ARRAY') {
+        return '0x00000000000000000000000000000000' unless $#$words == 1;
 
-    unless (defined $w0) {
-        print STDERR (Dumper $ref, $endl);
-        exit 0;
+        my $w0 = $words->[0];
+        my $w1 = $words->[1];
+
+        unless (defined $w0) {
+            print STDERR (Dumper $ref, $endl);
+            exit 0;
+        }
+
+        my $str = sprintf("0x%016x%016x", $w1, $w0);
+        my $guid = Data::GUID->from_hex($str);
+        my $hex_guid = $guid->as_hex;
+        return $hex_guid;
     }
-
-    my $str = sprintf("0x%016x%016x", $w1, $w0);
-    my $guid = Data::GUID->from_hex($str);
-    my $hex_guid = $guid->as_hex;
-    return $hex_guid;
+    # Can't use string ("400d426d-8eee-4230-92b4-5557cdbd"...) as an ARRAY ref while "strict refs" in use at analyze.pl line 597.
+    else {
+        return '0x00000000000000000000000000000000' unless $words;
+        my $guid = Data::GUID->from_string($words);
+        my $hex_guid = $guid->as_hex;
+        return $hex_guid;
+    }
 }
 
 sub nametype {
