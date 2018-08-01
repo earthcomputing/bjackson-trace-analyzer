@@ -123,7 +123,7 @@ my %forest; # map : int -> { span_tree parent p child }
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
 my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
 my %msg_table; # map : {$payload_text} = $payload_hash
-my %routing_table; # map : {$cell_id}{$entry->{'index'}} => $entry
+my %routing_table; # map : {$cell_id}{$entry->{'tree_uuid'}} => $entry
 my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
 my %guid_table; # map : guid -> name
 
@@ -312,8 +312,8 @@ sub dump_schema {
 
 sub update_routing_table {
     my ($cell_id, $entry) = @_;
-    my $key = $entry->{'index'};
-    # my $key = $entry->{'tree_uuid'};
+    # my $key = $entry->{'index'};
+    my $key = $entry->{'tree_uuid'};
     $routing_table{$cell_id} = { '0' => 0 } unless defined $routing_table{$cell_id};
     my $table = $routing_table{$cell_id};
     $table->{$key} = $entry;
@@ -342,7 +342,7 @@ sub dump_routing_tables {
         my $routes = $routing_table{$cell_id};
         foreach my $key (sort { $a cmp $b } keys %{$routes}) {
             my $entry = $routes->{$key};
-            my $index = $entry->{'index'};
+            # my $index = $entry->{'index'};
             my $hint = hint4uuid($entry->{'tree_uuid'});
             my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
             my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
@@ -350,7 +350,7 @@ sub dump_routing_tables {
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
             my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
             my $guid_name = grab_name($entry->{'tree_uuid'});
-            print FD (join("\t", $index, $hint, $inuse, $may_send, $parent, $mask, $other_indices, $guid_name), $endl);
+            print FD (join("\t", $hint, $inuse, $may_send, $parent, $mask, $other_indices, $guid_name), $endl); # $index
         }
     }
     close(FD);
@@ -910,9 +910,9 @@ sub meth_pe_process_packet {
     my $msg_type = $body->{'msg_type'};
 
     my $entry = $body->{'entry'};
-    my $index = $entry->{'index'};
+    # my $index = $entry->{'index'};
     my $parent = portdesc($entry->{'parent'});
-    print(join(' ', $cell_id, $port_no, 'index='.$index, $tree_id, $msg_type, 'parent='.$parent, ';'));
+    print(join(' ', $cell_id, $port_no, $tree_id, $msg_type, 'parent='.$parent, ';')); # 'index='.$index
 
     ## Routing Table:
     update_routing_table($cell_id, $entry);
@@ -938,12 +938,12 @@ sub meth_ca_update_traph {
     my $port_status = $body->{'port_status'}; # STRING # Parent, Child, Pruned
     my $base_tree_id = nametype($body->{'base_tree_id'}); # "C:2", "C:2+Control", "C:2+Connected", "C:2+Noc"
     my $hops = $body->{'hops'}; # NUMBER
-    my $other_index = $body->{'other_index'}; # NUMBER
+    # my $other_index = $body->{'other_index'}; # NUMBER
     # 'children' => [],
     # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
     my $gvm = $body->{'gvm'};
     my $gvm_hash = note_value(\%gvm_table, $gvm);
-    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, $other_index, 'gvm='.substr($gvm_hash, -5), ';'));
+    print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, 'gvm='.substr($gvm_hash, -5), ';')); # $other_index
 }
 
 ## IMPORTANT : Routing
