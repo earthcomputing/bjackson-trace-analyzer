@@ -73,33 +73,34 @@ my $arrow_code = {
 };
 
 my $gamut = {
-    'Tree:C0' => 'red',
-    'Tree:C1' => 'green',
-    'Tree:C2' => 'blue',
-    'Tree:C3' => 'cyan',
-    'Tree:C4' => 'magenta',
-    'Tree:C5' => 'purple', # 'yellow' - bad visual choices
-    'Tree:C6' => 'navy',
-    'Tree:C7' => 'green',
-    'Tree:C8' => 'maroon',
-    'Tree:C9' => 'turquoise4', # teal, 'olive'
+    'C0' => 'red',
+    'C1' => 'green',
+    'C2' => 'blue',
+    'C3' => 'cyan',
+    'C4' => 'magenta',
+    'C5' => 'purple', # 'yellow' - bad visual choices
+    'C6' => 'navy',
+    'C7' => 'green',
+    'C8' => 'maroon',
+    'C9' => 'turquoise4', # teal, 'olive'
 
-    'Tree:C2+NocAgentDeploy' => 'cyan',
-    'Tree:C2+NocMasterDeploy' => 'magenta',
-    'Tree:C2+NocAgentMaster' => 'navy',
-    'Tree:C2+NocMasterAgent' => 'maroon',
-    'Tree:C2+Noc' => 'maroon',
+    'C2+NocAgentDeploy' => 'cyan',
+    'C2+NocMasterDeploy' => 'magenta',
+    'C2+NocAgentMaster' => 'navy',
+    'C2+NocMasterAgent' => 'maroon',
+    'C2+Noc' => 'maroon',
 
-    'Tree:C0+Connected' => 'black',
-    'Tree:C1+Connected' => 'black',
-    'Tree:C2+Connected' => 'black',
-    'Tree:C0+Control' => 'black',
-    'Tree:C1+Control' => 'black',
-    'Tree:C2+Control' => 'black'
+    'C0+Connected' => 'black',
+    'C1+Connected' => 'black',
+    'C2+Connected' => 'black',
+    'C0+Control' => 'black',
+    'C1+Control' => 'black',
+    'C2+Control' => 'black'
 };
 
 sub pick_color {
     my ($span_tree) = @_;
+    $span_tree =~ s/Tree://;
     my $color = $gamut->{$span_tree};
     return 'black' unless $color;
     return $color;
@@ -111,6 +112,7 @@ my $debug;
 my $NOT_ALAN;
 my $code_filter;
 my $last_epoch;
+my $epoch_global;
 my $result_dir = '/tmp/'; # can be blank!?
 
 my $max_cell = -1;
@@ -161,6 +163,10 @@ close(DBGOUT);
 exit 0;
 
 # --
+
+sub epoch_marker {
+    print DBGOUT (join(' ', 'epoch_marker:', $epoch_global), $endl);
+}
 
 sub dump_guids {
     my $fname = $guidfile;
@@ -571,6 +577,7 @@ sub do_analyze {
 if ($last_epoch) {
     next if $epoch > $last_epoch;
 }
+$epoch_global = $epoch;
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
         $verb{join('$', $module, $function)}++;
@@ -705,6 +712,7 @@ sub meth_connect_link {
     ## Complex Entry:
     if (defined $link_id) {
         my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
+epoch_marker();
         activate_edge($lc, $lp, $rc, $rp);
     }
     print(join(' ', $link_id, ';'));
@@ -773,6 +781,7 @@ sub meth_ca_send_msg_port_connected {
     my $port_id = '';
     if (defined $port_no) {
         $port_id = (($is_border) ? 'FX:' : '').$port_no;
+epoch_marker();
         border_port($cell_id, $port_no) if $is_border;
     }
     print(join(' ', $cell_id, $port_id, ';'));
@@ -1022,6 +1031,7 @@ sub meth_ca_process_manifest_msg {
     my $app_name = $manifest->{'id'};
     my $man_hash = note_value(\%manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
+epoch_marker();
     print DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
@@ -1070,6 +1080,7 @@ sub meth_ca_update_base_tree_map {
     my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 
+epoch_marker();
     print DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
@@ -1109,6 +1120,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $gvm_eqn = $payload->{'gvm_eqn'};
     my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
+epoch_marker();
     print DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
@@ -1159,6 +1171,7 @@ sub meth_ca_deploy {
     # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 
+epoch_marker();
     print DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
@@ -1216,6 +1229,7 @@ sub meth_ca_got_tcp_application_msg {
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 
     my $str = decode_octets($body->{'msg'});
+epoch_marker();
     print DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
 }
 
@@ -1562,6 +1576,7 @@ sub do_treelink {
 
     ## Forest / DiscoverD
     my ($xtag, $cc, $child, $remain) = split(/[\+:]/, $sender_id);
+epoch_marker();
     add_tree_link($tree_id, $c, $p, $child);
 }
 
