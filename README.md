@@ -212,6 +212,8 @@ CAVEAT: the ability to delete topics has to be configured (/etc/kafka/server.pro
 
     delete.topic.enable=true
 
+    auto.create.topics.enable=true
+
 ## Alan's Master Orchestrator:
 
 The Master Orchestrator (TMO), which lives outside the ECCF (i.e. on the Internet) makes requests of the CellAgent whose "border port" is connected to the Internet (and which has properly authenticated and authorized the TMO).
