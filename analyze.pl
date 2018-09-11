@@ -1398,10 +1398,10 @@ sub dispatch {
 
 # /body : OBJECT { cell_id msg }
 # 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
-## listen_cm_loop raw-packet C:1 Unblock ;
-## listen_cm_loop raw-packet C:2 Entry ref=HASH ;
-## listen_cm_loop raw-packet C:2 Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
-## listen_cm_loop raw-packet C:2 Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
+## listen_cm_loop C:1 raw-api Unblock ;
+## listen_cm_loop C:2 raw-api Entry ref=HASH ;
+## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
+## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
 sub meth_recv {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
@@ -1412,28 +1412,31 @@ sub meth_recv {
         my @kind = keys %{$msg};
         # huh?
         if ($#kind != 0) {
-            print(join(' ', 'raw-packet obj', $cell_id, 'keys=', @kind, ';'));
+            print(join(' ', $cell_id, 'raw-api obj', 'keys=', @kind, ';'));
             return;
         }
         my $tag = pop @kind;
         my $args = $msg->{$tag};
         my $akind = ref($args);
-        # multi args
         if ($akind eq 'ARRAY') {
-            print(join(' ', 'raw-packet', $cell_id, $tag, @{$args}, ';')); return;
+# multi args
+# pe_api($tag, @{$args});
+            print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';')); return;
         }
-        # 1 arg
-        print(join(' ', 'raw-packet', $cell_id, $tag, 'ref='.$akind, ';'));
+# 1 arg
+# pe_api($tag, $args);
+        print(join(' ', $cell_id, 'raw-api', $tag, 'ref='.$akind, ';'));
         return;
     }
     if ($rkind eq '') {
-        # no args
         my $tag = $msg;
-        print(join(' ', 'raw-packet', $cell_id, $tag, ';'));
+# no args
+# pe_api($tag);
+        print(join(' ', $cell_id, 'raw-api', $tag, ';'));
         return;
     }
     # huh?
-    print(join(' ', 'raw-packet', $cell_id, 'rkind='.$rkind, $msg, ';'));
+    print(join(' ', $cell_id, 'raw-api', 'rkind='.$rkind, $msg, ';'));
 }
 
 # /body : OBJECT { msg_type tree_name }
