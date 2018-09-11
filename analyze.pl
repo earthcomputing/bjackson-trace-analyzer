@@ -22,7 +22,6 @@ my $blank = ' ';
 
 my $null_uuid = '0x00000000000000000000000000000000';
 
-
 if ( $#ARGV < 0 ) {
     print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
     exit -1
@@ -121,6 +120,7 @@ my %cell_table; # $c => $edge_no
 my $max_edge = 1; # avoid 0
 my %edges; # map : "Cx:pX->Cy:pY" -> { 'left_cell' 'left_port' 'right_cell' 'right_port' 'edge_no' }; # plus 'Internet'
 my %link_table; # map : 'Cx:py' -> $link_no
+my @wires; # array {from, to}
 
 my $max_forest = 1;
 my %forest; # map : int -> { span_tree parent p child }
@@ -695,6 +695,25 @@ sub meth_interior_cell_start {
     my ($body) = @_;
     my $cell_number = $body->{'cell_number'};
     print(join(' ', 'cell='.$cell_number, ';'));
+}
+
+# /body : OBJECT { edge_list }
+# 'noc.rs$$initialize$$Trace$$edge_list'
+# 'edge_list' => [ [ 0, 1 ], [ 1, 2 ], [ 1, 6 ], [ 3, 4 ], [ 5, 6 ], [ 6, 7 ], [ 7, 8 ], [ 8, 9 ], [ 0, 5 ], [ 2, 3 ], [ 2, 7 ], [ 3, 8 ], [ 4, 9 ] ]
+sub meth_edge_list {
+    my ($body) = @_;
+    my $edge_list = $body->{'edge_list'};
+    my @ary = @{$edge_list};
+    foreach my $edge (@ary) {
+        my ($left, $right) = (@{$edge});
+        my $o = {
+            'left' => $left,
+            'right' => $right,
+        };
+        push (@wires, $o);
+    }
+    my $nedge = @wires;
+    print(join(' ', 'nedge='.$nedge, ';'));
 }
 
 ## IMPORTANT : link activation
@@ -1294,6 +1313,7 @@ sub dispatch {
     my $header = $json->{'header'};
 
     # This indicates subsystem startup - i.e. break in seq of messages
+    if ($methkey eq 'main.rs$$main$$Trace$$trace_schema') { meth_START($body, $header); return; }
     if ($methkey eq 'main.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
     ## if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
     ## if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
@@ -1360,10 +1380,13 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
 
-# NEW:
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
-
     if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
+
+# NEW:
+    if ($methkey eq 'noc.rs$$initialize$$Trace$$edge_list') { meth_edge_list($body, $key); return; }
+    if ($methkey eq 'main.rs$$listen_port_loop$$Trace$$noc_from_ca') { meth_noc_from_ca($body, $key); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Trace$$recv') { meth_recv($body, $key); return; }
 
     print($endl);
 
@@ -1372,6 +1395,48 @@ sub dispatch {
     print STDERR ($endl);
     giveup('incompatible schema');
 }
+
+# /body : OBJECT { cell_id msg }
+# 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
+sub meth_recv {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg = $body->{'msg'};
+
+    my $rkind = ref($msg);
+    if ($rkind eq 'HASH') {
+        my @kind = keys %{$msg};
+        if ($#kind != 0) {
+            print(join(' ', 'raw-packet obj', $cell_id, 'keys=', @kind, ';'));
+            return;
+        }
+        my $tag = pop @kind;
+        my $value = $msg->{$tag};
+        print(join(' ', 'raw-packet obj', $cell_id, $tag, 'ref='.ref($value), ';'));
+        return;
+    }
+    if ($rkind eq 'ARRAY') {
+        print(join(' ', 'raw-packet ary', $cell_id, @{$msg}, ';'));
+        return;
+    }
+    if ($rkind eq 'JSON::PP::Boolean') {
+        print(join(' ', 'raw-packet bool', $cell_id, $msg, ';'));
+        return;
+    }
+    print(join(' ', 'raw-packet scalar', $cell_id, $msg, ';'));
+}
+
+# /body : OBJECT { msg_type tree_name }
+# 'main.rs$$listen_port_loop$$Trace$$noc_from_ca'
+# { 'tree_name' => 'Base', 'msg_type' => 'TreeName' };
+sub meth_noc_from_ca {
+    my ($body) = @_;
+    my $msg_type = $body->{'msg_type'};
+    my $tree_name = $body->{'tree_name'};
+    print(join(' ', $msg_type, $tree_name, ';'));
+}
+
+# --
 
 ## IMPORTANT : why ?
 # /body : OBJECT { ... }
@@ -2178,5 +2243,9 @@ cell_id:
 /body : OBJECT { sender_id vm_id }
 /body : OBJECT { tree_id }
 /body : OBJECT { }
+
+# my $s = 'Hello World';
+# my $x1 = unpack("H*",  $s); # ascii_to_hex
+# my $s = pack('H*', $x1); # hex_to_ascii
 
 _eof_
