@@ -1396,45 +1396,65 @@ sub dispatch {
     giveup('incompatible schema');
 }
 
-# /body : OBJECT { cell_id msg }
-# 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
+# ugh. special case handling of rust 'match' complicates things:
+# reverse-engineer arg-list (0, 1, n)
+
+## CmToPePacket::Unblock => {
+## CmToPePacket::Entry(entry) => {
+## CmToPePacket::Packet((user_mask, mut packet)) => {
+## CmToPePacket::Tcp((port_number, msg)) => {
+
 ## listen_cm_loop C:1 raw-api Unblock ;
 ## listen_cm_loop C:2 raw-api Entry ref=HASH ;
 ## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
 ## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
+
+# /body : OBJECT { cell_id msg }
+# 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
 sub meth_recv {
     my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $msg = $body->{'msg'};
-
     my $rkind = ref($msg);
+
+    # no args
+    # pe_api($tag);
+    if ($rkind eq '') {
+        my $tag = $msg;
+        print(join(' ', $cell_id, 'raw-api', $tag, ';'));
+        return;
+    }
+
     if ($rkind eq 'HASH') {
         my @kind = keys %{$msg};
+
         # huh?
         if ($#kind != 0) {
             print(join(' ', $cell_id, 'raw-api obj', 'keys=', @kind, ';'));
             return;
         }
+
         my $tag = pop @kind;
         my $args = $msg->{$tag};
         my $akind = ref($args);
-        if ($akind eq 'ARRAY') {
-# multi args
-# pe_api($tag, @{$args});
-            print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';')); return;
+        # 1 arg
+        # pe_api($tag, $args);
+        if ($akind eq '') {
+            print(join(' ', $cell_id, 'raw-api', $tag, 'ref='.$akind, ';'));
+            return;
         }
-# 1 arg
-# pe_api($tag, $args);
-        print(join(' ', $cell_id, 'raw-api', $tag, 'ref='.$akind, ';'));
+        # multi args
+        # pe_api($tag, @{$args});
+        if ($akind eq 'ARRAY') {
+            print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';'));
+            return;
+        }
+
+        # huh?
+        print(join(' ', $cell_id, 'raw-api', 'akind='.$akind, $msg, ';'));
         return;
     }
-    if ($rkind eq '') {
-        my $tag = $msg;
-# no args
-# pe_api($tag);
-        print(join(' ', $cell_id, 'raw-api', $tag, ';'));
-        return;
-    }
+
     # huh?
     print(join(' ', $cell_id, 'raw-api', 'rkind='.$rkind, $msg, ';'));
 }
