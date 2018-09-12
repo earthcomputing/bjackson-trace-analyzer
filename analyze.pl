@@ -1415,6 +1415,42 @@ sub dispatch {
     giveup('incompatible schema');
 }
 
+sub dump_entry {
+    my ($entry) = @_;
+    my $hint = hint4uuid($entry->{'tree_uuid'});
+    my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
+    my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
+    my $parent = port_index($entry->{'parent'});
+    my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
+    return join(' ', $hint, $inuse, $may_send, $parent, $mask);
+}
+
+sub dump_packet {
+    my ($user_mask, $packet) = @_;
+    my $mask = $user_mask->{'mask'};
+    my $bitmask = sprintf('%016b', $mask);
+    my $header = $packet->{'header'};
+        my $coded_uuid = $header->{'uuid'};
+        my $hex_guid = xlate_uuid($coded_uuid);
+        my ($b0, $b1, $real_uuid) = uuid_magic($hex_guid);
+        my $hint = hint4uuid($coded_uuid); # not sure which (coded/real) to use here ??
+    my $payload = $packet->{'payload'};
+        my $is_last = $payload->{'is_last'};
+        my $size = $payload->{'size'};
+        my $is_blocking = $payload->{'is_blocking'};
+        my $msg_id = $payload->{'msg_id'};
+        my $bytes = $payload->{'bytes'};
+    my $o = {
+        'is_blocking' => $is_blocking,
+        'is_last' => $is_last,
+        'msg_id' => $msg_id,
+        'size' => $size,
+        'ait_byte' => $b0, # NORMAL(40), AIT(04)
+        'port_byte' => $b1,
+    };
+    return ($hint, $real_uuid, $bitmask, $o, $bytes);
+}
+
 # ugh. special case handling of rust 'match' complicates things:
 # reverse-engineer arg-list (0, 1, n)
 
@@ -1428,55 +1464,53 @@ sub dispatch {
 ## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
 ## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
 
+# PE model data
+# forwarding table
+# ports/links
+# blocked
+my %pe_workers; # map : cell_id => object
+
+sub get_worker {
+    my ($cell_id) = @_;
+    my $w = $pe_workers{$cell_id};
+    return $w if $w;
+    my $o = {
+        'table' => {},
+        'block' => undef,
+    };
+    $pe_workers{$cell_id} = $o;
+    return $o;
+}
+
 sub pe_api {
     my ($cell_id, $tag, @args) = @_;
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
 
     print DBGOUT (join(' ', 'PE-API', $cell_id, $epoch_global, $tag, ''));
 
+    my $pe_worker = get_worker($cell_id);
+
     if ($tag eq 'Unblock') {
-        print DBGOUT ($endl);
+        my $was = $pe_worker->{'block'};
+        $pe_worker->{'block'} = undef;
+        print DBGOUT ('was='.($was ? 'true' : 'false'), $endl);
         return;
     }
 
     if ($tag eq 'Entry') {
         my ($entry) = @args;
-        {
-            # my $guid_name = grab_name($entry->{'tree_uuid'});
-            my $hint = hint4uuid($entry->{'tree_uuid'});
-            my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
-            my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
-            my $parent = port_index($entry->{'parent'});
-            my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
-            print DBGOUT (join(' ', $hint, $inuse, $may_send, $parent, $mask), $endl); # $guid_name
-        }
-        # print DBGOUT (Dumper $entry, $endl);
+        my $uuid = $entry->{'tree_uuid'};
+        my $hex_guid = xlate_uuid($uuid);
+        my $table = $pe_worker->{'table'};
+        my $current_entry = $table->{$hex_guid};
+        $table->{$hex_guid} = $entry;
+        print DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', dump_entry($entry)), $endl);
         return;
     }
 
     if ($tag eq 'Packet') {
         my ($user_mask, $packet) = @args;
-        my $mask = $user_mask->{'mask'};
-        my $bitmask = sprintf('%016b', $mask);
-        my $header = $packet->{'header'};
-            my $coded_uuid = $header->{'uuid'};
-            my $hex_guid = xlate_uuid($coded_uuid);
-            my ($b0, $b1, $real_uuid) = uuid_magic($hex_guid);
-            my $hint = hint4uuid($coded_uuid); # not sure which (coded/real) to use here ??
-        my $payload = $packet->{'payload'};
-            my $is_last = $payload->{'is_last'};
-            my $size = $payload->{'size'};
-            my $is_blocking = $payload->{'is_blocking'};
-            my $msg_id = $payload->{'msg_id'};
-            my $bytes = $payload->{'bytes'};
-        my $o = {
-            'is_blocking' => $is_blocking,
-            'is_last' => $is_last,
-            'msg_id' => $msg_id,
-            'size' => $size,
-            'ait_byte' => $b0, # NORMAL(40), AIT(04)
-            'port_byte' => $b1,
-        };
+        my ($hint, $real_uuid, $bitmask, $o, $bytes) = dump_packet($user_mask, $packet);
         my $meta = encode_json($o);
         my $some = substr($bytes, -40).'...';
         print DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
