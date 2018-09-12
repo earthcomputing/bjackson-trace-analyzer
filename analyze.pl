@@ -1412,6 +1412,62 @@ sub dispatch {
 sub pe_api {
     my ($cell_id, $tag, @args) = @_;
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
+
+    print DBGOUT (join(' ', 'PE-API', $cell_id, $epoch_global, $tag, ''));
+    if ($tag eq 'Unblock') {
+        print DBGOUT ($endl);
+        return;
+    }
+    if ($tag eq 'Entry') {
+        my ($entry) = @args;
+        {
+            # my $guid_name = grab_name($entry->{'tree_uuid'});
+            my $hint = hint4uuid($entry->{'tree_uuid'});
+            my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
+            my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
+            my $parent = port_index($entry->{'parent'});
+            my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
+            print DBGOUT (join(' ', $hint, $inuse, $may_send, $parent, $mask), $endl); # $guid_name
+        }
+        # print DBGOUT (Dumper $entry, $endl);
+        return;
+    }
+    if ($tag eq 'Packet') {
+        my ($user_mask, $packet) = @args;
+        my $mask = $user_mask->{'mask'};
+        my $bitmask = sprintf('%016b', $mask);
+        my $header = $packet->{'header'};
+            my $uuid = hint4uuid($header->{'uuid'});
+        my $payload = $packet->{'payload'};
+            my $is_last = $payload->{'is_last'};
+            my $size = $payload->{'size'};
+            my $is_blocking = $payload->{'is_blocking'};
+            my $msg_id = $payload->{'msg_id'};
+            my $bytes = $payload->{'bytes'};
+        my $o = {
+            'is_blocking' => $is_blocking,
+            'is_last' => $is_last,
+            'msg_id' => $msg_id,
+            'size' => $size,
+        };
+        my $meta = encode_json($o);
+        my $some = substr($bytes, -40).'...';
+        print DBGOUT (join(' ', $uuid, $bitmask, $meta, 'bytes='.$some), $endl);
+        return;
+    }
+
+    if ($tag eq 'Tcp') {
+        my ($port_number, $msg) = @args;
+        my $port_no = $port_number->{'port_no'};
+        my $str = encode_json($msg);
+        my $x1 = unpack("H*",  $str); # ascii_to_hex
+        my $some = substr($x1, -40).'...';
+        # my (@tcpargs) = @{$msg};
+        print DBGOUT (join(' ', $port_no, $some), $endl);
+        return;
+    }
+
+    print DBGOUT ('unknown tag?', $endl);
 }
 
 # /body : OBJECT { cell_id msg }
