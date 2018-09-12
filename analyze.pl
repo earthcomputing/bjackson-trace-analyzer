@@ -1409,6 +1409,11 @@ sub dispatch {
 ## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
 ## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
 
+sub pe_api {
+    my ($cell_id, $tag, @args) = @_;
+    print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
+}
+
 # /body : OBJECT { cell_id msg }
 # 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
 sub meth_recv {
@@ -1418,10 +1423,10 @@ sub meth_recv {
     my $rkind = ref($msg);
 
     # no args
-    # pe_api($tag);
     if ($rkind eq '') {
         my $tag = $msg;
-        print(join(' ', $cell_id, 'raw-api', $tag, ';'));
+        # print(join(' ', $cell_id, 'raw-api', $tag, ';'));
+        pe_api($cell_id, $tag);
         return;
     }
 
@@ -1430,7 +1435,7 @@ sub meth_recv {
 
         # huh?
         if ($#kind != 0) {
-            print(join(' ', $cell_id, 'raw-api obj', 'keys=', @kind, ';'));
+            print(join(' ', $cell_id, 'raw-api obj', 'keyset=', @kind, ';'));
             return;
         }
 
@@ -1438,20 +1443,20 @@ sub meth_recv {
         my $args = $msg->{$tag};
         my $akind = ref($args);
         # 1 arg
-        # pe_api($tag, $args);
-        if ($akind eq '') {
-            print(join(' ', $cell_id, 'raw-api', $tag, 'ref='.$akind, ';'));
+        if ($akind eq 'HASH') {
+            # print(join(' ', $cell_id, 'raw-api', $tag, $args, ';'));
+            pe_api($cell_id, $tag, $args);
             return;
         }
         # multi args
-        # pe_api($tag, @{$args});
         if ($akind eq 'ARRAY') {
-            print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';'));
+            # print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';'));
+            pe_api($cell_id, $tag, @{$args});
             return;
         }
 
         # huh?
-        print(join(' ', $cell_id, 'raw-api', 'akind='.$akind, $msg, ';'));
+        print(join(' ', $cell_id, 'raw-api obj', 'akind='.$akind, $msg, ';'));
         return;
     }
 
