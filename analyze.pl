@@ -1452,6 +1452,99 @@ sub dump_packet {
     return ($hint, $real_uuid, $bitmask, $o, $bytes);
 }
 
+# --
+# PE model
+
+my %pe_workers; # map : cell_id => object
+
+# phy - ports/links
+sub get_worker {
+    my ($cell_id) = @_;
+    my $w = $pe_workers{$cell_id};
+    return $w if $w;
+
+    my $o = {
+        'pe_id' => $cell_id, # debug
+        'block' => undef,
+        'table' => {},
+        'phy' => [],
+    };
+    $pe_workers{$cell_id} = $o;
+    return $o;
+}
+
+## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
+## PE -API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"size":649,"ait_byte":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"} octets=227661726961626c65735c223a5b5d7d7d7d227d...
+
+## multicast
+## 0x400071e6f02749b68332b65273f36051
+## {"parent":0,"may_send":true,"tree_uuid":{"uuid":"400071e6-f027-49b6-8332-b65273f36051"},"mask":{"mask":2},"inuse":true}
+## 0000000000000010
+
+## phy-set
+## {"is_last":true,"size":649,"ait_byte":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"}
+## 7b226d73675f74797065223a22446973636f766572222c2273657269616c697a65645f6d7367223a227b5c226865616465725c223a7b5c226d73675f636f756e745c223a352c5c2269735f6169745c223a747275652c5c2273656e6465725f69645c223a7b5c226e616d655c223a5c2253656e6465723a433a322b43656c6c4167656e745c222c5c22757569645c223a7b5c22757569645c223a5c2234303030363432392d626161372d346536312d623431642d3565656263303935643232655c227d7d2c5c226d73675f747970655c223a5c22446973636f7665725c222c5c22646972656374696f6e5c223a5c224c656166776172645c222c5c22747265655f6d61705c223a7b7d7d2c5c227061796c6f61645c223a7b5c22747265655f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030346433322d383363382d343939382d616663312d6139393234633264633936385c227d7d2c5c2273656e64696e675f63656c6c5f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030313865632d366532612d346265612d396261342d6165383765333735323662385c227d7d2c5c22686f70735c223a312c5c22706174685c223a7b5c22706f72745f6e756d6265725c223a7b5c22706f72745f6e6f5c223a317d7d2c5c2267766d5f65716e5c223a7b5c22726563765f65716e5c223a5c22747275655c222c5c2273656e645f65716e5c223a5c22747275655c222c5c22736176655f65716e5c223a5c2266616c73655c222c5c2278746e645f65716e5c223a5c22747275655c222c5c227661726961626c65735c223a5b5d7d7d7d227d
+
+# special processing
+sub eccf_ait {
+    my ($pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
+
+    # post event to PE at other end of edge
+    my $route = encode_json($entry);
+    my $meta = encode_json($o);
+    print DBGOUT (join("\n", 'multicast', $tree, $route, $bitmask), $endl);
+    print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
+
+    # next_ait_state
+    # user_mask.and(entry.get_mask());
+    # mask.get_port_nos();
+    # for port_no in port_nos {
+    #    let link = self.pe_to_ports.get
+    #    phy.send(frame)
+    # }
+}
+
+# forward
+sub eccf_normal {
+    my ($pe_worker, $port_no, $tree, $entry, $o, $frame) = @_;
+
+    # post event to PE at other end of edge
+    my $route = encode_json($entry);
+    my $meta = encode_json($o);
+    print DBGOUT (join("\n", 'multicast', $port_no, $tree, $route), $endl);
+    print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
+}
+
+sub xmit_eccf_frame {
+    my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
+
+    my $table = $pe_worker->{'table'};
+    my $entry = $table->{$real_uuid};
+    print DBGOUT (join(' ', 'table miss?', $real_uuid, Dumper $table), $endl) unless $entry;
+
+    my $ait_byte = $o->{'ait_byte'};;
+
+    # AIT(04)
+    if ($ait_byte eq '04') {
+        eccf_ait($pe_worker, $real_uuid, $entry, $bitmask, $o, $frame);
+    }
+
+    # NORMAL(40)
+    if ($ait_byte eq '40') {
+        my $port_no = 0;
+        eccf_normal($pe_worker, $port_no, $real_uuid, $entry, $o, $frame);
+    }
+}
+
+sub xmit_tcp_frame {
+    my ($pe_worker, $port_no, $frame) = @_;
+    my @links = $pe_worker->{'phy'};
+    my $edge = $links[$port_no];
+    # push($edge, $frame);
+    # post event to PE at other end of edge
+    print DBGOUT (join(' ', 'phy', $port_no, $frame), $endl);
+}
+
 # ugh. special case handling of rust 'match' complicates things:
 # reverse-engineer arg-list (0, 1, n)
 
@@ -1464,54 +1557,6 @@ sub dump_packet {
 ## listen_cm_loop C:2 raw-api Entry ref=HASH ;
 ## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
 ## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
-
-# PE model data
-# forwarding table
-# ports/links
-# blocked
-my %pe_workers; # map : cell_id => object
-
-sub get_worker {
-    my ($cell_id) = @_;
-    my $w = $pe_workers{$cell_id};
-    return $w if $w;
-    my $o = {
-        'table' => {},
-        'phy' => [],
-        'block' => undef,
-    };
-    $pe_workers{$cell_id} = $o;
-    return $o;
-}
-
-sub xmit_tcp_frame {
-    my ($pe_worker, $port_no, $frame) = @_;
-    my @links = $pe_worker->{'phy'};
-    my $edge = $links[$port_no];
-    # push($edge, $frame);
-    # post event to PE at other end of edge
-    print DBGOUT (join(' ', 'phy', $port_no, $frame), $endl);
-}
-
-sub xmit_eccf_frame {
-    my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
-    my $meta = encode_json($o);
-    my $table = $pe_worker->{'table'};
-    # print DBGOUT (Dumper $table, $endl);
-    my $entry = $table->{$real_uuid};
-    my $route = encode_json($entry);
-    # post event to PE at other end of edge
-    print DBGOUT (join("\n", 'phy', $route, $meta, $real_uuid, $frame), $endl);
-}
-
-## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
-## PE-API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"msg_id":2198900630282842901,"ait_byte":"04","is_blocking":false,"port_byte":"00","size":649} octets=227661726961626c65735c223a5b5d7d7d7d227d...
-## phy
-## {"mask":{"mask":2},"may_send":true,"parent":0,"inuse":true,"tree_uuid":{"uuid":"400071e6-f027-49b6-8332-b65273f36051"}}
-## {"is_last":true,"msg_id":2198900630282842901,"ait_byte":"04","is_blocking":false,"port_byte":"00","size":649}
-## 0x400071e6f02749b68332b65273f36051
-## 7b226d73675f74797065223a22446973636f766572222c2273657269616c697a65645f6d7367223a227b5c226865616465725c223a7b5c226d73675f636f756e745c223a352c5c2269735f6169745c223a747275652c5c2273656e6465725f69645c223a7b5c226e616d655c223a5c2253656e6465723a433a322b43656c6c4167656e745c222c5c22757569645c223a7b5c22757569645c223a5c2234303030363432392d626161372d346536312d623431642d3565656263303935643232655c227d7d2c5c226d73675f747970655c223a5c22446973636f7665725c222c5c22646972656374696f6e5c223a5c224c656166776172645c222c5c22747265655f6d61705c223a7b7d7d2c5c227061796c6f61645c223a7b5c22747265655f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030346433322d383363382d343939382d616663312d6139393234633264633936385c227d7d2c5c2273656e64696e675f63656c6c5f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030313865632d366532612d346265612d396261342d6165383765333735323662385c227d7d2c5c22686f70735c223a312c5c22706174685c223a7b5c22706f72745f6e756d6265725c223a7b5c22706f72745f6e6f5c223a317d7d2c5c2267766d5f65716e5c223a7b5c22726563765f65716e5c223a5c22747275655c222c5c2273656e645f65716e5c223a5c22747275655c222c5c22736176655f65716e5c223a5c2266616c73655c222c5c2278746e645f65716e5c223a5c22747275655c222c5c227661726961626c65735c223a5b5d7d7d7d227d
-
 sub pe_api {
     my ($cell_id, $tag, @args) = @_;
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
@@ -1551,10 +1596,10 @@ sub pe_api {
     if ($tag eq 'Tcp') {
         my ($port_number, $msg) = @args;
         my $port_no = $port_number->{'port_no'};
+        # my @tcpargs = @{$msg};
         my $str = encode_json($msg);
         my $frame = unpack("H*",  $str); # ascii_to_hex
         my $some = substr($frame, -40).'...';
-        # my (@tcpargs) = @{$msg};
         print DBGOUT (join(' ', $port_no, $some), $endl);
         xmit_tcp_frame($pe_worker, $port_no, $frame);
         return;
