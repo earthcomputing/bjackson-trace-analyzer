@@ -647,7 +647,8 @@ sub uuid_magic {
     my ($coded_uuid) = @_;
     my $b0 = substr($coded_uuid, 2, 2);
     my $b1 = substr($coded_uuid, 4, 2);
-    substr($coded_uuid, 2, 4, '0000'); # ugh, side-effect : OFFSET,LENGTH,REPLACEMENT
+    # make_normal(uuid)
+    substr($coded_uuid, 2, 4, '4000'); # ugh, side-effect : OFFSET,LENGTH,REPLACEMENT
     my $real_uuid = lc($coded_uuid);
     return ($b0, $b1, $real_uuid);
 }
@@ -1476,11 +1477,40 @@ sub get_worker {
     return $w if $w;
     my $o = {
         'table' => {},
+        'phy' => [],
         'block' => undef,
     };
     $pe_workers{$cell_id} = $o;
     return $o;
 }
+
+sub xmit_tcp_frame {
+    my ($pe_worker, $port_no, $frame) = @_;
+    my @links = $pe_worker->{'phy'};
+    my $edge = $links[$port_no];
+    # push($edge, $frame);
+    # post event to PE at other end of edge
+    print DBGOUT (join(' ', 'phy', $port_no, $frame), $endl);
+}
+
+sub xmit_eccf_frame {
+    my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
+    my $meta = encode_json($o);
+    my $table = $pe_worker->{'table'};
+    # print DBGOUT (Dumper $table, $endl);
+    my $entry = $table->{$real_uuid};
+    my $route = encode_json($entry);
+    # post event to PE at other end of edge
+    print DBGOUT (join("\n", 'phy', $route, $meta, $real_uuid, $frame), $endl);
+}
+
+## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
+## PE-API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"msg_id":2198900630282842901,"ait_byte":"04","is_blocking":false,"port_byte":"00","size":649} octets=227661726961626c65735c223a5b5d7d7d7d227d...
+## phy
+## {"mask":{"mask":2},"may_send":true,"parent":0,"inuse":true,"tree_uuid":{"uuid":"400071e6-f027-49b6-8332-b65273f36051"}}
+## {"is_last":true,"msg_id":2198900630282842901,"ait_byte":"04","is_blocking":false,"port_byte":"00","size":649}
+## 0x400071e6f02749b68332b65273f36051
+## 7b226d73675f74797065223a22446973636f766572222c2273657269616c697a65645f6d7367223a227b5c226865616465725c223a7b5c226d73675f636f756e745c223a352c5c2269735f6169745c223a747275652c5c2273656e6465725f69645c223a7b5c226e616d655c223a5c2253656e6465723a433a322b43656c6c4167656e745c222c5c22757569645c223a7b5c22757569645c223a5c2234303030363432392d626161372d346536312d623431642d3565656263303935643232655c227d7d2c5c226d73675f747970655c223a5c22446973636f7665725c222c5c22646972656374696f6e5c223a5c224c656166776172645c222c5c22747265655f6d61705c223a7b7d7d2c5c227061796c6f61645c223a7b5c22747265655f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030346433322d383363382d343939382d616663312d6139393234633264633936385c227d7d2c5c2273656e64696e675f63656c6c5f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030313865632d366532612d346265612d396261342d6165383765333735323662385c227d7d2c5c22686f70735c223a312c5c22706174685c223a7b5c22706f72745f6e756d6265725c223a7b5c22706f72745f6e6f5c223a317d7d2c5c2267766d5f65716e5c223a7b5c22726563765f65716e5c223a5c22747275655c222c5c2273656e645f65716e5c223a5c22747275655c222c5c22736176655f65716e5c223a5c2266616c73655c222c5c2278746e645f65716e5c223a5c22747275655c222c5c227661726961626c65735c223a5b5d7d7d7d227d
 
 sub pe_api {
     my ($cell_id, $tag, @args) = @_;
@@ -1500,20 +1530,21 @@ sub pe_api {
     if ($tag eq 'Entry') {
         my ($entry) = @args;
         my $uuid = $entry->{'tree_uuid'};
-        my $hex_guid = xlate_uuid($uuid);
+        my $hex_guid = lc(xlate_uuid($uuid));
         my $table = $pe_worker->{'table'};
         my $current_entry = $table->{$hex_guid};
         $table->{$hex_guid} = $entry;
-        print DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', dump_entry($entry)), $endl);
+        print DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', $hex_guid, dump_entry($entry)), $endl);
         return;
     }
 
     if ($tag eq 'Packet') {
         my ($user_mask, $packet) = @args;
-        my ($hint, $real_uuid, $bitmask, $o, $bytes) = dump_packet($user_mask, $packet);
+        my ($hint, $real_uuid, $bitmask, $o, $frame) = dump_packet($user_mask, $packet);
         my $meta = encode_json($o);
-        my $some = substr($bytes, -40).'...';
+        my $some = substr($frame, -40).'...';
         print DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
+        xmit_eccf_frame($pe_worker, $real_uuid, $bitmask, $o, $frame);
         return;
     }
 
@@ -1521,10 +1552,11 @@ sub pe_api {
         my ($port_number, $msg) = @args;
         my $port_no = $port_number->{'port_no'};
         my $str = encode_json($msg);
-        my $x1 = unpack("H*",  $str); # ascii_to_hex
-        my $some = substr($x1, -40).'...';
+        my $frame = unpack("H*",  $str); # ascii_to_hex
+        my $some = substr($frame, -40).'...';
         # my (@tcpargs) = @{$msg};
         print DBGOUT (join(' ', $port_no, $some), $endl);
+        xmit_tcp_frame($pe_worker, $port_no, $frame);
         return;
     }
 
