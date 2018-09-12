@@ -339,7 +339,7 @@ sub get_routing_entry {
 sub hint4uuid {
     my ($ref) = @_;
     my $hex_guid = xlate_uuid($ref);
-    return lc(substr($hex_guid, -8));
+    return lc(substr($hex_guid, -8)); # from right
 }
 
 sub dump_routing_tables {
@@ -602,6 +602,15 @@ $epoch_global = $epoch;
     print($endl);
 }
 
+# 00112233-4455-6677-8899-aabbccddeeff
+# {time_low}-{time_mid}-{time_hi_and_version}-{clk_seq_hi_res/clk_seq_low}-{node}
+# octet 8 variant
+# octet 6 version
+# variant - most significant 3 bits of clock_seq (clk_seq_hi_res)
+# version - most significant 4 bits of timestamp (time_hi_and_version)
+# 1-3 bit "variant" followed by 13-15 bit clock sequence
+# clk_seq_hi_res=88
+# time_hi_and_version=6677
 sub xlate_uuid {
     my ($ref) = @_;
     return $null_uuid unless ref($ref) eq 'HASH';
@@ -631,6 +640,16 @@ sub xlate_uuid {
         my $hex_guid = $guid->as_hex;
         return $hex_guid;
     }
+}
+
+# hex_guid
+sub uuid_magic {
+    my ($coded_uuid) = @_;
+    my $b0 = substr($coded_uuid, 2, 2);
+    my $b1 = substr($coded_uuid, 4, 2);
+    substr($coded_uuid, 2, 4, '0000'); # ugh, side-effect : OFFSET,LENGTH,REPLACEMENT
+    my $real_uuid = lc($coded_uuid);
+    return ($b0, $b1, $real_uuid);
 }
 
 sub nametype {
@@ -1414,10 +1433,12 @@ sub pe_api {
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
 
     print DBGOUT (join(' ', 'PE-API', $cell_id, $epoch_global, $tag, ''));
+
     if ($tag eq 'Unblock') {
         print DBGOUT ($endl);
         return;
     }
+
     if ($tag eq 'Entry') {
         my ($entry) = @args;
         {
@@ -1432,12 +1453,16 @@ sub pe_api {
         # print DBGOUT (Dumper $entry, $endl);
         return;
     }
+
     if ($tag eq 'Packet') {
         my ($user_mask, $packet) = @args;
         my $mask = $user_mask->{'mask'};
         my $bitmask = sprintf('%016b', $mask);
         my $header = $packet->{'header'};
-            my $uuid = hint4uuid($header->{'uuid'});
+            my $coded_uuid = $header->{'uuid'};
+            my $hex_guid = xlate_uuid($coded_uuid);
+            my ($b0, $b1, $real_uuid) = uuid_magic($hex_guid);
+            my $hint = hint4uuid($coded_uuid); # not sure which (coded/real) to use here ??
         my $payload = $packet->{'payload'};
             my $is_last = $payload->{'is_last'};
             my $size = $payload->{'size'};
@@ -1449,10 +1474,12 @@ sub pe_api {
             'is_last' => $is_last,
             'msg_id' => $msg_id,
             'size' => $size,
+            'ait_byte' => $b0, # NORMAL(40), AIT(04)
+            'port_byte' => $b1,
         };
         my $meta = encode_json($o);
         my $some = substr($bytes, -40).'...';
-        print DBGOUT (join(' ', $uuid, $bitmask, $meta, 'bytes='.$some), $endl);
+        print DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
         return;
     }
 
