@@ -1453,6 +1453,67 @@ sub dump_packet {
 }
 
 # --
+# ait byte coding
+
+my %ait_code = {
+    '00' => 'TICK',
+    '01' => 'TOCK',
+    '02' => 'TACK',
+    '03' => 'TECK',
+    '04' => 'AIT',
+    '40' => 'NORMAL',
+    '00' => 'FORWARD',
+    '80' => 'REVERSE'
+}
+
+my %ait_forward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TICK',
+    'TACK' => 'TOCK',
+    'TECK' => 'TACK',
+    'AIT ' => 'TECK',
+    'NORMAL' => 'NORMAL'
+};
+
+my %ait_backward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TACK',
+    'TACK' => 'TECK',
+    'TECK' => 'AIT',
+    'NORMAL' => 'NORMAL'
+};
+
+sub ait_name {
+    my ($octet) = @_;
+    return $ait_code{sprintf("%02x", $octet));
+}
+
+sub ait_unname {
+    my ($name) = @_;
+    foreach my $key (keys %ait_code) {
+        my $value = $ait_code{$key};
+        return $value if $name eq $value;
+    }
+    return undef;
+}
+sub ait_decode {
+    my ($dense) = @_;
+    my $octet = hex('0x'.$dense);
+    my $dir = ait_name($octet & 0x80);
+    my $flavor = ait_name($octet & 0x44);
+    my $state = ait_name($octet & 0x03);
+    return ($dir, $flavor, $state);
+}
+
+sub ait_next {
+    my ($dense) = @_;
+    my ($dir, $flavor, $state) = ait_decode($dense);
+    return $ait_forward{$ait} if $dir eq 'FORWARD';
+    return $ait_backward{$ait} if $dir eq 'REVERSE';
+    return undef;
+}
+
+# --
 # PE model
 
 my %pe_workers; # map : cell_id => object
@@ -1495,6 +1556,9 @@ sub eccf_ait {
     print DBGOUT (join("\n", 'multicast', $tree, $route, $bitmask), $endl);
     print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
 
+    my $ait_state = ait_next($o->{'ait_byte'};
+    my $ait_code = ait_unname($ait_state);
+
     # next_ait_state
     # user_mask.and(entry.get_mask());
     # mask.get_port_nos();
@@ -1502,6 +1566,13 @@ sub eccf_ait {
     #    let link = self.pe_to_ports.get
     #    phy.send(frame)
     # }
+    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
+    my $route_mask = $entry->{'mask'}{'mask'};
+    my $port_mask = $limit_mask & $route_mask;
+    for my $i in (0..$nports) {
+        my $bit = 1 << $i;
+        phy.send($pe_worker, $i, $frame, $ait_code) if $port_mask & $bit;
+    }
 }
 
 # forward
@@ -1513,6 +1584,8 @@ sub eccf_normal {
     my $meta = encode_json($o);
     print DBGOUT (join("\n", 'multicast', $port_no, $tree, $route), $endl);
     print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
+
+
 }
 
 sub xmit_eccf_frame {
@@ -1522,7 +1595,7 @@ sub xmit_eccf_frame {
     my $entry = $table->{$real_uuid};
     print DBGOUT (join(' ', 'table miss?', $real_uuid, Dumper $table), $endl) unless $entry;
 
-    my $ait_byte = $o->{'ait_byte'};;
+    my $ait_byte = $o->{'ait_byte'};
 
     # AIT(04)
     if ($ait_byte eq '04') {
@@ -1543,6 +1616,49 @@ sub xmit_tcp_frame {
     # push($edge, $frame);
     # post event to PE at other end of edge
     print DBGOUT (join(' ', 'phy', $port_no, $frame), $endl);
+
+    # 'ROOTWARD'
+}
+
+fn forward(&self, recv_port_no: PortNo, entry: RoutingTableEntry, user_mask: Mask, packet: Packet, trace_header: &mut TraceHeader) -> Result<(), Error>{
+    let parent = entry.get_parent();
+
+    // Leafward
+    if recv_port_no == parent {
+        let mask = user_mask.and(entry.get_mask());
+        let port_nos = mask.get_port_nos();
+
+        for port_no in port_nos.iter().cloned() {
+            if *port_no == 0 {
+                let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
+                self.pe_to_cm.send(cm_msg);
+            }
+            else {
+                let link = self.pe_to_ports.get(*port_no as usize);
+                phy.send(frame);
+            }
+        }
+    }
+    // RootWard
+    else {
+        // special case, no parent
+        if *parent == 0 {
+            let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
+            self.pe_to_cm.send(cm_msg)?;
+        }
+        else {
+            let port_no = parent;
+            let link = self.pe_to_ports.get(*port_no as usize);
+                let frame = PeToPortPacket::Packet(packet);
+                phy.send(frame);
+                let is_up = entry.get_mask().and(user_mask).equal(Mask::port0());
+                if is_up {
+                    let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
+                    self.pe_to_cm.send(cm_msg);
+                }
+            }
+        }
+    }
 }
 
 # ugh. special case handling of rust 'match' complicates things:
@@ -1709,7 +1825,7 @@ sub meth_cm_bytes_from_ca {
     print(join(' ', $cell_id, $summary, ';'));
 
     # FIXME
-    my $tree_id = nametype($body->{'missing'});;
+    my $tree_id = nametype($body->{'missing'});
     ## Spreadsheet Coding:
     my $virt_p = 0;
     my $tag = 'cell-snd';
