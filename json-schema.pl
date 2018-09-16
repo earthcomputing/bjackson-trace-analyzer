@@ -128,6 +128,7 @@ sub process_file {
     return \%data;
 }
 
+# FIXME : allow '-' for STDIN processing ??
 sub inhale {
     my ($path) = @_;
     my $gzip = $path =~ m/.gz$/;
