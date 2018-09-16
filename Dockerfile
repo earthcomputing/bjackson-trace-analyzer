@@ -19,19 +19,27 @@ RUN apt-get update && \
 RUN cpanm JSON Data::GUID Data::UUID Data::Dumper Digest::SHA
 RUN cpanm --force Test::Block
 RUN cpanm Kafka
+
+## intermediate image : bjackson/perl-kafka
+# FROM bjackson/perl-kafka
+
 RUN mkdir -p sample-data
 
+# git ls-files
 ## .gitignore
+## Dockerfile
 ## README.md
 ## SCHEMA.md
+## launch-kafka.sh
+
 COPY analyze-queue.pl /usr/local/bin/
 COPY analyze.pl /usr/local/bin/
 COPY from-queue.sh /usr/local/bin/
 COPY json-schema.pl /usr/local/bin/
-## launch-kafka.sh
 COPY pickle.sh /usr/local/bin/
 COPY post-process.sh /usr/local/bin/
 COPY pretty-json-lines.pl /usr/local/bin/
+COPY quick.sh /usr/local/bin/
 COPY sha1sum.sh /usr/local/bin/
 COPY upload.pl /usr/local/bin/
 COPY variance.sh /usr/local/bin/
