@@ -217,7 +217,7 @@ sub dump_guids {
 
     # sort by value
     foreach my $item (sort { $href->{$a} cmp $href->{$b} } keys %{$href}) {
-        my $hint =  lc(substr($item, -8));
+        my $hint =  lc(substr($item, 0, 8)); # -8
         print GUIDS (join(' ', $hint, $item, $href->{$item}), $endl);
     }
 
@@ -376,7 +376,7 @@ sub get_routing_entry {
 sub hint4uuid {
     my ($ref) = @_;
     my $hex_guid = xlate_uuid($ref);
-    return lc(substr($hex_guid, -8)); # from right
+    return lc(substr($hex_guid, 0, 8)); # -8 from right
 }
 
 sub dump_routing_tables {
@@ -1565,7 +1565,7 @@ sub get_worker {
 
 ## phy-set
 ## {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"}
-## 7b226d73675f74797065223a22446973636f766572222c2273657269616c697a65645f6d7367223a227b5c226865616465725c223a7b5c226d73675f636f756e745c223a352c5c2269735f6169745c223a747275652c5c2273656e6465725f69645c223a7b5c226e616d655c223a5c2253656e6465723a433a322b43656c6c4167656e745c222c5c22757569645c223a7b5c22757569645c223a5c2234303030363432392d626161372d346536312d623431642d3565656263303935643232655c227d7d2c5c226d73675f747970655c223a5c22446973636f7665725c222c5c22646972656374696f6e5c223a5c224c656166776172645c222c5c22747265655f6d61705c223a7b7d7d2c5c227061796c6f61645c223a7b5c22747265655f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030346433322d383363382d343939382d616663312d6139393234633264633936385c227d7d2c5c2273656e64696e675f63656c6c5f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030313865632d366532612d346265612d396261342d6165383765333735323662385c227d7d2c5c22686f70735c223a312c5c22706174685c223a7b5c22706f72745f6e756d6265725c223a7b5c22706f72745f6e6f5c223a317d7d2c5c2267766d5f65716e5c223a7b5c22726563765f65716e5c223a5c22747275655c222c5c2273656e645f65716e5c223a5c22747275655c222c5c22736176655f65716e5c223a5c2266616c73655c222c5c2278746e645f65716e5c223a5c22747275655c222c5c227661726961626c65735c223a5b5d7d7d7d227d
+## 7b226d7367...
 
 # special processing
 sub eccf_ait {
@@ -1574,8 +1574,10 @@ sub eccf_ait {
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join("\n", 'multicast', $pe_worker->{'pe_id'}, $tree, $route, $bitmask), $endl);
-    print DBGOUT (join("\n", 'phy-set', $pe_worker->{'pe_id'}, $meta, $frame), $endl);
+    print DBGOUT (join(' ', 'multicast', $pe_worker->{'pe_id'}, $bitmask, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_worker->{'pe_id'}, $meta, $endl, '   ', $frame), $endl);
+
+    my $msg_id = $o->{'msg_id'};
 
     my $ait_state = ait_next($o->{'ait_dense'});
     my $ait_code = ait_unname($ait_state);
@@ -1593,7 +1595,7 @@ sub eccf_ait {
     for my $i (0..$maxport) {
         my $bit = 1 << $i;
         next unless $bit & $port_mask;
-        print DBGOUT (join(" ", 'phy enqueue', $pe_worker->{'pe_id'}, $i, substr($frame, 0, 10).'...'), $endl);
+        print DBGOUT (join(' ', 'phy enqueue', $pe_worker->{'pe_id'}, $i, 'msg_id='.$msg_id, substr($frame, 0, 10).'...'), $endl);
         # phy.enqueue($pe_worker, $i, $frame, $ait_code) if $port_mask & $bit;
     }
 }
@@ -1606,8 +1608,10 @@ sub eccf_normal {
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join("\n", 'multicast', $pe_worker->{'pe_id'}, $port_no, $tree, $route), $endl);
-    print DBGOUT (join("\n", 'phy-set', $pe_worker->{'pe_id'}, $meta, $frame), $endl);
+    print DBGOUT (join(' ', 'multicast', $pe_worker->{'pe_id'}, $port_no, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_worker->{'pe_id'}, $meta, $endl, '   ', $frame), $endl);
+
+    my $msg_id = $o->{'msg_id'};
 
     my $parent = $entry->{'parent'};
     my $route_mask = $entry->{'mask'}{'mask'};
@@ -1699,7 +1703,7 @@ sub xmit_eccf_frame {
 sub xmit_tcp_frame {
     my ($pe_worker, $port_no, $frame) = @_;
     my @links = $pe_worker->{'phy'};
-    my $edge = $links[$port_no];
+    #  my $edge = $links[$port_no];
     # push($edge, $frame);
     # post event to PE at other end of edge
     print DBGOUT (join(' ', 'phy', $pe_worker->{'pe_id'}, $port_no, $frame), $endl);
@@ -2503,6 +2507,25 @@ my @mformats = qw(
 
     'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
 );
+
+sub bytes2dense {
+    my ($u8) = @_;
+    my $dense = '';
+    foreach my $ch (@{$u8}) {
+        my $doublet = sprintf('%02x', $ch);
+        $dense = $dense.$doublet;
+    }
+    print($dense, $endl);
+    return $dense;
+}
+
+sub frame2obj {
+    my ($frame) = @_;
+    my $json_text = pack('H*', $frame); # hex_to_ascii
+    my $o = decode_json($json_text);
+    print($json_text, $endl);
+    return $o;
+}
 
 my $notes = << '_eof_';
 
