@@ -33,7 +33,7 @@ my $ait_code = {
     '03' => 'TECK',
     '04' => 'AIT',
     '40' => 'NORMAL',
-    '00' => 'FORWARD',
+    # '00' => 'FORWARD',
     '80' => 'REVERSE'
 };
 
@@ -1509,6 +1509,7 @@ sub ait_unname {
         my $value = $ait_code->{$key};
         return $value if $name eq $value;
     }
+    print DBGOUT (join(' ', 'bad ait name:"'.$name.'"'), $endl) unless $name;
     return undef;
 }
 
@@ -1516,7 +1517,7 @@ sub ait_unname {
 sub ait_decode {
     my ($ait_dense) = @_;
     my $octet = hex('0x'.$ait_dense);
-    my $dir = ait_name($octet & 0x80);
+    my $dir = ($octet & 0x80) ? 'REVERSE' : 'FORWARD'; # ait_name - FORWARD/TICK ??
     my $flavor = ait_name($octet & 0x44);
     my $state = ait_name($octet & 0x03);
     return ($dir, $flavor, $state);
@@ -1570,17 +1571,21 @@ sub get_worker {
 # special processing
 sub eccf_ait {
     my ($pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
 
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join(' ', 'multicast', $pe_worker->{'pe_id'}, $bitmask, $tree, $route), $endl);
-    print DBGOUT (join(' ', 'phy-set', $pe_worker->{'pe_id'}, $meta, $endl, '   ', $frame), $endl);
+    print DBGOUT (join(' ', 'multicast', $pe_id, $bitmask, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
 
-    my $ait_state = ait_next($o->{'ait_dense'});
+    my $ait_dense = $o->{'ait_dense'};
+    my $ait_state = ait_next($ait_dense);
     my $ait_code = ait_unname($ait_state);
+
+    print DBGOUT (join(' ', 'bad ait?', $ait_dense, $ait_state), $endl) unless $ait_code;
 
     # next_ait_state
     # user_mask.and(entry.get_mask());
@@ -1594,22 +1599,28 @@ sub eccf_ait {
     my $port_mask = ($limit_mask & $route_mask);
     for my $i (0..$maxport) {
         my $bit = 1 << $i;
-        next unless $bit & $port_mask;
-        print DBGOUT (join(' ', 'phy enqueue', $pe_worker->{'pe_id'}, $i, 'msg_id='.$msg_id, substr($frame, 0, 10).'...'), $endl);
-        # phy.enqueue($pe_worker, $i, $frame, $ait_code) if $port_mask & $bit;
+        next unless $port_mask & $bit;
+        phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
     }
+}
+
+sub phy_enqueue {
+    my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
+    # DBGOUT
+    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
 }
 
 # forward
 sub eccf_normal {
     my ($pe_worker, $port_no, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
 
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join(' ', 'multicast', $pe_worker->{'pe_id'}, $port_no, $tree, $route), $endl);
-    print DBGOUT (join(' ', 'phy-set', $pe_worker->{'pe_id'}, $meta, $endl, '   ', $frame), $endl);
+    print DBGOUT (join(' ', 'multicast', $pe_id, $port_no, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
 
@@ -1681,10 +1692,11 @@ _eos_
 
 sub xmit_eccf_frame {
     my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
 
     my $table = $pe_worker->{'table'};
     my $entry = $table->{$real_uuid};
-    print DBGOUT (join(' ', 'table miss?', $pe_worker->{'pe_id'}, $real_uuid, Dumper $table), $endl) unless $entry;
+    print DBGOUT (join(' ', 'table miss?', $pe_id, $real_uuid, Dumper $table), $endl) unless $entry;
 
     my $ait_dense = $o->{'ait_dense'};
 
@@ -1702,11 +1714,12 @@ sub xmit_eccf_frame {
 
 sub xmit_tcp_frame {
     my ($pe_worker, $port_no, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
     my @links = $pe_worker->{'phy'};
     #  my $edge = $links[$port_no];
     # push($edge, $frame);
     # post event to PE at other end of edge
-    print DBGOUT (join(' ', 'phy', $pe_worker->{'pe_id'}, $port_no, $frame), $endl);
+    print DBGOUT (join(' ', 'phy', $pe_id, $port_no, $frame), $endl);
 
     # 'ROOTWARD'
 }
