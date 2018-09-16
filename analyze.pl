@@ -20,7 +20,44 @@ my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
 
+my $maxport = 7;
+my $cm_bitmask = 1 << 0;
 my $null_uuid = '0x00000000000000000000000000000000';
+
+# --
+# ait byte coding
+my $ait_code = {
+    '00' => 'TICK',
+    '01' => 'TOCK',
+    '02' => 'TACK',
+    '03' => 'TECK',
+    '04' => 'AIT',
+    '40' => 'NORMAL',
+    '00' => 'FORWARD',
+    '80' => 'REVERSE'
+};
+
+# --
+# ait state sequence:
+
+# seq : 'AIT ' => 'TECK' => 'TACK' => 'TOCK' => 'TICK' => 'TOCK'
+my $ait_forward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TICK',
+    'TACK' => 'TOCK',
+    'TECK' => 'TACK',
+    'AIT ' => 'TECK',
+    'NORMAL' => 'NORMAL'
+};
+
+# seq : 'TICK' => 'TOCK' => 'TACK' => 'TECK' => 'AIT'
+my $ait_backward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TACK',
+    'TACK' => 'TECK',
+    'TECK' => 'AIT',
+    'NORMAL' => 'NORMAL'
+};
 
 if ( $#ARGV < 0 ) {
     print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
@@ -1446,7 +1483,7 @@ sub dump_packet {
         'is_last' => $is_last,
         'msg_id' => $msg_id,
         'size' => $size,
-        'ait_byte' => $b0, # NORMAL(40), AIT(04)
+        'ait_dense' => $b0, # NORMAL(40), AIT(04)
         'port_byte' => $b1,
     };
     return ($hint, $real_uuid, $bitmask, $o, $bytes);
@@ -1455,61 +1492,45 @@ sub dump_packet {
 # --
 # ait byte coding
 
-my %ait_code = {
-    '00' => 'TICK',
-    '01' => 'TOCK',
-    '02' => 'TACK',
-    '03' => 'TECK',
-    '04' => 'AIT',
-    '40' => 'NORMAL',
-    '00' => 'FORWARD',
-    '80' => 'REVERSE'
-}
-
-my %ait_forward = {
-    'TICK' => 'TOCK',
-    'TOCK' => 'TICK',
-    'TACK' => 'TOCK',
-    'TECK' => 'TACK',
-    'AIT ' => 'TECK',
-    'NORMAL' => 'NORMAL'
-};
-
-my %ait_backward = {
-    'TICK' => 'TOCK',
-    'TOCK' => 'TACK',
-    'TACK' => 'TECK',
-    'TECK' => 'AIT',
-    'NORMAL' => 'NORMAL'
-};
-
+# binary (octet) to name (string)
 sub ait_name {
     my ($octet) = @_;
-    return $ait_code{sprintf("%02x", $octet));
+    my $ait_dense = sprintf("%02x", $octet);
+    my $name = $ait_code->{$ait_dense};
+    print DBGOUT (join(' ', 'bad ait code:"'.$ait_dense.'"'), $endl) unless $name;
+    return $name;
 }
 
+# name to ait_dense/hex (string)
 sub ait_unname {
     my ($name) = @_;
-    foreach my $key (keys %ait_code) {
-        my $value = $ait_code{$key};
+    return undef unless $name;
+    foreach my $key (keys %{$ait_code}) {
+        my $value = $ait_code->{$key};
         return $value if $name eq $value;
     }
     return undef;
 }
+
+# ait_dense/hex (string) to struct
 sub ait_decode {
-    my ($dense) = @_;
-    my $octet = hex('0x'.$dense);
+    my ($ait_dense) = @_;
+    my $octet = hex('0x'.$ait_dense);
     my $dir = ait_name($octet & 0x80);
     my $flavor = ait_name($octet & 0x44);
     my $state = ait_name($octet & 0x03);
     return ($dir, $flavor, $state);
 }
 
+# --
+# ait state sequence:
+
+# cycle AIT state machine - ait_dense/hex (string) to name (string)
 sub ait_next {
-    my ($dense) = @_;
-    my ($dir, $flavor, $state) = ait_decode($dense);
-    return $ait_forward{$ait} if $dir eq 'FORWARD';
-    return $ait_backward{$ait} if $dir eq 'REVERSE';
+    my ($ait_dense) = @_;
+    my ($dir, $flavor, $state) = ait_decode($ait_dense);
+    return $ait_forward->{$state} if $dir eq 'FORWARD';
+    return $ait_backward->{$state} if $dir eq 'REVERSE';
     return undef;
 }
 
@@ -1535,7 +1556,7 @@ sub get_worker {
 }
 
 ## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
-## PE -API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"size":649,"ait_byte":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"} octets=227661726961626c65735c223a5b5d7d7d7d227d...
+## PE -API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"} octets=227661726961626c65735c223a5b5d7d7d7d227d...
 
 ## multicast
 ## 0x400071e6f02749b68332b65273f36051
@@ -1543,7 +1564,7 @@ sub get_worker {
 ## 0000000000000010
 
 ## phy-set
-## {"is_last":true,"size":649,"ait_byte":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"}
+## {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"}
 ## 7b226d73675f74797065223a22446973636f766572222c2273657269616c697a65645f6d7367223a227b5c226865616465725c223a7b5c226d73675f636f756e745c223a352c5c2269735f6169745c223a747275652c5c2273656e6465725f69645c223a7b5c226e616d655c223a5c2253656e6465723a433a322b43656c6c4167656e745c222c5c22757569645c223a7b5c22757569645c223a5c2234303030363432392d626161372d346536312d623431642d3565656263303935643232655c227d7d2c5c226d73675f747970655c223a5c22446973636f7665725c222c5c22646972656374696f6e5c223a5c224c656166776172645c222c5c22747265655f6d61705c223a7b7d7d2c5c227061796c6f61645c223a7b5c22747265655f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030346433322d383363382d343939382d616663312d6139393234633264633936385c227d7d2c5c2273656e64696e675f63656c6c5f69645c223a7b5c226e616d655c223a5c22433a325c222c5c22757569645c223a7b5c22757569645c223a5c2234303030313865632d366532612d346265612d396261342d6165383765333735323662385c227d7d2c5c22686f70735c223a312c5c22706174685c223a7b5c22706f72745f6e756d6265725c223a7b5c22706f72745f6e6f5c223a317d7d2c5c2267766d5f65716e5c223a7b5c22726563765f65716e5c223a5c22747275655c222c5c2273656e645f65716e5c223a5c22747275655c222c5c22736176655f65716e5c223a5c2266616c73655c222c5c2278746e645f65716e5c223a5c22747275655c222c5c227661726961626c65735c223a5b5d7d7d7d227d
 
 # special processing
@@ -1553,10 +1574,10 @@ sub eccf_ait {
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join("\n", 'multicast', $tree, $route, $bitmask), $endl);
-    print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
+    print DBGOUT (join("\n", 'multicast', $pe_worker->{'pe_id'}, $tree, $route, $bitmask), $endl);
+    print DBGOUT (join("\n", 'phy-set', $pe_worker->{'pe_id'}, $meta, $frame), $endl);
 
-    my $ait_state = ait_next($o->{'ait_byte'};
+    my $ait_state = ait_next($o->{'ait_dense'});
     my $ait_code = ait_unname($ait_state);
 
     # next_ait_state
@@ -1564,48 +1585,114 @@ sub eccf_ait {
     # mask.get_port_nos();
     # for port_no in port_nos {
     #    let link = self.pe_to_ports.get
-    #    phy.send(frame)
+    #    phy.enqueue(frame)
     # }
-    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
     my $route_mask = $entry->{'mask'}{'mask'};
-    my $port_mask = $limit_mask & $route_mask;
-    for my $i in (0..$nports) {
+    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
+    my $port_mask = ($limit_mask & $route_mask);
+    for my $i (0..$maxport) {
         my $bit = 1 << $i;
-        phy.send($pe_worker, $i, $frame, $ait_code) if $port_mask & $bit;
+        next unless $bit & $port_mask;
+        print DBGOUT (join(" ", 'phy enqueue', $pe_worker->{'pe_id'}, $i, substr($frame, 0, 10).'...'), $endl);
+        # phy.enqueue($pe_worker, $i, $frame, $ait_code) if $port_mask & $bit;
     }
 }
 
 # forward
 sub eccf_normal {
-    my ($pe_worker, $port_no, $tree, $entry, $o, $frame) = @_;
+    my ($pe_worker, $port_no, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
 
     # post event to PE at other end of edge
     my $route = encode_json($entry);
     my $meta = encode_json($o);
-    print DBGOUT (join("\n", 'multicast', $port_no, $tree, $route), $endl);
-    print DBGOUT (join("\n", 'phy-set', $meta, $frame), $endl);
+    print DBGOUT (join("\n", 'multicast', $pe_worker->{'pe_id'}, $port_no, $tree, $route), $endl);
+    print DBGOUT (join("\n", 'phy-set', $pe_worker->{'pe_id'}, $meta, $frame), $endl);
 
+    my $parent = $entry->{'parent'};
+    my $route_mask = $entry->{'mask'}{'mask'};
+    my $port_mask = ($limit_mask & $route_mask);
 
+    # Leafward
+    if ($port_no == $parent) {
+        # for ports ...
+            # going up or phy
+    }
+    # RootWard
+    else {
+        if ($parent) {
+            # FIXME : is 'ports' all ports or just phy-ports?
+            # for ports ...
+                # going up or phy (going up is notreached)
+        }
+        # fallsthru
+        my $going_up = $port_mask == $cm_bitmask;
+        if (!$parent || $going_up) {
+            # ca.enqueue()
+        }
+    }
 }
+
+my $rust = << '_eos_';
+let cm_bitmask = Mask::port0(); // constant
+
+fn forward(&self, recv_port_no: PortNo, entry: RoutingTableEntry, user_mask: Mask, packet: Packet, trace_header: &mut TraceHeader) -> Result<(), Error>{
+    let parent = entry.get_parent();
+    let route_mask = entry.get_mask();
+    let port_mask = user_mask.and(route_mask);
+
+    // Leafward
+    if recv_port_no == parent {
+        let port_nos = port_mask.get_port_nos();
+        for port_no in port_nos.iter().cloned() {
+            if *port_no == 0 {
+                let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
+                self.pe_to_cm.send(cm_msg);
+            }
+            else {
+                let link = self.pe_to_ports.get(*port_no as usize);
+                phy.enqueue(frame);
+            }
+        }
+    }
+    // RootWard
+    else {
+        if *parent != 0 {
+            let port_no = parent;
+            let link = self.pe_to_ports.get(*port_no as usize);
+            let frame = PeToPortPacket::Packet(packet);
+            phy.enqueue(frame);
+        }
+
+        let going_up = port_mask.equal(cm_bitmask);
+        if going_up ||
+        // special case, no parent
+        *parent == 0 {
+            let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
+            self.pe_to_cm.send(cm_msg);
+        }
+    }
+}
+_eos_
 
 sub xmit_eccf_frame {
     my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
 
     my $table = $pe_worker->{'table'};
     my $entry = $table->{$real_uuid};
-    print DBGOUT (join(' ', 'table miss?', $real_uuid, Dumper $table), $endl) unless $entry;
+    print DBGOUT (join(' ', 'table miss?', $pe_worker->{'pe_id'}, $real_uuid, Dumper $table), $endl) unless $entry;
 
-    my $ait_byte = $o->{'ait_byte'};
+    my $ait_dense = $o->{'ait_dense'};
 
     # AIT(04)
-    if ($ait_byte eq '04') {
+    if ($ait_dense eq '04') {
         eccf_ait($pe_worker, $real_uuid, $entry, $bitmask, $o, $frame);
     }
 
     # NORMAL(40)
-    if ($ait_byte eq '40') {
+    if ($ait_dense eq '40') {
         my $port_no = 0;
-        eccf_normal($pe_worker, $port_no, $real_uuid, $entry, $o, $frame);
+        eccf_normal($pe_worker, $port_no, $real_uuid, $entry, $bitmask, $o, $frame);
     }
 }
 
@@ -1615,50 +1702,9 @@ sub xmit_tcp_frame {
     my $edge = $links[$port_no];
     # push($edge, $frame);
     # post event to PE at other end of edge
-    print DBGOUT (join(' ', 'phy', $port_no, $frame), $endl);
+    print DBGOUT (join(' ', 'phy', $pe_worker->{'pe_id'}, $port_no, $frame), $endl);
 
     # 'ROOTWARD'
-}
-
-fn forward(&self, recv_port_no: PortNo, entry: RoutingTableEntry, user_mask: Mask, packet: Packet, trace_header: &mut TraceHeader) -> Result<(), Error>{
-    let parent = entry.get_parent();
-
-    // Leafward
-    if recv_port_no == parent {
-        let mask = user_mask.and(entry.get_mask());
-        let port_nos = mask.get_port_nos();
-
-        for port_no in port_nos.iter().cloned() {
-            if *port_no == 0 {
-                let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
-                self.pe_to_cm.send(cm_msg);
-            }
-            else {
-                let link = self.pe_to_ports.get(*port_no as usize);
-                phy.send(frame);
-            }
-        }
-    }
-    // RootWard
-    else {
-        // special case, no parent
-        if *parent == 0 {
-            let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
-            self.pe_to_cm.send(cm_msg)?;
-        }
-        else {
-            let port_no = parent;
-            let link = self.pe_to_ports.get(*port_no as usize);
-                let frame = PeToPortPacket::Packet(packet);
-                phy.send(frame);
-                let is_up = entry.get_mask().and(user_mask).equal(Mask::port0());
-                if is_up {
-                    let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
-                    self.pe_to_cm.send(cm_msg);
-                }
-            }
-        }
-    }
 }
 
 # ugh. special case handling of rust 'match' complicates things:
