@@ -1,6 +1,15 @@
 # bjackson-trace-analyzer
 example of trace output stream analysis
 
+## Cheat Sheet:
+
+    csh> docker run --interactive --tty --rm --name analyzer bjackson/analyzer
+    csh> docker cp sample-data/multicell-trace-triangle-1536648431697765.json.gz analyzer:/root/sample-data/
+
+    docker# quick.sh
+    docker# grep raw-api /tmp/triangle-1536648431697765/threaded-analysis.txt
+    docker# grep PE-API /tmp/triangle-1536648431697765/debug.txt analyze.pl
+
 ## How it works:
 
 The heart of this tool is analyze.pl, which reads in a sequence of values in JSON text and holds them in an internal map (associative array).
@@ -47,9 +56,9 @@ At this time the reports are:
 
 ## How to build and start the Docker container image (macosx terminal):
 
-    docker build -t bjackson-analyzer .
+    docker build -t bjackson/analyzer .
 
-    docker run --interactive --tty --rm --name analyzer bjackson-analyzer
+    docker run --interactive --tty --rm --name analyzer bjackson/analyzer
 
 Note: I picked the container (instance) name: 'analyzer' here at random.
 Instructions below include this value - you can change it to your heart's content (you're on your own to know when the name is being used ;)
