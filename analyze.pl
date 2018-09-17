@@ -1478,6 +1478,8 @@ sub dump_packet {
         my $is_blocking = $payload->{'is_blocking'};
         my $msg_id = $payload->{'msg_id'};
         my $bytes = $payload->{'bytes'};
+# FIXME : do we always have a $header{'msg_type'} ??
+# FIXME : OOB or protocol layer data?
     my $o = {
         'is_blocking' => $is_blocking,
         'is_last' => $is_last,
@@ -1556,17 +1558,13 @@ sub get_worker {
     return $o;
 }
 
+sub phy_enqueue {
+    my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
+    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
+}
+
 ## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
 ## PE -API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"} octets=227661726961626c65735c223a5b5d7d7d7d227d...
-
-## multicast
-## 0x400071e6f02749b68332b65273f36051
-## {"parent":0,"may_send":true,"tree_uuid":{"uuid":"400071e6-f027-49b6-8332-b65273f36051"},"mask":{"mask":2},"inuse":true}
-## 0000000000000010
-
-## phy-set
-## {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"}
-## 7b226d7367...
 
 # special processing
 sub eccf_ait {
@@ -1587,27 +1585,15 @@ sub eccf_ait {
 
     print DBGOUT (join(' ', 'bad ait?', $ait_dense, $ait_state), $endl) unless $ait_code;
 
-    # next_ait_state
-    # user_mask.and(entry.get_mask());
-    # mask.get_port_nos();
-    # for port_no in port_nos {
-    #    let link = self.pe_to_ports.get
-    #    phy.enqueue(frame)
-    # }
     my $route_mask = $entry->{'mask'}{'mask'};
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
     my $port_mask = ($limit_mask & $route_mask);
+# FIXME : going up ??
     for my $i (0..$maxport) {
         my $bit = 1 << $i;
         next unless $port_mask & $bit;
         phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
     }
-}
-
-sub phy_enqueue {
-    my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
-    # DBGOUT
-    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
 }
 
 # forward
@@ -1630,65 +1616,37 @@ sub eccf_normal {
 
     # Leafward
     if ($port_no == $parent) {
-        # for ports ...
-            # going up or phy
+# FIXME : going up ??
+        for my $i (0..$maxport) {
+            my $bit = 1 << $i;
+            next unless $port_mask & $bit;
+            my $ait_code = 'NORMAL';
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+        }
     }
     # RootWard
     else {
         if ($parent) {
-            # FIXME : is 'ports' all ports or just phy-ports?
-            # for ports ...
-                # going up or phy (going up is notreached)
+# FIXME : is 'ports' all ports or just phy-ports?
+# FIXME : going up ??
+            for my $i (0..$maxport) {
+                my $bit = 1 << $i;
+                next unless $port_mask & $bit;
+                my $ait_code = 'NORMAL';
+                phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+            }
         }
         # fallsthru
-        my $going_up = $port_mask == $cm_bitmask;
+        my $going_up = ($port_mask == $cm_bitmask);
         if (!$parent || $going_up) {
+# FIXME : going up ??
             # ca.enqueue()
+            my $i = 0;
+            my $ait_code = 'NORMAL';
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
 }
-
-my $rust = << '_eos_';
-let cm_bitmask = Mask::port0(); // constant
-
-fn forward(&self, recv_port_no: PortNo, entry: RoutingTableEntry, user_mask: Mask, packet: Packet, trace_header: &mut TraceHeader) -> Result<(), Error>{
-    let parent = entry.get_parent();
-    let route_mask = entry.get_mask();
-    let port_mask = user_mask.and(route_mask);
-
-    // Leafward
-    if recv_port_no == parent {
-        let port_nos = port_mask.get_port_nos();
-        for port_no in port_nos.iter().cloned() {
-            if *port_no == 0 {
-                let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
-                self.pe_to_cm.send(cm_msg);
-            }
-            else {
-                let link = self.pe_to_ports.get(*port_no as usize);
-                phy.enqueue(frame);
-            }
-        }
-    }
-    // RootWard
-    else {
-        if *parent != 0 {
-            let port_no = parent;
-            let link = self.pe_to_ports.get(*port_no as usize);
-            let frame = PeToPortPacket::Packet(packet);
-            phy.enqueue(frame);
-        }
-
-        let going_up = port_mask.equal(cm_bitmask);
-        if going_up ||
-        // special case, no parent
-        *parent == 0 {
-            let cm_msg = PeToCmPacket::Packet((recv_port_no, packet));
-            self.pe_to_cm.send(cm_msg);
-        }
-    }
-}
-_eos_
 
 sub xmit_eccf_frame {
     my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
@@ -1715,12 +1673,11 @@ sub xmit_eccf_frame {
 sub xmit_tcp_frame {
     my ($pe_worker, $port_no, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
-    my @links = $pe_worker->{'phy'};
-    #  my $edge = $links[$port_no];
-    # push($edge, $frame);
-    # post event to PE at other end of edge
-    print DBGOUT (join(' ', 'phy', $pe_id, $port_no, $frame), $endl);
 
+    my $ait_code = 'NORMAL';
+    my $tree = $null_uuid;
+    my $msg_id = 0;
+    phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
     # 'ROOTWARD'
 }
 
@@ -1772,10 +1729,19 @@ sub pe_api {
         return;
     }
 
+# pub type TCP = (ISAIT, AllowedTree, TcpMsgType, MsgDirection, ByteArray);
     if ($tag eq 'Tcp') {
         my ($port_number, $msg) = @args;
         my $port_no = $port_number->{'port_no'};
-        # my @tcpargs = @{$msg};
+        my @tcpargs = @{$msg}; # $#tcpargs is 4
+        my $isAit = $tcpargs[0]; # 'JSON::PP::Boolean'
+        my $allowed_tree = $tcpargs[1]; # object
+        my $tcp_msg_type = $tcpargs[2]; # String : Application, DeleteTree, Manifest, Query, StackTree, TreeName
+        my $dir = $tcpargs[3]; # String : Rootward/Leafward
+        my $octets = $tcpargs[4]; # u8[]
+
+print DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{'name'}, $tcp_msg_type, $dir), $endl);
+# FIXME:
         my $str = encode_json($msg);
         my $frame = unpack("H*",  $str); # ascii_to_hex
         my $some = substr($frame, -40).'...';
