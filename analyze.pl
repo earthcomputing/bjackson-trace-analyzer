@@ -60,7 +60,7 @@ my $ait_backward = {
 };
 
 if ( $#ARGV < 0 ) {
-    print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
+    print('usage: analyze [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] xx.json ...', $endl);
     exit -1
 }
 
@@ -68,6 +68,7 @@ my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
 
 # --
 
+my $frames_file = 'frames.json';
 my $dbg_file = 'debug.txt';
 my $dotfile = 'complex.gv';
 my $schemafile = 'schema-data.txt';
@@ -181,6 +182,7 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-epoch=/) { my ($a, $b) = split('=', $fname); $last_epoch = $b; next; }
     print($endl, $fname, $endl);
     open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
+    open(FRAMEOUT, '>'.$result_dir.$frames_file) or die $result_dir.$frames_file.': '.$!;
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -196,6 +198,7 @@ dump_guids();
 dump_forest();
 msg_sheet();
 
+close(FRAMEOUT);
 close(DBGOUT);
 exit 0;
 
@@ -1558,9 +1561,20 @@ sub get_worker {
     return $o;
 }
 
+# phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
 sub phy_enqueue {
     my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
     print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
+    my $o = {
+        'pe_id' => $pe_id,
+        'outbound' => $outbound,
+        'ait_code' => $ait_code,
+        'tree' => $tree,
+        'msg_id' => $msg_id,
+        'frame' => $frame,
+    };
+    my $meta = encode_json($o);
+    print FRAMEOUT ($meta, $endl);
 }
 
 ## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
@@ -1740,6 +1754,7 @@ sub pe_api {
         my $dir = $tcpargs[3]; # String : Rootward/Leafward
         my $octets = $tcpargs[4]; # u8[]
 
+        my $body_dense = bytes2dense($octets);
 print DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{'name'}, $tcp_msg_type, $dir), $endl);
 # FIXME:
         my $str = encode_json($msg);
@@ -2489,6 +2504,7 @@ my @mformats = qw(
 
 sub bytes2dense {
     my ($u8) = @_;
+    return undef unless $u8;
     my $dense = '';
     foreach my $ch (@{$u8}) {
         my $doublet = sprintf('%02x', $ch);
