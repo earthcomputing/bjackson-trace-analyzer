@@ -27,11 +27,47 @@ my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
 
+my $maxport = 7;
+my $cm_bitmask = 1 << 0;
 my $null_uuid = '0x00000000000000000000000000000000';
 
+# --
+# ait byte coding
+my $ait_code = {
+    '00' => 'TICK',
+    '01' => 'TOCK',
+    '02' => 'TACK',
+    '03' => 'TECK',
+    '04' => 'AIT',
+    '40' => 'NORMAL',
+    # '00' => 'FORWARD',
+    '80' => 'REVERSE'
+};
+
+# --
+# ait state sequence:
+
+# seq : 'AIT ' => 'TECK' => 'TACK' => 'TOCK' => 'TICK' => 'TOCK'
+my $ait_forward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TICK',
+    'TACK' => 'TOCK',
+    'TECK' => 'TACK',
+    'AIT ' => 'TECK',
+    'NORMAL' => 'NORMAL'
+};
+
+# seq : 'TICK' => 'TOCK' => 'TACK' => 'TECK' => 'AIT'
+my $ait_backward = {
+    'TICK' => 'TOCK',
+    'TOCK' => 'TACK',
+    'TACK' => 'TECK',
+    'TECK' => 'AIT',
+    'NORMAL' => 'NORMAL'
+};
 
 if ( $#ARGV < 0 ) {
-    print('usage: [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] analyze xx.json ...', $endl);
+    print('usage: analyze [-NOT_ALAN] [-filter=C:2] [-wdir=/tmp/] [-server=${advert_host}] [-epoch=end-ts] xx.json ...', $endl);
     exit -1
 }
 
@@ -39,6 +75,7 @@ my $server = $ENV{'advert_host'}; # '192.168.0.71'; # localhost:9092
 
 # --
 
+my $frames_file = 'frames.json';
 my $dbg_file = 'debug.txt';
 my $dotfile = 'complex.gv';
 my $schemafile = 'schema-data.txt';
@@ -80,33 +117,34 @@ my $arrow_code = {
 };
 
 my $gamut = {
-    'Tree:C0' => 'red',
-    'Tree:C1' => 'green',
-    'Tree:C2' => 'blue',
-    'Tree:C3' => 'cyan',
-    'Tree:C4' => 'magenta',
-    'Tree:C5' => 'purple', # 'yellow' - bad visual choices
-    'Tree:C6' => 'navy',
-    'Tree:C7' => 'green',
-    'Tree:C8' => 'maroon',
-    'Tree:C9' => 'turquoise4', # teal, 'olive'
+    'C0' => 'red',
+    'C1' => 'green',
+    'C2' => 'blue',
+    'C3' => 'cyan',
+    'C4' => 'magenta',
+    'C5' => 'purple', # 'yellow' - bad visual choices
+    'C6' => 'navy',
+    'C7' => 'green',
+    'C8' => 'maroon',
+    'C9' => 'turquoise4', # teal, 'olive'
 
-    'Tree:C2+NocAgentDeploy' => 'cyan',
-    'Tree:C2+NocMasterDeploy' => 'magenta',
-    'Tree:C2+NocAgentMaster' => 'navy',
-    'Tree:C2+NocMasterAgent' => 'maroon',
-    'Tree:C2+Noc' => 'maroon',
+    'C2+NocAgentDeploy' => 'cyan',
+    'C2+NocMasterDeploy' => 'magenta',
+    'C2+NocAgentMaster' => 'navy',
+    'C2+NocMasterAgent' => 'maroon',
+    'C2+Noc' => 'maroon',
 
-    'Tree:C0+Connected' => 'black',
-    'Tree:C1+Connected' => 'black',
-    'Tree:C2+Connected' => 'black',
-    'Tree:C0+Control' => 'black',
-    'Tree:C1+Control' => 'black',
-    'Tree:C2+Control' => 'black'
+    'C0+Connected' => 'black',
+    'C1+Connected' => 'black',
+    'C2+Connected' => 'black',
+    'C0+Control' => 'black',
+    'C1+Control' => 'black',
+    'C2+Control' => 'black'
 };
 
 sub pick_color {
     my ($span_tree) = @_;
+    $span_tree =~ s/Tree://;
     my $color = $gamut->{$span_tree};
     return 'black' unless $color;
     return $color;
@@ -118,6 +156,7 @@ my $debug;
 my $NOT_ALAN;
 my $code_filter;
 my $last_epoch;
+my $epoch_global;
 my $result_dir = '/tmp/'; # can be blank!?
 
 my $max_cell = -1;
@@ -126,6 +165,7 @@ my %cell_table; # $c => $edge_no
 my $max_edge = 1; # avoid 0
 my %edges; # map : "Cx:pX->Cy:pY" -> { 'left_cell' 'left_port' 'right_cell' 'right_port' 'edge_no' }; # plus 'Internet'
 my %link_table; # map : 'Cx:py' -> $link_no
+my @wires; # array {from, to}
 
 my $max_forest = 1;
 my %forest; # map : int -> { span_tree parent p child }
@@ -149,6 +189,7 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-epoch=/) { my ($a, $b) = split('=', $fname); $last_epoch = $b; next; }
     print($endl, $fname, $endl);
     open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
+    open(FRAMEOUT, '>'.$result_dir.$frames_file) or die $result_dir.$frames_file.': '.$!;
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -164,10 +205,15 @@ dump_guids();
 dump_forest();
 msg_sheet();
 
+close(FRAMEOUT);
 close(DBGOUT);
 exit 0;
 
 # --
+
+sub epoch_marker {
+    print DBGOUT (join(' ', 'epoch_marker:', $epoch_global), $endl);
+}
 
 sub dump_guids {
     my $fname = $guidfile;
@@ -181,7 +227,7 @@ sub dump_guids {
 
     # sort by value
     foreach my $item (sort { $href->{$a} cmp $href->{$b} } keys %{$href}) {
-        my $hint =  lc(substr($item, -8));
+        my $hint =  lc(substr($item, 0, 8)); # -8
         print GUIDS (join(' ', $hint, $item, $href->{$item}), $endl);
     }
 
@@ -340,7 +386,7 @@ sub get_routing_entry {
 sub hint4uuid {
     my ($ref) = @_;
     my $hex_guid = xlate_uuid($ref);
-    return lc(substr($hex_guid, -8));
+    return lc(substr($hex_guid, 0, 8)); # -8 from right
 }
 
 sub dump_routing_tables {
@@ -581,6 +627,7 @@ sub do_analyze {
 if ($last_epoch) {
     next if $epoch > $last_epoch;
 }
+$epoch_global = $epoch;
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
         $verb{join('$', $module, $function)}++;
@@ -605,6 +652,15 @@ if ($last_epoch) {
     print($endl);
 }
 
+# 00112233-4455-6677-8899-aabbccddeeff
+# {time_low}-{time_mid}-{time_hi_and_version}-{clk_seq_hi_res/clk_seq_low}-{node}
+# octet 8 variant
+# octet 6 version
+# variant - most significant 3 bits of clock_seq (clk_seq_hi_res)
+# version - most significant 4 bits of timestamp (time_hi_and_version)
+# 1-3 bit "variant" followed by 13-15 bit clock sequence
+# clk_seq_hi_res=88
+# time_hi_and_version=6677
 sub xlate_uuid {
     my ($ref) = @_;
     return $null_uuid unless ref($ref) eq 'HASH';
@@ -634,6 +690,17 @@ sub xlate_uuid {
         my $hex_guid = $guid->as_hex;
         return $hex_guid;
     }
+}
+
+# hex_guid
+sub uuid_magic {
+    my ($coded_uuid) = @_;
+    my $b0 = substr($coded_uuid, 2, 2);
+    my $b1 = substr($coded_uuid, 4, 2);
+    # make_normal(uuid)
+    substr($coded_uuid, 2, 4, '4000'); # ugh, side-effect : OFFSET,LENGTH,REPLACEMENT
+    my $real_uuid = lc($coded_uuid);
+    return ($b0, $b1, $real_uuid);
 }
 
 sub nametype {
@@ -700,6 +767,25 @@ sub meth_interior_cell_start {
     print(join(' ', 'cell='.$cell_number, ';'));
 }
 
+# /body : OBJECT { edge_list }
+# 'noc.rs$$initialize$$Trace$$edge_list'
+# 'edge_list' => [ [ 0, 1 ], [ 1, 2 ], [ 1, 6 ], [ 3, 4 ], [ 5, 6 ], [ 6, 7 ], [ 7, 8 ], [ 8, 9 ], [ 0, 5 ], [ 2, 3 ], [ 2, 7 ], [ 3, 8 ], [ 4, 9 ] ]
+sub meth_edge_list {
+    my ($body) = @_;
+    my $edge_list = $body->{'edge_list'};
+    my @ary = @{$edge_list};
+    foreach my $edge (@ary) {
+        my ($left, $right) = (@{$edge});
+        my $o = {
+            'left' => $left,
+            'right' => $right,
+        };
+        push (@wires, $o);
+    }
+    my $nedge = @wires;
+    print(join(' ', 'nedge='.$nedge, ';'));
+}
+
 ## IMPORTANT : link activation
 # /body : OBJECT { link_id left_cell left_port rite_cell rite_port }
 # 'datacenter.rs$$initialize$$Trace$$connect_link'
@@ -715,6 +801,7 @@ sub meth_connect_link {
     ## Complex Entry:
     if (defined $link_id) {
         my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
+epoch_marker();
         activate_edge($lc, $lp, $rc, $rp);
     }
     print(join(' ', $link_id, ';'));
@@ -783,6 +870,7 @@ sub meth_ca_send_msg_port_connected {
     my $port_id = '';
     if (defined $port_no) {
         $port_id = (($is_border) ? 'FX:' : '').$port_no;
+epoch_marker();
         border_port($cell_id, $port_no) if $is_border;
     }
     print(join(' ', $cell_id, $port_id, ';'));
@@ -1032,6 +1120,7 @@ sub meth_ca_process_manifest_msg {
     my $app_name = $manifest->{'id'};
     my $man_hash = note_value(\%manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
+epoch_marker();
     print DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
@@ -1080,6 +1169,7 @@ sub meth_ca_update_base_tree_map {
     my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 
+epoch_marker();
     print DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
@@ -1119,6 +1209,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $gvm_eqn = $payload->{'gvm_eqn'};
     my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
+epoch_marker();
     print DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
@@ -1169,6 +1260,7 @@ sub meth_ca_deploy {
     # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 
+epoch_marker();
     print DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
@@ -1226,6 +1318,7 @@ sub meth_ca_got_tcp_application_msg {
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 
     my $str = decode_octets($body->{'msg'});
+epoch_marker();
     print DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
 }
 
@@ -1290,6 +1383,7 @@ sub dispatch {
     my $header = $json->{'header'};
 
     # This indicates subsystem startup - i.e. break in seq of messages
+    if ($methkey eq 'main.rs$$main$$Trace$$trace_schema') { meth_START($body, $header); return; }
     if ($methkey eq 'main.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
     ## if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
     ## if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
@@ -1356,10 +1450,13 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
     if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
 
-# NEW:
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
-
     if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
+
+# NEW:
+    if ($methkey eq 'noc.rs$$initialize$$Trace$$edge_list') { meth_edge_list($body, $key); return; }
+    if ($methkey eq 'main.rs$$listen_port_loop$$Trace$$noc_from_ca') { meth_noc_from_ca($body, $key); return; }
+    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Trace$$recv') { meth_recv($body, $key); return; }
 
     print($endl);
 
@@ -1368,6 +1465,380 @@ sub dispatch {
     print STDERR ($endl);
     giveup('incompatible schema');
 }
+
+sub dump_entry {
+    my ($entry) = @_;
+    my $hint = hint4uuid($entry->{'tree_uuid'});
+    my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
+    my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
+    my $parent = port_index($entry->{'parent'});
+    my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
+    return join(' ', $hint, $inuse, $may_send, $parent, $mask);
+}
+
+sub dump_packet {
+    my ($user_mask, $packet) = @_;
+    my $mask = $user_mask->{'mask'};
+    my $bitmask = sprintf('%016b', $mask);
+    my $header = $packet->{'header'};
+        my $coded_uuid = $header->{'uuid'};
+        my $hex_guid = xlate_uuid($coded_uuid);
+        my ($b0, $b1, $real_uuid) = uuid_magic($hex_guid);
+        my $hint = hint4uuid($coded_uuid); # not sure which (coded/real) to use here ??
+    my $payload = $packet->{'payload'};
+        my $is_last = $payload->{'is_last'};
+        my $size = $payload->{'size'};
+        my $is_blocking = $payload->{'is_blocking'};
+        my $msg_id = $payload->{'msg_id'};
+        my $bytes = $payload->{'bytes'};
+# FIXME : do we always have a $header{'msg_type'} ??
+# FIXME : OOB or protocol layer data?
+    my $o = {
+        'is_blocking' => $is_blocking,
+        'is_last' => $is_last,
+        'msg_id' => $msg_id,
+        'size' => $size,
+        'ait_dense' => $b0, # NORMAL(40), AIT(04)
+        'port_byte' => $b1,
+    };
+    return ($hint, $real_uuid, $bitmask, $o, $bytes);
+}
+
+# --
+# ait byte coding
+
+# binary (octet) to name (string)
+sub ait_name {
+    my ($octet) = @_;
+    my $ait_dense = sprintf("%02x", $octet);
+    my $name = $ait_code->{$ait_dense};
+    print DBGOUT (join(' ', 'bad ait code:"'.$ait_dense.'"'), $endl) unless $name;
+    return $name;
+}
+
+# name to ait_dense/hex (string)
+sub ait_unname {
+    my ($name) = @_;
+    return undef unless $name;
+    foreach my $key (keys %{$ait_code}) {
+        my $value = $ait_code->{$key};
+        return $value if $name eq $value;
+    }
+    print DBGOUT (join(' ', 'bad ait name:"'.$name.'"'), $endl) unless $name;
+    return undef;
+}
+
+# ait_dense/hex (string) to struct
+sub ait_decode {
+    my ($ait_dense) = @_;
+    my $octet = hex('0x'.$ait_dense);
+    my $dir = ($octet & 0x80) ? 'REVERSE' : 'FORWARD'; # ait_name - FORWARD/TICK ??
+    my $flavor = ait_name($octet & 0x44);
+    my $state = ait_name($octet & 0x03);
+    return ($dir, $flavor, $state);
+}
+
+# --
+# ait state sequence:
+
+# cycle AIT state machine - ait_dense/hex (string) to name (string)
+sub ait_next {
+    my ($ait_dense) = @_;
+    my ($dir, $flavor, $state) = ait_decode($ait_dense);
+    return $ait_forward->{$state} if $dir eq 'FORWARD';
+    return $ait_backward->{$state} if $dir eq 'REVERSE';
+    return undef;
+}
+
+# --
+# PE model
+
+my %pe_workers; # map : cell_id => object
+
+# phy - ports/links
+sub get_worker {
+    my ($cell_id) = @_;
+    my $w = $pe_workers{$cell_id};
+    return $w if $w;
+
+    my $o = {
+        'pe_id' => $cell_id, # debug
+        'block' => undef,
+        'table' => {},
+        'phy' => [],
+    };
+    $pe_workers{$cell_id} = $o;
+    return $o;
+}
+
+# phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
+sub phy_enqueue {
+    my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
+    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
+    my $o = {
+        'pe_id' => $pe_id,
+        'outbound' => $outbound,
+        'ait_code' => $ait_code,
+        'tree' => $tree,
+        'msg_id' => $msg_id,
+        'frame' => $frame,
+    };
+    my $meta = encode_json($o);
+    print FRAMEOUT ($meta, $endl);
+}
+
+## PE-API C:2 1536648431721208 Entry [update] 0x400071e6f02749b68332b65273f36051 73f36051 Yes Yes 0 0000000000000010
+## PE -API C:2 1536648431721890 Packet 73f36051 0x400071e6f02749b68332b65273f36051 0000000000000010 {"is_last":true,"size":649,"ait_dense":"04","is_blocking":false,"msg_id":2198900630282842901,"port_byte":"00"} octets=227661726961626c65735c223a5b5d7d7d7d227d...
+
+# special processing
+sub eccf_ait {
+    my ($pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
+
+    # post event to PE at other end of edge
+    my $route = encode_json($entry);
+    my $meta = encode_json($o);
+    print DBGOUT (join(' ', 'multicast', $pe_id, $bitmask, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
+
+    my $msg_id = $o->{'msg_id'};
+
+    my $ait_dense = $o->{'ait_dense'};
+    my $ait_state = ait_next($ait_dense);
+    my $ait_code = ait_unname($ait_state);
+
+    print DBGOUT (join(' ', 'bad ait?', $ait_dense, $ait_state), $endl) unless $ait_code;
+
+    my $route_mask = $entry->{'mask'}{'mask'};
+    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
+    my $port_mask = ($limit_mask & $route_mask);
+# FIXME : going up ??
+    for my $i (0..$maxport) {
+        my $bit = 1 << $i;
+        next unless $port_mask & $bit;
+        phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+    }
+}
+
+# forward
+sub eccf_normal {
+    my ($pe_worker, $port_no, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
+    my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
+
+    # post event to PE at other end of edge
+    my $route = encode_json($entry);
+    my $meta = encode_json($o);
+    print DBGOUT (join(' ', 'multicast', $pe_id, $port_no, $tree, $route), $endl);
+    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
+
+    my $msg_id = $o->{'msg_id'};
+
+    my $parent = $entry->{'parent'};
+    my $route_mask = $entry->{'mask'}{'mask'};
+    my $port_mask = ($limit_mask & $route_mask);
+
+    # Leafward
+    if ($port_no == $parent) {
+# FIXME : going up ??
+        for my $i (0..$maxport) {
+            my $bit = 1 << $i;
+            next unless $port_mask & $bit;
+            my $ait_code = 'NORMAL';
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+        }
+    }
+    # RootWard
+    else {
+        if ($parent) {
+# FIXME : is 'ports' all ports or just phy-ports?
+# FIXME : going up ??
+            for my $i (0..$maxport) {
+                my $bit = 1 << $i;
+                next unless $port_mask & $bit;
+                my $ait_code = 'NORMAL';
+                phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+            }
+        }
+        # fallsthru
+        my $going_up = ($port_mask == $cm_bitmask);
+        if (!$parent || $going_up) {
+# FIXME : going up ??
+            # ca.enqueue()
+            my $i = 0;
+            my $ait_code = 'NORMAL';
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+        }
+    }
+}
+
+sub xmit_eccf_frame {
+    my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
+
+    my $table = $pe_worker->{'table'};
+    my $entry = $table->{$real_uuid};
+    print DBGOUT (join(' ', 'table miss?', $pe_id, $real_uuid, Dumper $table), $endl) unless $entry;
+
+    my $ait_dense = $o->{'ait_dense'};
+
+    # AIT(04)
+    if ($ait_dense eq '04') {
+        eccf_ait($pe_worker, $real_uuid, $entry, $bitmask, $o, $frame);
+    }
+
+    # NORMAL(40)
+    if ($ait_dense eq '40') {
+        my $port_no = 0;
+        eccf_normal($pe_worker, $port_no, $real_uuid, $entry, $bitmask, $o, $frame);
+    }
+}
+
+sub xmit_tcp_frame {
+    my ($pe_worker, $port_no, $frame) = @_;
+    my $pe_id = $pe_worker->{'pe_id'};
+
+    my $ait_code = 'NORMAL';
+    my $tree = $null_uuid;
+    my $msg_id = 0;
+    phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+    # 'ROOTWARD'
+}
+
+# ugh. special case handling of rust 'match' complicates things:
+# reverse-engineer arg-list (0, 1, n)
+
+## CmToPePacket::Unblock => {
+## CmToPePacket::Entry(entry) => {
+## CmToPePacket::Packet((user_mask, mut packet)) => {
+## CmToPePacket::Tcp((port_number, msg)) => {
+
+## listen_cm_loop C:1 raw-api Unblock ;
+## listen_cm_loop C:2 raw-api Entry ref=HASH ;
+## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
+## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
+sub pe_api {
+    my ($cell_id, $tag, @args) = @_;
+    print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
+
+    print DBGOUT (join(' ', 'PE-API', $cell_id, $epoch_global, $tag, ''));
+
+    my $pe_worker = get_worker($cell_id);
+
+    if ($tag eq 'Unblock') {
+        my $was = $pe_worker->{'block'};
+        $pe_worker->{'block'} = undef;
+        print DBGOUT ('was='.($was ? 'true' : 'false'), $endl);
+        return;
+    }
+
+    if ($tag eq 'Entry') {
+        my ($entry) = @args;
+        my $uuid = $entry->{'tree_uuid'};
+        my $hex_guid = lc(xlate_uuid($uuid));
+        my $table = $pe_worker->{'table'};
+        my $current_entry = $table->{$hex_guid};
+        $table->{$hex_guid} = $entry;
+        print DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', $hex_guid, dump_entry($entry)), $endl);
+        return;
+    }
+
+    if ($tag eq 'Packet') {
+        my ($user_mask, $packet) = @args;
+        my ($hint, $real_uuid, $bitmask, $o, $frame) = dump_packet($user_mask, $packet);
+        my $meta = encode_json($o);
+        my $some = substr($frame, -40).'...';
+        print DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
+        xmit_eccf_frame($pe_worker, $real_uuid, $bitmask, $o, $frame);
+        return;
+    }
+
+# pub type TCP = (ISAIT, AllowedTree, TcpMsgType, MsgDirection, ByteArray);
+    if ($tag eq 'Tcp') {
+        my ($port_number, $msg) = @args;
+        my $port_no = $port_number->{'port_no'};
+        my @tcpargs = @{$msg}; # $#tcpargs is 4
+        my $isAit = $tcpargs[0]; # 'JSON::PP::Boolean'
+        my $allowed_tree = $tcpargs[1]; # object
+        my $tcp_msg_type = $tcpargs[2]; # String : Application, DeleteTree, Manifest, Query, StackTree, TreeName
+        my $dir = $tcpargs[3]; # String : Rootward/Leafward
+        my $octets = $tcpargs[4]; # u8[]
+
+        my $body_dense = bytes2dense($octets);
+print DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{'name'}, $tcp_msg_type, $dir), $endl);
+# FIXME:
+        my $str = encode_json($msg);
+        my $frame = unpack("H*",  $str); # ascii_to_hex
+        my $some = substr($frame, -40).'...';
+        print DBGOUT (join(' ', $port_no, $some), $endl);
+        xmit_tcp_frame($pe_worker, $port_no, $frame);
+        return;
+    }
+
+    print DBGOUT ('unknown tag?', $endl);
+}
+
+# /body : OBJECT { cell_id msg }
+# 'packet_engine.rs$$listen_cm_loop$$Trace$$recv'
+sub meth_recv {
+    my ($body) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg = $body->{'msg'};
+    my $rkind = ref($msg);
+
+    # no args
+    if ($rkind eq '') {
+        my $tag = $msg;
+        # print(join(' ', $cell_id, 'raw-api', $tag, ';'));
+        pe_api($cell_id, $tag);
+        return;
+    }
+
+    if ($rkind eq 'HASH') {
+        my @kind = keys %{$msg};
+
+        # huh?
+        if ($#kind != 0) {
+            print(join(' ', $cell_id, 'raw-api obj', 'keyset=', @kind, ';'));
+            return;
+        }
+
+        my $tag = pop @kind;
+        my $args = $msg->{$tag};
+        my $akind = ref($args);
+        # 1 arg
+        if ($akind eq 'HASH') {
+            # print(join(' ', $cell_id, 'raw-api', $tag, $args, ';'));
+            pe_api($cell_id, $tag, $args);
+            return;
+        }
+        # multi args
+        if ($akind eq 'ARRAY') {
+            # print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';'));
+            pe_api($cell_id, $tag, @{$args});
+            return;
+        }
+
+        # huh?
+        print(join(' ', $cell_id, 'raw-api obj', 'akind='.$akind, $msg, ';'));
+        return;
+    }
+
+    # huh?
+    print(join(' ', $cell_id, 'raw-api', 'rkind='.$rkind, $msg, ';'));
+}
+
+# /body : OBJECT { msg_type tree_name }
+# 'main.rs$$listen_port_loop$$Trace$$noc_from_ca'
+# { 'tree_name' => 'Base', 'msg_type' => 'TreeName' };
+sub meth_noc_from_ca {
+    my ($body) = @_;
+    my $msg_type = $body->{'msg_type'};
+    my $tree_name = $body->{'tree_name'};
+    print(join(' ', $msg_type, $tree_name, ';'));
+}
+
+# --
 
 ## IMPORTANT : why ?
 # /body : OBJECT { ... }
@@ -1408,7 +1879,7 @@ sub meth_cm_bytes_from_ca {
     print(join(' ', $cell_id, $summary, ';'));
 
     # FIXME
-    my $tree_id = nametype($body->{'missing'});;
+    my $tree_id = nametype($body->{'missing'});
     ## Spreadsheet Coding:
     my $virt_p = 0;
     my $tag = 'cell-snd';
@@ -1572,6 +2043,7 @@ sub do_treelink {
 
     ## Forest / DiscoverD
     my ($xtag, $cc, $child, $remain) = split(/[\+:]/, $sender_id);
+epoch_marker();
     add_tree_link($tree_id, $c, $p, $child);
 }
 
@@ -1583,7 +2055,7 @@ sub add_tree_link {
     {
         my ($x, $y, $c) = split(':', $tree_id);
         $root = $c;
-        $root = $y unless defined $root; # removed Tree:
+        $root = $y unless defined $root;
         print STDERR (join(' ', 'WARNING: parse error', $tree_id, $link_no), $endl) unless defined $root;
     }
     $tree_id =~ s/C:/C/;
@@ -2036,6 +2508,26 @@ my @mformats = qw(
     'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
 );
 
+sub bytes2dense {
+    my ($u8) = @_;
+    return undef unless $u8;
+    my $dense = '';
+    foreach my $ch (@{$u8}) {
+        my $doublet = sprintf('%02x', $ch);
+        $dense = $dense.$doublet;
+    }
+    print($dense, $endl);
+    return $dense;
+}
+
+sub frame2obj {
+    my ($frame) = @_;
+    my $json_text = pack('H*', $frame); # hex_to_ascii
+    my $o = decode_json($json_text);
+    print($json_text, $endl);
+    return $o;
+}
+
 my $notes = << '_eof_';
 
 # name patterns:
@@ -2169,5 +2661,9 @@ cell_id:
 /body : OBJECT { sender_id vm_id }
 /body : OBJECT { tree_id }
 /body : OBJECT { }
+
+# my $s = 'Hello World';
+# my $x1 = unpack("H*",  $s); # ascii_to_hex
+# my $s = pack('H*', $x1); # hex_to_ascii
 
 _eof_

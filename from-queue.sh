@@ -7,15 +7,17 @@ if ( $#argv > 0 ) then
     set advert_host = $1:q
 endif
 
+# multicell-trace-triangle-1536648431697765.json.gz
 set tag = "triangle-"
-set epoch = 1530634503352636
+set epoch = 1536648431697765
+
+set datafile = "multicell-trace-${tag}${epoch}.json.gz"
 
 set wdir = "/tmp/${tag}${epoch}/"
-set work = "${HOME}/Dropbox (Earth Computing)/Earth Computing Team Folder/Team/Bill/trace-data"
-set archive = "${work}/${tag}${epoch}"
 
 mkdir -p ${wdir}
 
+# json-schema.pl sample-data/${datafile} > ${wdir}schema-use.txt
 analyze-queue.pl -wdir=${wdir} -server=${advert_host} -topic=CellAgent > ${wdir}raw-analysis.txt
 
 set rc = $status
@@ -25,27 +27,5 @@ if ($rc != 0) then
 endif
 
 cat ${wdir}raw-analysis.txt | post-process.sh > ${wdir}threaded-analysis.txt
-
-set files = ( \
-    complex.gv \
-    events.csv \
-    forest.gv \
-    guid-table.txt \
-    gvm-table.txt \
-    manifest-table.txt \
-    msg-dump.txt \
-    raw-analysis.txt \
-    routing-table.txt \
-    schema-data.txt \
-    schema-use.txt \
-    threaded-analysis.txt \
-)
-
-ls -latrh "${archive}"
-
-foreach one ( ${files} )
-    diff -N -w "${archive}/${one}" ${wdir}${one} | cdiff
-    # cp ${wdir}${one} "${archive}/"
-end
 
 exit 0
