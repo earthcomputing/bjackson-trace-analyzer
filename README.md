@@ -476,5 +476,9 @@ TBD: Everything that someone might like to (easily) know from these - brief form
     analyze.pl tmp/multicell-trace1.json | post-process.sh > /tmp/z2.txt
     p4-merge.sh /tmp/z[12].txt
 
+    --
+
+    env LC_ALL=C TZ=UTC0 diff -u analyze*.pl > patch-queue.dif
+
 GitHub Flavored Markdown: https://github.github.com/gfm/
 
