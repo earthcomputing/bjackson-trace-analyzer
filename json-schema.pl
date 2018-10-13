@@ -15,11 +15,17 @@ my $endl = "\n";
 my $dquot = '"';
 my $blank = ' ';
 
+my $codes = {
+    'BOOLEAN' => 'Z',
+    'SCALAR' => '$',
+    'OBJECT' => '%',
+    'ARRAY' => '@'
+};
+
 if ( $#ARGV < 0 ) {
-    giveup('usage: [-dump] [-NOT_ALAN] [-filter=C:2] analyze xx.json ...');
+    giveup('usage: json-schema.pl [-terse] [-filter=C:2] multicell-trace-${tag}${epoch}.json[.gz] ...');
 }
 
-my $result_dir;
 my $code_filter;
 my %jschema;
 my %keyset;
@@ -30,7 +36,6 @@ my $terse = 0;
 
 foreach my $fname (@ARGV) {
     if ($fname =~ /-terse/) { $terse = 1; next; }
-    if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     print($endl, $fname, $endl);
     my $href = process_file($fname);
@@ -92,14 +97,28 @@ sub order_dedup($$) {
 
 # --
 
+## "header": {
+##    "repo": "CellAgent",
+##    "module": "src/main.rs",
+##    "line_no": 39,
+##    "function": "MAIN",
+##    "format": "trace_schema",
+##    "trace_type": "Trace",
+##
+# emitter instance data:
+##    "thread_id": 0,
+##    "event_id": [ 2 ],
+##    "epoch": 1539168999907516
 sub methkey {
     my ($header) = @_;
     my $repo = $header->{'repo'}; # software component
     my $module = $header->{'module'}; # source filename
     my $function = $header->{'function'}; # code method
-    my $format = $header->{'format'}; # arbitrary tag (think line number/unique emitter)
+    my $format = $header->{'format'}; # arbitrary tag (think unique emitter)
+    my $line_no = $header->{'line_no'}; # source line_no
     my $kind = $header->{'trace_type'}; # importance (simple trace, extra detail [debug])
-    my $key = join('$$', $repo, $module, $function, $format, $kind);
+
+    my $key = join('$$', $repo, $module, $function, $format, $line_no, $kind);
     return $key;
 }
 
@@ -152,22 +171,23 @@ sub walk_structure {
     my $rkind = ref($json);
 
     $jschema{$path}++ unless $rkind;
-    return ($path, ' : SCALAR') unless $rkind;
+    return ($path, ' : '.$codes->{SCALAR}) unless $rkind;
 
     if ($rkind eq 'JSON::PP::Boolean') {
-        $jschema{$path.' : BOOLEAN'}++;
-        return ($path, ' : BOOLEAN');
+        my $jtype = ' : '.$codes->{BOOLEAN};
+        $jschema{$path.$jtype}++;
+        return ($path, $jtype);
     }
 
     if ($rkind eq 'HASH') {
-        my $jtype = ' : OBJECT { '.join(' ', sort keys %{$json}).' }';
+        # canonicalize field order:
+        my @attrs = sort keys %{$json};
+        my $jtype = ' : '.$codes->{OBJECT}.' { '.join(' ', @attrs).' }';
         $jschema{$path.$jtype}++;
 
         my @fields;
-        # canonicalize field order:
-        foreach my $tag (sort keys %{$json}) {
+        foreach my $tag (@attrs) {
             $keyset{$tag}++;
-            ##
             my $nested = $path.'/'.$tag;
             my @child_parts = walk_structure($terse ? $tag : $nested, $json->{$tag});
             push @fields, @child_parts;
@@ -179,7 +199,7 @@ sub walk_structure {
 
     if ($rkind eq 'ARRAY') {
         my @ary = @{$json};
-        my $jtype = ' : ARRAY len='.($#ary+1);
+        my $jtype = ' : '.$codes->{ARRAY}.' len='.($#ary+1);
         $jschema{$path.$jtype}++;
 
         my @union;
@@ -236,5 +256,10 @@ my $notes = << '_eof_';
     /body/children : ARRAY ;;
     /body/tree_vm_map_keys : ARRAY ;;
     /body/msg : ARRAY ;;
+
+    "body": {
+        "schema_version": "0.1",
+        "ncells": 3
+    }
 
 _eof_
