@@ -7,6 +7,9 @@ set advert_host = '192.168.0.71'
 
 if ( $#argv > 0 ) then
     set advert_host = $1:q
+else
+    echo "usage: $0 : "'${advert_host}'
+    exit 1
 endif
 
 docker run -d --name pause \
