@@ -569,6 +569,10 @@ sub order_msgs($$) {
 
 sub process_file {
     my ($fname) = @_;
+
+    my $topic;
+    if ($fname =~ /-topic=/) { my ($a, $b) = split('=', $fname); $topic = $b; }
+    # my @records = ($topic) ? kafka_inhale($topic) : inhale($fname);
     my @records = inhale($fname);
 
     my $lineno = 0;

@@ -104,6 +104,7 @@ my $op_table = {
     'Application' => 'A',
     'Discover' => 'D',
     'DiscoverD' => 'DD',
+    'Hello' => 'H',
     'Manifest' => 'M',
     'StackTree' => 'S',
     'StackTreeD' => 'SD'
@@ -463,7 +464,7 @@ sub add_msgcode {
     my $link_no = get_link_no($c, $p);
     return unless $link_no; # ugh, issue with 0
     my $arrow = $arrow_code->{$dir};
-    my $crypt = $op_table->{$msg_type};
+    my $crypt = $op_table->{$msg_type}; # FIXME - missing msg_type's here ...
     my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letters($link_no);
     my $code = $crypt.$arrow.$link_code.' '.'('.$tree_id.')'; # $blank
     my $o = {
@@ -617,6 +618,7 @@ sub do_analyze {
         # REQUIRED/SHOULD:
         my $repo = $header->{'repo'}; # software component
         my $module = $header->{'module'}; # source filename
+            $module =~ s|src/||; # change to file macro
         my $function = $header->{'function'}; # code method
         my $format = $header->{'format'}; # arbitrary tag (think line number/unique emitter)
         my $kind = $header->{'trace_type'}; # importance (simple trace, extra detail [debug])
@@ -741,13 +743,14 @@ sub portdesc {
 # --
 ## data record parsing routines:
 
-# /body : OBJECT { schema_version }
+# /body : OBJECT { schema_version [ncells] }
 # 'noc.rs$$initialize$$Trace$$trace_schema'
 sub meth_START {
     my ($body, $header) = @_;
     my $repo = $header->{'repo'};
     my $epoch = $header->{'epoch'};
     my $schema_version = $body->{'schema_version'};
+    my $ncells = $body->{'ncells'}; # new
     print(join(' ', $repo, 'schema_version='.$schema_version, $epoch, ';'));
 }
 
@@ -1453,10 +1456,12 @@ sub dispatch {
     if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
     if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
 
-# NEW:
     if ($methkey eq 'noc.rs$$initialize$$Trace$$edge_list') { meth_edge_list($body, $key); return; }
     if ($methkey eq 'main.rs$$listen_port_loop$$Trace$$noc_from_ca') { meth_noc_from_ca($body, $key); return; }
     if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Trace$$recv') { meth_recv($body, $key); return; }
+# NEW:
+    if ($methkey eq 'packet_engine.rs$$listen_port_loop$$Trace$$pl_recv') { meth_pl_recv($body, $key); return; }
+    if ($methkey eq 'cellagent.rs$$process_hello_msg$$Debug$$ca_process_hello_msg') { meth_hello($body, $key); return; }
 
     print($endl);
 
@@ -1464,6 +1469,20 @@ sub dispatch {
     print STDERR Dumper $body;
     print STDERR ($endl);
     giveup('incompatible schema');
+}
+
+# packet_engine.rs$$listen_port_loop$$Trace$$pl_recv
+# { 'cell_id',  'msg' { 'Status' [ 1, boolean, 'Connected' ] } }
+sub meth_pl_recv {
+    my ($body, $key) = @_;
+}
+
+# cellagent.rs$$process_hello_msg$$Debug$$ca_process_hello_msg
+# { cell_id, recv_port_no, msg { header payload } }
+## 'header' { 'sender_id' 'msg_count' 'tree_map' 'direction' 'is_ait' 'msg_type' },
+## 'payload'=> { 'cell_id' 'port_no' }
+sub meth_hello {
+    my ($body, $key) = @_;
 }
 
 sub dump_entry {
