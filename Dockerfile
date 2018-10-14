@@ -32,6 +32,8 @@ RUN mkdir -p sample-data
 ## SCHEMA.md
 ## launch-kafka.sh
 
+COPY Fabric /root/Fabric
+
 COPY analyze-queue.pl /usr/local/bin/
 COPY analyze.pl /usr/local/bin/
 COPY from-queue.sh /usr/local/bin/
