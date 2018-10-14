@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-package TraceData v2018.10.13 {
+package Fabric::TraceData v2018.10.13 {
 
 my $endl = "\n";
 
@@ -27,7 +27,7 @@ use Data::Dumper;
 use Data::GUID;
 use JSON qw(decode_json);
 
-use Util qw(note_value);
+use Fabric::Util qw(note_value);
 
 # --
 

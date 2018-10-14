@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-package DispatchTable v2018.10.13 {
+package Fabric::DispatchTable v2018.10.13 {
 
 use Exporter 'import';
 our @EXPORT_OK = qw( meth_lookup extend_table );

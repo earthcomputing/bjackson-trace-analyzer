@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-package Model v2018.10.13 {
+package Fabric::Model v2018.10.13 {
 
 my $endl = "\n";
 
@@ -38,8 +38,9 @@ our @EXPORT_OK = qw(
 );
 
 use JSON qw(encode_json);
-use TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name);
-use Util qw(note_value giveup get_epoch epoch_marker);
+
+use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name);
+use Fabric::Util qw(note_value giveup get_epoch epoch_marker);
 
 # --
 

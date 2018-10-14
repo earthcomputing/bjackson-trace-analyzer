@@ -9,16 +9,17 @@ use strict;
 use warnings;
 
 use lib '/Users/bjackson/perl5/lib/perl5';
+use lib '.';
 
 use JSON qw(decode_json encode_json);
 use Data::Dumper;
 use Data::GUID;
 
-use Util qw(giveup set_epoch);
-use DispatchTable qw(meth_lookup extend_table);
-use Methods qw(register_methods);
-use TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid);
-use Model qw(dump_complex dump_routing_tables dump_forest);
+use Fabric::Util qw(giveup set_epoch);
+use Fabric::DispatchTable qw(meth_lookup extend_table);
+use Fabric::Methods qw(register_methods);
+use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid);
+use Fabric::Model qw(dump_complex dump_routing_tables dump_forest);
 
 # --
 

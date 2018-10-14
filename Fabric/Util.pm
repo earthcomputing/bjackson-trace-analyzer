@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-package Util v2018.10.13 {
+package Fabric::Util v2018.10.13 {
 
 use Exporter 'import';
 our @EXPORT_OK = qw(

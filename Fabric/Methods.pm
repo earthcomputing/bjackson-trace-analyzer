@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-package Methods v2018.10.13 {
+package Fabric::Methods v2018.10.13 {
 
 my $endl = "\n";
 my $dquot = '"';
@@ -8,9 +8,9 @@ my $dquot = '"';
 use Exporter 'import';
 our @EXPORT_OK = qw( register_methods );
 
-use Util qw(note_value epoch_marker);
-use DispatchTable qw(extend_table);
-use TraceData qw(
+use Fabric::Util qw(note_value epoch_marker);
+use Fabric::DispatchTable qw(extend_table);
+use Fabric::TraceData qw(
     nametype
     port_index
     portdesc
@@ -18,7 +18,7 @@ use TraceData qw(
     build_port_list
     decode_octets
 );
-use Model qw(
+use Fabric::Model qw(
     activate_edge
     update_routing_table
     add_msgcode2
