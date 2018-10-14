@@ -2,8 +2,8 @@
 
 package Fabric::Methods v2018.10.13 {
 
-our $endl = "\n";
-our $dquot = '"';
+my $endl = "\n";
+my $dquot = '"';
 
 use Exporter 'import';
 our @EXPORT_OK = qw( register_methods );
@@ -124,15 +124,7 @@ sub meth_interior_cell_start {
 sub meth_edge_list {
     my ($body) = @_;
     my $edge_list = $body->{'edge_list'};
-    my @ary = @{$edge_list};
-    foreach my $edge (@ary) {
-        my ($left, $right) = (@{$edge});
-        my $o = {
-            'left' => $left,
-            'right' => $right,
-        };
-        push (@wires, $o);
-    }
+    my @wires = wirelist($edge_list);
     my $nedge = @wires;
     print(join(' ', 'nedge='.$nedge, ';'));
 }

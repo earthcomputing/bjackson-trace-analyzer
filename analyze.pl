@@ -63,8 +63,6 @@ my $code_filter;
 my $last_epoch;
 my $result_dir = '/tmp/'; # can be blank!?
 
-my @wires; # array {from, to}
-
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
 my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
 my %msg_table; # map : {$payload_text} = $payload_hash

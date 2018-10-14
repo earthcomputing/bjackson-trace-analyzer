@@ -2,7 +2,7 @@
 
 package Fabric::Util v2018.10.13 {
 
-our $endl = "\n";
+my $endl = "\n";
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -18,7 +18,7 @@ use JSON;
 
 # --
 
-our $epoch_global = 0;
+my $epoch_global = 0;
 
 sub get_epoch {
     return $epoch_global;

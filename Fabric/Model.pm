@@ -2,11 +2,12 @@
 
 package Fabric::Model v2018.10.13 {
 
-our $endl = "\n";
+my $endl = "\n";
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
     get_link_no
+    wirelist
     order_edges
     find_edge
     edge_table_entry
@@ -39,7 +40,7 @@ our @EXPORT_OK = qw(
 
 use JSON qw(encode_json);
 
-use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name);
+use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name null_uuid);
 use Fabric::Util qw(note_value giveup get_epoch epoch_marker);
 
 # --
@@ -51,6 +52,21 @@ sub get_link_no {
     my ($c, $p) = @_;
     my $k = 'C'.$c.':p'.$p;
     return $link_table{$k};
+}
+
+my @wires; # array {from, to}
+
+sub wirelist {
+    my @ary = @{$edge_list};
+    foreach my $edge (@ary) {
+        my ($left, $right) = (@{$edge});
+        my $o = {
+            'left' => $left,
+            'right' => $right,
+        };
+        push (@wires, $o);
+    }
+    return @wires;
 }
 
 # --
@@ -656,7 +672,7 @@ sub xmit_tcp_frame {
     my $pe_id = $pe_worker->{'pe_id'};
 
     my $ait_code = 'NORMAL';
-    my $tree = $TraceData::null_uuid;
+    my $tree = null_uuid();
     my $msg_id = 0;
     phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
     # 'ROOTWARD'

@@ -2,12 +2,13 @@
 
 package Fabric::TraceData v2018.10.13 {
 
-our $endl = "\n";
+my $endl = "\n";
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
     bytes2dense
     frame2obj
+    null_uuid
     dump_guids
     grab_name
     hint4uuid
@@ -53,7 +54,8 @@ sub frame2obj {
 
 # --
 
-our $null_uuid = '0x00000000000000000000000000000000';
+my $null_uuid = '0x00000000000000000000000000000000';
+sub null_uuid { return $null_uuid }
 
 my %guid_table; # map : guid -> name
 
