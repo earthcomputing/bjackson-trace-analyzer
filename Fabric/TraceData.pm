@@ -22,6 +22,11 @@ our @EXPORT_OK = qw(
     convert_string
     decode_octets
     dump_packet
+
+    %guid_table
+    %msg_table
+    %gvm_table
+    %manifest_table
 );
 
 use Data::Dumper;
@@ -193,6 +198,23 @@ sub build_port_list {
 }
 
 # --
+
+my %msg_table; # map : {$payload_text} = $payload_hash
+my %gvm_table;
+my %manifest_table;
+
+# ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
+sub order_mtable($$) {
+    my ($left, $right) = @_;
+    my $href = \%msg_table;
+
+    my $left_hint = substr($href->{$left}, -5);
+    my $right_hint = substr($href->{$right}, -5);
+    return $left_hint cmp $right_hint unless $left_hint eq $right_hint;
+    return $href->{$left} cmp $href->{$right};
+}
 
 # header { direction msg_type sender_id }
 # payload { gvm_eqn manifest }

@@ -3,6 +3,7 @@
 package Fabric::Model v2018.10.13 {
 
 my $endl = "\n";
+my $dquot = '"';
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -36,6 +37,9 @@ our @EXPORT_OK = qw(
     do_treelink
     do_application
     do_manifest
+msg_sheet
+
+    $NOT_ALAN
 );
 
 use JSON qw(encode_json);
@@ -208,6 +212,7 @@ sub write_link {
 my $max_forest = 1;
 my %forest; # map : int -> { span_tree parent p child }
 
+# FIXME - not completely correct ??
 sub order_forest($$) {
     my ($left, $right) = @_;
     my $l_tree = $forest{$left}{'span_tree'};
@@ -344,25 +349,7 @@ sub dump_forest {
 
 # --
 
-sub dump_complex {
-    my ($path) = @_;
-    open(DOT, '>'.$path) or die $path.': '.$!;
-    print DOT ('digraph G {', $endl);
-    print DOT ('rankdir=LR', $endl);
-    dump_edges();
-    foreach my $c (sort keys %cell_table) {
-        my $c_up = $cell_table{$c}; # edge_no
-        next if ($c == -1); # Internet
-        my $link_no = ($c_up * 2) + 1;
-        my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letters($link_no);
-        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
-    }
-    add_overlay();
-    print DOT ('}', $endl);
-    close(DOT);
-}
-
-# --
+my $NOT_ALAN;
 
 my $max_cell = -1;
 my %cell_table; # $c => $edge_no
@@ -393,6 +380,24 @@ sub border_port {
     my $edge_no = edge_table_entry(-1, 0, $c, $port_index);
     my $c_up = cell_table_entry($c);
     # write_border($c, $port_index, $edge_no);
+}
+
+sub dump_complex {
+    my ($path) = @_;
+    open(DOT, '>'.$path) or die $path.': '.$!;
+    print DOT ('digraph G {', $endl);
+    print DOT ('rankdir=LR', $endl);
+    dump_edges();
+    foreach my $c (sort keys %cell_table) {
+        my $c_up = $cell_table{$c}; # edge_no
+        next if ($c == -1); # Internet
+        my $link_no = ($c_up * 2) + 1;
+        my $cell_lname = ($NOT_ALAN) ? 'link#'.$link_no : letters($link_no);
+        printf DOT ("C%d [label=\"C%d  (%s)\"]\n", $c, $c, $cell_lname);
+    }
+    add_overlay();
+    print DOT ('}', $endl);
+    close(DOT);
 }
 
 # --
@@ -447,6 +452,8 @@ sub dump_routing_tables {
 }
 
 # --
+
+my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
 my $arrow_code = {
     'cell-rcv' => '<',
@@ -534,6 +541,69 @@ sub add_msgcode2 {
 
     my $c = $cell_id; $c =~ s/C://;
     add_msgcode($c, $port, $msg_type, $event_code, $tag, $tree_id);
+}
+
+# ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
+sub order_msgs($$) {
+    my ($left, $right) = @_;
+    my $l1 = $left->{'event_code'};
+    my $r1 = $right->{'event_code'};
+    return $l1 - $r1 unless $l1 == $r1;
+
+    my $l2 = $left->{'link_no'};
+    my $r2 = $right->{'link_no'};
+    return $l2 - $r2 unless $l2 == $r2;
+
+    giveup(join(' ', 'WARNING: duplicate event/link?', $l1, $l2));
+}
+
+# uses the notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
+# There's a possible argument that left-xmit conflicts (must have happens-before) with right-rcv.
+# instead, allow for the notion that "the wire" can hold two msgs so that each end can be simultaneously active.
+# allows the spreadsheet to be really dense - provided folks reading it understand the game rules
+
+# breaking condition is contention for a queue endpoint
+# could construct data into a 2 dimensional data structure (fix number of cells, variable length history)
+sub msg_sheet {
+    my ($path) = @_;
+    open(CSV, '>'.$path) or die $path.': '.$!;
+    print CSV (join(',', 'event/cell', 0..9), $endl);
+    my @row = ();
+
+    my %queue_table;
+
+    foreach my $item (sort order_msgs @msgqueue) {
+        my $code = $item->{'code'};
+        if (defined $code_filter) { next unless $code =~ $code_filter; }
+
+        my $c = $item->{'cell_no'};
+        my $l = $item->{'link_no'};
+        my $arrow = $item->{'arrow'};
+
+        my $chan = $l.$arrow;
+        my $interlock = $queue_table{$chan};
+        $queue_table{$chan}++;
+
+        # causal relationship - cell-agent queue and link queues are sequential
+        # check if the queue is busy:
+        if (defined $interlock) {
+            foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
+            print CSV (join(',', $item->{'event_code'}, map { $dquot.$_.$dquot } @row), $endl);
+            @row = ();
+            %queue_table = ();
+        }
+
+        my $prev = $row[$c];
+        $code .= $endl.$prev if $prev;
+        $row[$c] = $code;
+    }
+
+    # dangling data:
+    foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
+    print CSV (join(',', 'last', map { $dquot.$_.$dquot } @row), $endl);
+    close(CSV);
 }
 
 # --

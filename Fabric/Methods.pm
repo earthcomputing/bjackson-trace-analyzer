@@ -372,7 +372,7 @@ sub meth_ca_update_traph {
     # 'children' => [],
     # "gvm": { "recv_eqn": "true", "save_eqn": "false", "send_eqn": "true", "variables": [], "xtnd_eqn": "true" },
     my $gvm = $body->{'gvm'};
-    my $gvm_hash = note_value(\%gvm_table, $gvm);
+    my $gvm_hash = note_value(\%Fabric::TraceData::gvm_table, $gvm);
     print(join(' ', $cell_id, $port_no, 'status='.$port_status, 'base='.$base_tree_id, 'hops='.$hops, 'gvm='.substr($gvm_hash, -5), ';')); # $other_index
 }
 
@@ -440,7 +440,7 @@ sub meth_ca_process_manifest_msg {
     my $payload = $msg->{'payload'};
     my $manifest = $payload->{'manifest'};
     my $app_name = $manifest->{'id'};
-    my $man_hash = note_value(\%manifest_table, $manifest);
+    my $man_hash = note_value(\%Fabric::TraceData::manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
 epoch_marker();
     print main::DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
@@ -523,7 +523,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $msg = $body->{'msg'};
     my $payload = $msg->{'payload'};
     my $gvm_eqn = $payload->{'gvm_eqn'};
-    my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
+    my $gvm_hash = note_value(\%Fabric::TraceData::gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
 epoch_marker();
     print main::DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);

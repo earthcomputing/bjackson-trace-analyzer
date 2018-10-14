@@ -18,8 +18,8 @@ use Data::GUID;
 use Fabric::Util qw(giveup set_epoch);
 use Fabric::DispatchTable qw(meth_lookup extend_table);
 use Fabric::Methods qw(register_methods);
-use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid);
-use Fabric::Model qw(dump_complex dump_routing_tables dump_forest);
+use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid %msg_table %gvm_table %manifest_table);
+use Fabric::Model qw(dump_complex dump_routing_tables dump_forest msg_sheet);
 
 # --
 
@@ -52,28 +52,19 @@ my $manifestfile = 'manifest-table.txt';
 
 # --
 
-my %gvm_table;
-my %manifest_table;
-
-# --
-
 my $debug;
-my $NOT_ALAN;
 my $code_filter;
 my $last_epoch;
 my $result_dir = '/tmp/'; # can be blank!?
 
 my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
 my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
-my %msg_table; # map : {$payload_text} = $payload_hash
 my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
-
-my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
 
 # --
 
 foreach my $fname (@ARGV) {
-    if ($fname eq '-NOT_ALAN') { $NOT_ALAN = 1; next; }
+    if ($fname eq '-NOT_ALAN') { $Fabric::Model::NOT_ALAN = 1; next; }
     if ($fname =~ /-wdir=/) { my ($a, $b) = split('=', $fname); $result_dir = $b; $result_dir = '' unless $result_dir; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
@@ -88,9 +79,9 @@ foreach my $fname (@ARGV) {
 # ISSUE : one file/report for entire list of inputs
 dump_complex($result_dir.$dotfile);
 dump_routing_tables($result_dir.$routingfile);
-dump_msgs($msgfile, \%msg_table);
-dump_msgs($gvmfile, \%gvm_table);
-dump_msgs($manifestfile, \%manifest_table);
+dump_msgs($result_dir.$msgfile, \%msg_table);
+dump_msgs($result_dir.$gvmfile, \%gvm_table);
+dump_msgs($result_dir.$manifestfile, \%manifest_table);
 dump_schema($result_dir.$schemafile);
 dump_guids($result_dir.$guidfile);
 dump_forest($result_dir.$forestfile);
@@ -112,8 +103,7 @@ sub dump_schema {
 }
 
 sub dump_msgs {
-    my ($file, $href) = @_;
-    my $path = $result_dir.$file;
+    my ($path, $href) = @_;
     open(FD, '>'.$path) or die $path.': '.$!;
 
     foreach my $key (sort keys %{$href}) {
@@ -122,82 +112,6 @@ sub dump_msgs {
     }
 
     close(FD);
-}
-
-# ref: "<=>" and "cmp" operators
-# return $left cmp $right; # lexically
-# return $left <=> $right; # numerically
-sub order_mtable($$) {
-    my ($left, $right) = @_;
-    my $href = \%msg_table;
-
-    my $left_hint = substr($href->{$left}, -5);
-    my $right_hint = substr($href->{$right}, -5);
-    return $left_hint cmp $right_hint unless $left_hint eq $right_hint;
-    return $href->{$left} cmp $href->{$right};
-}
-
-# uses the notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
-# There's a possible argument that left-xmit conflicts (must have happens-before) with right-rcv.
-# instead, allow for the notion that "the wire" can hold two msgs so that each end can be simultaneously active.
-# allows the spreadsheet to be really dense - provided folks reading it understand the game rules
-
-# breaking condition is contention for a queue endpoint
-# could construct data into a 2 dimensional data structure (fix number of cells, variable length history)
-sub msg_sheet {
-    my ($path) = @_;
-    open(CSV, '>'.$path) or die $path.': '.$!;
-    print CSV (join(',', 'event/cell', 0..9), $endl);
-    my @row = ();
-
-    my %queue_table;
-
-    foreach my $item (sort order_msgs @msgqueue) {
-        my $code = $item->{'code'};
-        if (defined $code_filter) { next unless $code =~ $code_filter; }
-
-        my $c = $item->{'cell_no'};
-        my $l = $item->{'link_no'};
-        my $arrow = $item->{'arrow'};
-
-        my $chan = $l.$arrow;
-        my $interlock = $queue_table{$chan};
-        $queue_table{$chan}++;
-
-        # causal relationship - cell-agent queue and link queues are sequential
-        # check if the queue is busy:
-        if (defined $interlock) {
-            foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
-            print CSV (join(',', $item->{'event_code'}, map { $dquot.$_.$dquot } @row), $endl);
-            @row = ();
-            %queue_table = ();
-        }
-
-        my $prev = $row[$c];
-        $code .= $endl.$prev if $prev;
-        $row[$c] = $code;
-    }
-
-    # dangling data:
-    foreach my $i (0..$#row) { $row[$i] = '' unless $row[$i]; } # avoid uninitialized warnings
-    print CSV (join(',', 'last', map { $dquot.$_.$dquot } @row), $endl);
-    close(CSV);
-}
-
-# ref: "<=>" and "cmp" operators
-# return $left cmp $right; # lexically
-# return $left <=> $right; # numerically
-sub order_msgs($$) {
-    my ($left, $right) = @_;
-    my $l1 = $left->{'event_code'};
-    my $r1 = $right->{'event_code'};
-    return $l1 - $r1 unless $l1 == $r1;
-
-    my $l2 = $left->{'link_no'};
-    my $r2 = $right->{'link_no'};
-    return $l2 - $r2 unless $l2 == $r2;
-
-    giveup(join(' ', 'WARNING: duplicate event/link?', $l1, $l2));
 }
 
 # --
@@ -299,6 +213,7 @@ sub dispatch {
 
     my $m = meth_lookup($methkey); # $dispatch_table->{$methkey};
     unless (defined($m)) {
+        print($endl);
         print STDERR (join(' ', $methkey), $endl);
         print STDERR Dumper $body;
         print STDERR ($endl);
@@ -306,7 +221,6 @@ sub dispatch {
     }
 
     $m->($body, $key, $header);
-    print($endl);
 }
 
 my $note1 = << '_eor_';
