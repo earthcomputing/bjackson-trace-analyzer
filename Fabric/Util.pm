@@ -2,6 +2,8 @@
 
 package Fabric::Util v2018.10.13 {
 
+our $endl = "\n";
+
 use Exporter 'import';
 our @EXPORT_OK = qw(
     note_value
@@ -16,19 +18,19 @@ use JSON;
 
 # --
 
-my $epoch_global;
+our $epoch_global = 0;
 
 sub get_epoch {
     return $epoch_global;
 }
 
 sub set_epoch {
-    my ($e) = @);
+    my ($e) = @_;
     $epoch_global = $e;
 }
 
 sub epoch_marker {
-    print DBGOUT (join(' ', 'epoch_marker:', $epoch_global), $endl);
+    print main::DBGOUT (join(' ', 'epoch_marker:', $epoch_global), $endl);
 }
 
 # --

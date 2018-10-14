@@ -2,7 +2,7 @@
 
 package Fabric::Model v2018.10.13 {
 
-my $endl = "\n";
+our $endl = "\n";
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -405,7 +405,16 @@ sub dump_routing_tables {
         print FD (join(' ', $cell_id, 'Routing Table'), $endl);
 
         my $routes = $routing_table{$cell_id};
-        foreach my $key (sort { $a cmp $b } keys %{$routes}) {
+
+        my $order_routes = sub ($$) {
+            my ($left, $right) = @_;
+            my $l = $routes->{$left};
+            my $r = $routes->{$right};
+            return $l cmp $r unless $l eq $r;
+            return $left cmp $right;
+        };
+
+        foreach my $key (sort { $order_routes->($a, $b) } keys %{$routes}) {
             my $entry = $routes->{$key};
             # my $index = $entry->{'index'};
             my $hint = hint4uuid($entry->{'tree_uuid'});
@@ -477,7 +486,7 @@ sub add_msgcode {
         'code' => $code
     };
 
-    print DBGOUT (join(' ', 'msgcode',
+    print main::DBGOUT (join(' ', 'msgcode',
         $msg_type,
         $o->{'event_code'},
         $o->{'tree_id'},
@@ -562,7 +571,7 @@ sub ait_name {
     my ($octet) = @_;
     my $ait_dense = sprintf("%02x", $octet);
     my $name = $ait_code->{$ait_dense};
-    print DBGOUT (join(' ', 'bad ait code:"'.$ait_dense.'"'), $endl) unless $name;
+    print main::DBGOUT (join(' ', 'bad ait code:"'.$ait_dense.'"'), $endl) unless $name;
     return $name;
 }
 
@@ -574,7 +583,7 @@ sub ait_unname {
         my $value = $ait_code->{$key};
         return $value if $name eq $value;
     }
-    print DBGOUT (join(' ', 'bad ait name:"'.$name.'"'), $endl) unless $name;
+    print main::DBGOUT (join(' ', 'bad ait name:"'.$name.'"'), $endl) unless $name;
     return undef;
 }
 
@@ -638,8 +647,8 @@ sub phy_enqueue {
         'msg_id' => $msg_id,
         'frame' => $frame,
     };
-    my $meta = encode_json($o);
-    print FRAMEOUT ($meta, $endl);
+    my $meta = JSON->new->canonical->encode($o);
+    print main::FRAMEOUT ($meta, $endl);
 }
 
 sub xmit_tcp_frame {
@@ -658,10 +667,10 @@ sub eccf_ait {
     my $pe_id = $pe_worker->{'pe_id'};
 
     # post event to PE at other end of edge
-    my $route = encode_json($entry);
-    my $meta = encode_json($o);
-    print DBGOUT (join(' ', 'multicast', $pe_id, $bitmask, $tree, $route), $endl);
-    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
+    my $route = JSON->new->canonical->encode($entry);
+    my $meta = JSON->new->canonical->encode($o);
+    print main::DBGOUT (join(' ', 'multicast', $pe_id, $bitmask, $tree, $route), $endl);
+    print main::DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
 
@@ -669,7 +678,7 @@ sub eccf_ait {
     my $ait_state = ait_next($ait_dense);
     my $ait_code = ait_unname($ait_state);
 
-    print DBGOUT (join(' ', 'bad ait?', $ait_dense, $ait_state), $endl) unless $ait_code;
+    print main::DBGOUT (join(' ', 'bad ait?', $ait_dense, $ait_state), $endl) unless $ait_code;
 
     my $route_mask = $entry->{'mask'}{'mask'};
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
@@ -689,10 +698,10 @@ sub eccf_normal {
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
 
     # post event to PE at other end of edge
-    my $route = encode_json($entry);
-    my $meta = encode_json($o);
-    print DBGOUT (join(' ', 'multicast', $pe_id, $port_no, $tree, $route), $endl);
-    print DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
+    my $route = JSON->new->canonical->encode($entry);
+    my $meta = JSON->new->canonical->encode($o);
+    print main::DBGOUT (join(' ', 'multicast', $pe_id, $port_no, $tree, $route), $endl);
+    print main::DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
 
@@ -740,7 +749,7 @@ sub xmit_eccf_frame {
 
     my $table = $pe_worker->{'table'};
     my $entry = $table->{$real_uuid};
-    print DBGOUT (join(' ', 'table miss?', $pe_id, $real_uuid, Dumper $table), $endl) unless $entry;
+    print main::DBGOUT (join(' ', 'table miss?', $pe_id, $real_uuid, Dumper $table), $endl) unless $entry;
 
     my $ait_dense = $o->{'ait_dense'};
 
@@ -773,14 +782,14 @@ sub pe_api {
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
 
     my $e = get_epoch();
-    print DBGOUT (join(' ', 'PE-API', $cell_id, $e, $tag, ''));
+    print main::DBGOUT (join(' ', 'PE-API', $cell_id, $e, $tag, ''));
 
     my $pe_worker = get_worker($cell_id);
 
     if ($tag eq 'Unblock') {
         my $was = $pe_worker->{'block'};
         $pe_worker->{'block'} = undef;
-        print DBGOUT ('was='.($was ? 'true' : 'false'), $endl);
+        print main::DBGOUT ('was='.($was ? 'true' : 'false'), $endl);
         return;
     }
 
@@ -791,16 +800,16 @@ sub pe_api {
         my $table = $pe_worker->{'table'};
         my $current_entry = $table->{$hex_guid};
         $table->{$hex_guid} = $entry;
-        print DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', $hex_guid, dump_entry($entry)), $endl);
+        print main::DBGOUT (join(' ', ($current_entry) ? '[update]' : '[create]', $hex_guid, dump_entry($entry)), $endl);
         return;
     }
 
     if ($tag eq 'Packet') {
         my ($user_mask, $packet) = @args;
         my ($hint, $real_uuid, $bitmask, $o, $frame) = dump_packet($user_mask, $packet);
-        my $meta = encode_json($o);
+        my $meta = JSON->new->canonical->encode($o);
         my $some = substr($frame, -40).'...';
-        print DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
+        print main::DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
         xmit_eccf_frame($pe_worker, $real_uuid, $bitmask, $o, $frame);
         return;
     }
@@ -817,17 +826,17 @@ sub pe_api {
         my $octets = $tcpargs[4]; # u8[]
 
         my $body_dense = bytes2dense($octets);
-print DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{'name'}, $tcp_msg_type, $dir), $endl);
+print main::DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{'name'}, $tcp_msg_type, $dir), $endl);
 # FIXME:
-        my $str = encode_json($msg);
+        my $str = JSON->new->canonical->encode($msg);
         my $frame = unpack("H*",  $str); # ascii_to_hex
         my $some = substr($frame, -40).'...';
-        print DBGOUT (join(' ', $port_no, $some), $endl);
+        print main::DBGOUT (join(' ', $port_no, $some), $endl);
         xmit_tcp_frame($pe_worker, $port_no, $frame);
         return;
     }
 
-    print DBGOUT ('unknown tag?', $endl);
+    print main::DBGOUT ('unknown tag?', $endl);
 }
 
 # --
@@ -858,13 +867,13 @@ epoch_marker();
 sub do_application {
     my ($c, $p, $tree_id, $sender_id) = @_;
     my $direction;
-    print DBGOUT (join(' ', 'APPLICATION:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+    print main::DBGOUT (join(' ', 'APPLICATION:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
 }
 
 sub do_manifest {
     my ($c, $p, $tree_id, $sender_id) = @_;
     my $direction;
-    print DBGOUT (join(' ', 'MANIFEST:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
+    print main::DBGOUT (join(' ', 'MANIFEST:', 'C'.$c.'p'.$p, $tree_id, $sender_id), $endl);
 }
 
 

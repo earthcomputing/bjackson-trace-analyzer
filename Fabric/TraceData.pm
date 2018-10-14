@@ -2,7 +2,7 @@
 
 package Fabric::TraceData v2018.10.13 {
 
-my $endl = "\n";
+our $endl = "\n";
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -53,7 +53,7 @@ sub frame2obj {
 
 # --
 
-my $null_uuid = '0x00000000000000000000000000000000';
+our $null_uuid = '0x00000000000000000000000000000000';
 
 my %guid_table; # map : guid -> name
 
@@ -67,13 +67,23 @@ sub dump_guids {
     print GUIDS ($hdr, $endl);
 
     # sort by value
-    foreach my $item (sort { $href->{$a} cmp $href->{$b} } keys %{$href}) {
+    foreach my $item (sort order_guids keys %{$href}) {
         my $hint =  lc(substr($item, 0, 8)); # -8
         print GUIDS (join(' ', $hint, $item, $href->{$item}), $endl);
     }
 
     close(GUIDS);
 }
+
+sub order_guids($$) {
+    my ($left, $right) = @_;
+    my $l = $guid_table{$left};
+    my $r = $guid_table{$right};
+    return $l cmp $r unless $l eq $r;
+    return $left cmp $right;
+}
+
+# accelerate with an inverted map
 
 # hex_guid
 sub uuid_magic {

@@ -2,8 +2,8 @@
 
 package Fabric::Methods v2018.10.13 {
 
-my $endl = "\n";
-my $dquot = '"';
+our $endl = "\n";
+our $dquot = '"';
 
 use Exporter 'import';
 our @EXPORT_OK = qw( register_methods );
@@ -451,7 +451,7 @@ sub meth_ca_process_manifest_msg {
     my $man_hash = note_value(\%manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
 epoch_marker();
-    print DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
+    print main::DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
 sub meth_ca_process_application_msg {
@@ -496,7 +496,7 @@ sub meth_ca_update_base_tree_map {
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 
 epoch_marker();
-    print DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
+    print main::DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
 ## IMPORTANT : Stacking
@@ -534,7 +534,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $gvm_hash = note_value(\%gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
 epoch_marker();
-    print DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
+    print main::DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
     my $virt_p = 0;
@@ -582,7 +582,7 @@ sub meth_ca_deploy {
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 
 epoch_marker();
-    print DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
+    print main::DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
 # /body : OBJECT { cell_id sender_id vm_id }
@@ -636,7 +636,7 @@ sub meth_ca_got_tcp_application_msg {
 
     my $str = decode_octets($body->{'msg'});
 epoch_marker();
-    print DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
+    print main::DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
 }
 
 ## IMPORTANT : stacking
