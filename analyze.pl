@@ -14,6 +14,9 @@ use Data::Dumper;
 use Digest::SHA qw(sha1_hex);
 use Data::GUID;
 
+use DispatchTable qw(meth_lookup extend_table);
+# require 'Methods.pm';
+
 # --
 
 my $endl = "\n";
@@ -602,6 +605,8 @@ sub process_file {
 sub do_analyze {
     my ($href) = @_;
 
+    register_methods();
+
     my $last_thread = '-1';
 
     foreach my $key (sort order_keys keys %{$href}) {
@@ -740,7 +745,7 @@ sub portdesc {
 # /body : OBJECT { schema_version [ncells] }
 # 'noc.rs$$initialize$$Trace$$trace_schema'
 sub meth_START {
-    my ($body, $header) = @_;
+    my ($body, $key, $header) = @_;
     my $repo = $header->{'repo'};
     my $epoch = $header->{'epoch'};
     my $schema_version = $body->{'schema_version'};
@@ -942,7 +947,7 @@ sub meth_pe_packet_from_ca {
 # ait_state : SCALAR ;;
 # 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
 sub meth_yyy {
-    my ($body, $key) = @_;
+    my ($body) = @_;
     my $cell_id = nametype($body->{'cell_id'});
     my $tree_id = nametype($body->{'tree_id'});
     my $port_list = build_port_list($body->{'port_nos'});
@@ -1373,102 +1378,29 @@ sub meth_ca_forward_saved_msg {
 sub dispatch {
     my ($key, $module, $function, $kind, $format, $json) = @_;
     my $methkey = join('$$', $module, $function, $kind, $format);
+    # my $event_code = ec_fromkey($key);
 
     $verb{$methkey}++;
 
     my $body = $json->{'body'};
     my $header = $json->{'header'};
 
-    # This indicates subsystem startup - i.e. break in seq of messages
-    if ($methkey eq 'main.rs$$main$$Trace$$trace_schema') { meth_START($body, $header); return; }
-    if ($methkey eq 'main.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
-    ## if ($methkey eq 'noc.rs$$MAIN$$Trace$$trace_schema') { meth_START($body, $header); return; }
-    ## if ($methkey eq 'noc.rs$$initialize$$Trace$$trace_schema') { meth_START($body, $header); return; }
+    my $m = meth_lookup($methkey); # $dispatch_table->{$methkey};
+    unless (defined($m)) {
+        print STDERR (join(' ', $methkey), $endl);
+        print STDERR Dumper $body;
+        print STDERR ($endl);
+        giveup('incompatible schema');
+    }
 
-    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$border_cell_start') { meth_border_cell_start($body); return; }
-    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$interior_cell_start') { meth_interior_cell_start($body); return; }
-    if ($methkey eq 'datacenter.rs$$initialize$$Trace$$connect_link') { meth_connect_link($body); return; }
-
-    if ($methkey eq 'nalcell.rs$$new$$Trace$$nalcell_port_setup') { meth_nalcell_port_setup($body); return; }
-    if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca') { meth_nalcell_start_ca($body); return; } ## nal_cellstart_ca
-    if ($methkey eq 'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe') { meth_nalcell_start_pe($body); return; }
-    ## if ($methkey eq 'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca') { meth_nalcell_start_ca($body); return; }
-
-# --
-
-    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_update_traph') { meth_ca_update_traph($body); return; }
-    if ($methkey eq 'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry') { meth_ca_updated_traph_entry($body); return; }
-
-# --
-
-    if ($methkey eq 'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg') { meth_ca_process_discover_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg') { meth_ca_process_discover_d_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg') { meth_ca_process_manifest_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg') { meth_ca_process_stack_tree_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg') { meth_ca_process_stack_tree_d_msg($body); return; }
-
-# --
-
-    if ($methkey eq 'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg') { meth_ca_save_discover_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg') { meth_ca_add_saved_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg') { meth_ca_save_stack_tree_msg($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$deploy$$Debug$$ca_deploy') { meth_ca_deploy($body); return; }
-    if ($methkey eq 'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg') { meth_ca_forward_stack_tree_msg($body); return; }
-    if ($methkey eq 'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id') { meth_ca_get_base_tree_id($body); return; }
-    if ($methkey eq 'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs') { meth_ca_get_saved_msgs($body); return; }
-    if ($methkey eq 'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe') { meth_ca_listen_pe($body); return; }
-    if ($methkey eq 'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg') { meth_ca_got_msg($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm') { meth_ca_listen_vm($body); return; }
-    if ($methkey eq 'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree') { meth_ca_got_from_uptree($body); return; }
-    if ($methkey eq 'cellagent.rs$$port_connected$$Trace$$ca_send_msg') { meth_ca_send_msg_port_connected($body); return; }
-    if ($methkey eq 'cellagent.rs$$send_msg$$Debug$$ca_send_msg') { meth_ca_send_msg_generic($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree') { meth_ca_stack_tree($body); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg') { meth_ca_got_tcp_application_msg($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg') { meth_ca_got_manifest_tcp_msg($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg') { meth_ca_got_stack_tree_tcp_msg($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map') { meth_ca_update_base_tree_map($body); return; }
-
-    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_leafward') { meth_pe_forward_leafward($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$forward$$Debug$$pe_forward_rootward') { meth_pe_forward_rootward($body, $key); return; }
-    ## if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$listen_ca') { meth_pe_listen_ca($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca') { meth_pe_listen_ca($body); return; } ## listen_ca
-    if ($methkey eq 'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca') { meth_pe_packet_from_ca($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports') { meth_pe_listen_ports($body); return; } ##  pe_msg_from_ca
-    ## if ($methkey eq 'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca') { meth_pe_listen_ports($body); return; }
-    if ($methkey eq 'packet_engine.rs$$process_packet$$Debug$$pe_process_packet') { meth_pe_process_packet($body, $key); return; }
-
-    if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe') { meth_ca_listen_pe_cmodel($body); return; }
-    if ($methkey eq 'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca') { meth_cm_bytes_from_ca($body, $key); return; }
-    if ($methkey eq 'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca') { meth_cm_bytes_to_ca($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm') { meth_pe_packet_from_cm($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg') { meth_ca_got_msg_cmodel($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_manifest($body); return; }
-    if ($methkey eq 'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg') { meth_ca_forward_saved_msg_application($body); return; }
-
-    if ($methkey eq 'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm') { meth_ca_listen_cm($body); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward') { meth_yyy($body, $key); return; }
-
-    if ($methkey eq 'noc.rs$$initialize$$Trace$$edge_list') { meth_edge_list($body, $key); return; }
-    if ($methkey eq 'main.rs$$listen_port_loop$$Trace$$noc_from_ca') { meth_noc_from_ca($body, $key); return; }
-    if ($methkey eq 'packet_engine.rs$$listen_cm_loop$$Trace$$recv') { meth_recv($body, $key); return; }
-# NEW:
-    if ($methkey eq 'packet_engine.rs$$listen_port_loop$$Trace$$pl_recv') { meth_pl_recv($body, $key); return; }
-    if ($methkey eq 'cellagent.rs$$process_hello_msg$$Debug$$ca_process_hello_msg') { meth_hello($body, $key); return; }
-
+    $m->($body, $key, $header);
     print($endl);
-
-    print STDERR (join(' ', $methkey), $endl);
-    print STDERR Dumper $body;
-    print STDERR ($endl);
-    giveup('incompatible schema');
 }
 
 # packet_engine.rs$$listen_port_loop$$Trace$$pl_recv
 # { 'cell_id',  'msg' { 'Status' [ 1, boolean, 'Connected' ] } }
 sub meth_pl_recv {
-    my ($body, $key) = @_;
+    my ($body) = @_;
 }
 
 # cellagent.rs$$process_hello_msg$$Debug$$ca_process_hello_msg
@@ -1476,7 +1408,7 @@ sub meth_pl_recv {
 ## 'header' { 'sender_id' 'msg_count' 'tree_map' 'direction' 'is_ait' 'msg_type' },
 ## 'payload'=> { 'cell_id' 'port_no' }
 sub meth_hello {
-    my ($body, $key) = @_;
+    my ($body) = @_;
 }
 
 sub dump_entry {
@@ -2284,6 +2216,7 @@ sub construct_key {
 sub ec_fromkey {
     my ($key) = @_;
     my ($l1, $l2, $l3) = split('::', $key);
+    die('ec '.$key) unless defined $l3; # bulletproofing
     return $l3; # aka lineno
 }
 
@@ -2460,71 +2393,6 @@ sub dump_histo {
 
 # --
 
-my @mformats = qw(
-    DEAD:
-    'noc.rs$$MAIN$$Trace$$trace_schema'
-    'noc.rs$$initialize$$Trace$$trace_schema'
-    'nalcell.rs$$start_cell$$Trace$$nal_cellstart_ca'
-    'packet_engine.rs$$listen_ca$$Debug$$listen_ca'
-    'packet_engine.rs$$listen_port$$Debug$$pe_msg_from_ca'
-
-    OCCUR:
-    'main.rs$$MAIN$$Trace$$trace_schema'
-
-    'datacenter.rs$$initialize$$Trace$$border_cell_start'
-    'datacenter.rs$$initialize$$Trace$$connect_link'
-    'datacenter.rs$$initialize$$Trace$$interior_cell_start'
-
-    'cellagent.rs$$port_connected$$Trace$$ca_send_msg'
-
-    'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg'
-    'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg'
-    'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg'
-    'cellagent.rs$$deploy$$Debug$$ca_deploy'
-    'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg'
-    'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg'
-    'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id'
-    'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs'
-    'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe'
-    'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg'
-    'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm'
-    'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree'
-    'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg'
-    'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg'
-    'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg'
-    'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg'
-    'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg'
-    'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg'
-    'cellagent.rs$$send_msg$$Debug$$ca_send_msg'
-    'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree'
-    'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg'
-    'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg'
-    'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg'
-    'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map'
-    'cellagent.rs$$update_traph$$Debug$$ca_update_traph'
-    'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry'
-    'nalcell.rs$$new$$Trace$$nalcell_port_setup'
-    'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca'
-    'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe'
-    'packet_engine.rs$$forward$$Debug$$pe_forward_leafward'
-    'packet_engine.rs$$forward$$Debug$$pe_forward_rootward'
-    'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca'
-    'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca'
-    'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports'
-    'packet_engine.rs$$process_packet$$Debug$$pe_process_packet'
-
-    NEW:
-    'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg'
-    'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg'
-    'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe'
-    'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg'
-    'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca'
-    'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca'
-    'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm'
-
-    'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward'
-);
-
 sub bytes2dense {
     my ($u8) = @_;
     return undef unless $u8;
@@ -2543,6 +2411,68 @@ sub frame2obj {
     my $o = decode_json($json_text);
     print($json_text, $endl);
     return $o;
+}
+
+sub register_methods {
+    my $updates = {
+        'cellagent.rs$$add_saved_discover$$Debug$$ca_save_discover_msg' => \&meth_ca_save_discover_msg,
+        'cellagent.rs$$add_saved_msg$$Debug$$ca_add_saved_msg' => \&meth_ca_add_saved_msg,
+        'cellagent.rs$$add_saved_stack_tree$$Debug$$ca_save_stack_tree_msg' => \&meth_ca_save_stack_tree_msg,
+        'cellagent.rs$$deploy$$Debug$$ca_deploy' => \&meth_ca_deploy,
+        'cellagent.rs$$forward_saved$$Debug$$ca_forward_saved_msg' => \&meth_ca_forward_saved_msg,
+        'cellagent.rs$$forward_saved_application$$Debug$$ca_forward_saved_msg' => \&meth_ca_forward_saved_msg_application,
+        'cellagent.rs$$forward_saved_manifest$$Debug$$ca_forward_saved_msg' => \&meth_ca_forward_saved_msg_manifest,
+        'cellagent.rs$$forward_stack_tree$$Debug$$ca_forward_stack_tree_msg' => \&meth_ca_forward_stack_tree_msg,
+        'cellagent.rs$$get_base_tree_id$$Debug$$ca_get_base_tree_id' => \&meth_ca_get_base_tree_id,
+        'cellagent.rs$$get_saved_msgs$$Debug$$ca_get_saved_msgs' => \&meth_ca_get_saved_msgs,
+        'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm' => \&meth_ca_listen_cm,
+        'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe' => \&meth_ca_listen_pe_cmodel,
+        'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg' => \&meth_ca_got_msg_cmodel,
+        'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe' => \&meth_ca_listen_pe,
+        'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg' => \&meth_ca_got_msg,
+        'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm' => \&meth_ca_listen_vm,
+        'cellagent.rs$$listen_uptree_loop$$Debug$$ca_got_from_uptree' => \&meth_ca_got_from_uptree,
+        'cellagent.rs$$port_connected$$Trace$$ca_send_msg' => \&meth_ca_send_msg_port_connected,
+        'cellagent.rs$$process_application_msg$$Debug$$ca_process_application_msg' => \&meth_ca_process_stack_tree_d_msg,
+        'cellagent.rs$$process_discover_msg$$Debug$$ca_process_discover_msg' => \&meth_ca_process_discover_msg,
+        'cellagent.rs$$process_discoverd_msg$$Debug$$ca_process_discover_d_msg' => \&meth_ca_process_discover_d_msg,
+        'cellagent.rs$$process_hello_msg$$Debug$$ca_process_hello_msg' => \&meth_hello,
+        'cellagent.rs$$process_manifest_msg$$Debug$$ca_process_manifest_msg' => \&meth_ca_process_manifest_msg,
+        'cellagent.rs$$process_stack_tree_msg$$Debug$$ca_process_stack_tree_msg' => \&meth_ca_process_stack_tree_msg,
+        'cellagent.rs$$process_stack_treed_msg$$Debug$$ca_process_stack_tree_d_msg' => \&meth_ca_process_stack_tree_d_msg,
+        'cellagent.rs$$send_msg$$Debug$$ca_send_msg' => \&meth_ca_send_msg_generic,
+        'cellagent.rs$$stack_tree$$Debug$$ca_stack_tree' => \&meth_ca_stack_tree,
+        'cellagent.rs$$tcp_application$$Debug$$ca_got_tcp_application_msg' => \&meth_ca_got_tcp_application_msg,
+        'cellagent.rs$$tcp_manifest$$Debug$$ca_got_manifest_tcp_msg' => \&meth_ca_got_manifest_tcp_msg,
+        'cellagent.rs$$tcp_stack_tree$$Debug$$ca_got_stack_tree_tcp_msg' => \&meth_ca_got_stack_tree_tcp_msg,
+        'cellagent.rs$$update_base_tree_map$$Debug$$ca_update_base_tree_map' => \&meth_ca_update_base_tree_map,
+        'cellagent.rs$$update_traph$$Debug$$ca_update_traph' => \&meth_ca_update_traph,
+        'cellagent.rs$$update_traph$$Debug$$ca_updated_traph_entry' => \&meth_ca_updated_traph_entry,
+        'cmodel.rs$$listen_ca_loop$$Debug$$cm_bytes_from_ca' => \&meth_cm_bytes_from_ca,
+        'cmodel.rs$$process_packet$$Debug$$cm_bytes_to_ca' => \&meth_cm_bytes_to_ca,
+        'datacenter.rs$$initialize$$Trace$$border_cell_start' => \&meth_border_cell_start,
+        'datacenter.rs$$initialize$$Trace$$connect_link' => \&meth_connect_link,
+        'datacenter.rs$$initialize$$Trace$$interior_cell_start' => \&meth_interior_cell_start,
+        'main.rs$$MAIN$$Trace$$trace_schema' => \&meth_START,
+        'main.rs$$listen_port_loop$$Trace$$noc_from_ca' => \&meth_noc_from_ca,
+        'main.rs$$main$$Trace$$trace_schema' => \&meth_START,
+        'nalcell.rs$$new$$Trace$$nalcell_port_setup' => \&meth_nalcell_port_setup,
+        'nalcell.rs$$start_cell$$Trace$$nalcell_start_ca' => \&meth_nalcell_start_ca,
+        'nalcell.rs$$start_packet_engine$$Trace$$nalcell_start_pe' => \&meth_nalcell_start_pe,
+        'noc.rs$$initialize$$Trace$$edge_list' => \&meth_edge_list,
+        'packet_engine.rs$$forward$$Debug$$pe_forward_leafward' => \&meth_pe_forward_leafward,
+        'packet_engine.rs$$forward$$Debug$$pe_forward_rootward' => \&meth_pe_forward_rootward,
+        'packet_engine.rs$$listen_ca$$Debug$$pe_listen_ca' => \&meth_pe_listen_ca,
+        'packet_engine.rs$$listen_ca_loop$$Debug$$pe_packet_from_ca' => \&meth_pe_packet_from_ca,
+        'packet_engine.rs$$listen_cm_loop$$Debug$$pe_forward_leafward' => \&meth_yyy,
+        'packet_engine.rs$$listen_cm_loop$$Debug$$pe_packet_from_cm' => \&meth_pe_packet_from_cm,
+        'packet_engine.rs$$listen_cm_loop$$Trace$$recv' => \&meth_recv,
+        'packet_engine.rs$$listen_port$$Debug$$pe_listen_ports' => \&meth_pe_listen_ports,
+        'packet_engine.rs$$listen_port_loop$$Trace$$pl_recv' => \&meth_pl_recv,
+        'packet_engine.rs$$process_packet$$Debug$$pe_process_packet' => \&meth_pe_process_packet,
+    };
+
+    extend_table($updates);
 }
 
 my $notes = << '_eof_';
@@ -2682,5 +2612,20 @@ cell_id:
 # my $s = 'Hello World';
 # my $x1 = unpack("H*",  $s); # ascii_to_hex
 # my $s = pack('H*', $x1); # hex_to_ascii
+
+- refactor add_msgcode2, event_code
+sub meth_ca_send_msg_generic {
+sub meth_pe_packet_from_ca {
+sub meth_pe_forward_leafward {
+sub meth_pe_forward_rootward {
+sub meth_pe_process_packet {
+sub meth_ca_got_stack_tree_tcp_msg {
+sub meth_ca_save_stack_tree_msg {
+sub meth_ca_got_manifest_tcp_msg {
+sub meth_ca_got_tcp_application_msg {
+sub meth_cm_bytes_from_ca {
+sub meth_pe_packet_from_cm {
+sub meth_ca_got_msg {
+sub meth_ca_got_msg_cmodel {
 
 _eof_
