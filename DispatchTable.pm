@@ -66,6 +66,8 @@ my $dispatch_table = {
     'CellAgent$$src/packet_engine.rs$$process_packet$$pe_process_packet$$245$$Debug' => \&meth_pe_process_packet_39d58,
 };
 
+# --
+
 sub meth_border_cell_start_127ed { }
 sub meth_ca_add_saved_msg_8d6a2 { }
 sub meth_ca_deploy_11933 { }
@@ -111,6 +113,12 @@ sub meth_pe_process_packet_39d58 { }
 sub meth_pl_recv_768dc { }
 sub meth_recv_11937 { }
 sub meth_trace_schema_6a402 { }
+
+# --
+
+my $notes = << '_eof_';
+
+_eof_
 
 }
 
