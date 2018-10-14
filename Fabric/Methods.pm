@@ -8,6 +8,8 @@ my $dquot = '"';
 use Exporter 'import';
 our @EXPORT_OK = qw( register_methods );
 
+use Data::Dumper;
+
 use Fabric::Util qw(note_value epoch_marker);
 use Fabric::DispatchTable qw(extend_table);
 use Fabric::TraceData qw(

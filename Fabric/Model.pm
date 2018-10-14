@@ -42,6 +42,7 @@ msg_sheet
     $NOT_ALAN
 );
 
+use Data::Dumper;
 use JSON qw(encode_json);
 
 use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name null_uuid);
@@ -723,14 +724,15 @@ sub get_worker {
 
 # phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
 sub phy_enqueue {
-    my ($pe_id, $outbound, $ait_code, $tree, $msg_id, $frame) = @_;
-    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
+    my ($pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame) = @_;
+    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, $msg_type, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
     my $o = {
         'pe_id' => $pe_id,
         'outbound' => $outbound,
         'ait_code' => $ait_code,
         'tree' => $tree,
         'msg_id' => $msg_id,
+        'msg_type' => $msg_type,
         'frame' => $frame,
     };
     my $meta = JSON->new->canonical->encode($o);
@@ -744,9 +746,11 @@ sub xmit_tcp_frame {
     my $ait_code = 'NORMAL';
     my $tree = null_uuid();
     my $msg_id = 0;
-    phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+    my $msg_type = 'TCP';
+    phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     # 'ROOTWARD'
 }
+
 # special processing
 sub eccf_ait {
     my ($pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
@@ -759,6 +763,7 @@ sub eccf_ait {
     print main::DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
+    my $msg_type = $o->{'msg_type'};
 
     my $ait_dense = $o->{'ait_dense'};
     my $ait_state = ait_next($ait_dense);
@@ -773,7 +778,7 @@ sub eccf_ait {
     for my $i (0..$maxport) {
         my $bit = 1 << $i;
         next unless $port_mask & $bit;
-        phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+        phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     }
 }
 
@@ -790,6 +795,7 @@ sub eccf_normal {
     print main::DBGOUT (join(' ', 'phy-set', $pe_id, $meta, $endl, '   ', $frame), $endl);
 
     my $msg_id = $o->{'msg_id'};
+    my $msg_type = $o->{'msg_type'};
 
     my $parent = $entry->{'parent'};
     my $route_mask = $entry->{'mask'}{'mask'};
@@ -802,7 +808,7 @@ sub eccf_normal {
             my $bit = 1 << $i;
             next unless $port_mask & $bit;
             my $ait_code = 'NORMAL';
-            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
     # RootWard
@@ -814,7 +820,7 @@ sub eccf_normal {
                 my $bit = 1 << $i;
                 next unless $port_mask & $bit;
                 my $ait_code = 'NORMAL';
-                phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+                phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
             }
         }
         # fallsthru
@@ -824,7 +830,7 @@ sub eccf_normal {
             # ca.enqueue()
             my $i = 0;
             my $ait_code = 'NORMAL';
-            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
 }

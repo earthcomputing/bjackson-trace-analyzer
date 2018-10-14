@@ -127,7 +127,7 @@ sub xlate_uuid {
         my $w1 = $words->[1];
 
         unless (defined $w0) {
-            print STDERR (Dumper $ref, $endl);
+            print STDERR ('xlate_uuid', Dumper $ref, $endl);
             exit 0;
         }
 
@@ -284,9 +284,15 @@ sub dump_packet {
         my $bytes = $payload->{'bytes'};
 # FIXME : do we always have a $header{'msg_type'} ??
 # FIXME : OOB or protocol layer data?
+
+        my $json = frame2obj($bytes);
+        my $msg_type = $json->{'msg_type'};
+        ## print main::DBGOUT (join(' ', 'dump_packet', 'msg_type:', $msg_type), $endl);
+
     my $o = {
         'is_blocking' => $is_blocking,
         'is_last' => $is_last,
+        'msg_type' => $msg_type,
         'msg_id' => $msg_id,
         'size' => $size,
         'ait_dense' => $b0, # NORMAL(40), AIT(04)
