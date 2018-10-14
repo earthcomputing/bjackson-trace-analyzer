@@ -23,6 +23,8 @@ our @EXPORT_OK = qw(
     decode_octets
     dump_packet
 
+    silly
+
     %guid_table
     %msg_table
     %gvm_table
@@ -202,6 +204,10 @@ sub build_port_list {
 my %msg_table; # map : {$payload_text} = $payload_hash
 my %gvm_table;
 my %manifest_table;
+
+sub silly {
+    return \%msg_table;
+}
 
 # ref: "<=>" and "cmp" operators
 # return $left cmp $right; # lexically

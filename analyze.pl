@@ -18,7 +18,7 @@ use Data::GUID;
 use Fabric::Util qw(giveup set_epoch);
 use Fabric::DispatchTable qw(meth_lookup extend_table);
 use Fabric::Methods qw(register_methods);
-use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid %msg_table %gvm_table %manifest_table);
+use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid silly %msg_table %gvm_table %manifest_table);
 use Fabric::Model qw(dump_complex dump_routing_tables dump_forest msg_sheet);
 
 # --
@@ -79,7 +79,7 @@ foreach my $fname (@ARGV) {
 # ISSUE : one file/report for entire list of inputs
 dump_complex($result_dir.$dotfile);
 dump_routing_tables($result_dir.$routingfile);
-dump_msgs($result_dir.$msgfile, \%msg_table);
+dump_msgs($result_dir.$msgfile, silly());
 dump_msgs($result_dir.$gvmfile, \%gvm_table);
 dump_msgs($result_dir.$manifestfile, \%manifest_table);
 dump_schema($result_dir.$schemafile);
@@ -105,7 +105,6 @@ sub dump_schema {
 sub dump_msgs {
     my ($path, $href) = @_;
     open(FD, '>'.$path) or die $path.': '.$!;
-
     foreach my $key (sort keys %{$href}) {
         my $hint = substr($href->{$key}, -5);
         print FD (join(' ', $hint, $key), $endl);
