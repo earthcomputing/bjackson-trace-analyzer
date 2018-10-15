@@ -38,6 +38,7 @@ our @EXPORT_OK = qw(
     do_application
     do_manifest
 msg_sheet
+dump_frames
 
     $NOT_ALAN
 );
@@ -722,6 +723,25 @@ sub get_worker {
 
 # --
 
+my @frame_seq;
+
+sub dump_frames {
+    my ($path) = @_;
+    open(FRAMEOUT, '>', $path) or die $path.': '.$!;
+    foreach my $o (sort order_frames @frame_seq) {
+        my $meta = JSON->new->canonical->encode($o);
+        print FRAMEOUT ($meta, $endl);
+    }
+    close(FRAMEOUT);
+}
+
+sub order_frames($$) {
+    my ($left, $right) = @_;
+    return $left->{epoch} <=> $right->{epoch} unless $left->{epoch} == $right->{epoch};
+    return $left->{pe_id} cmp $right->{pe_id} unless $left->{pe_id} eq $right->{pe_id};
+    return $left->{outbound} <=> $right->{outbound};
+}
+
 # phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
 sub phy_enqueue {
     my ($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame) = @_;
@@ -736,8 +756,7 @@ sub phy_enqueue {
         'msg_type' => $msg_type,
         'frame' => $frame,
     };
-    my $meta = JSON->new->canonical->encode($o);
-    print main::FRAMEOUT ($meta, $endl);
+    push(@frame_seq, $o);
 }
 
 sub xmit_tcp_frame {

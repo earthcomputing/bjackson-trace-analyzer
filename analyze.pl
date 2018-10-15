@@ -19,7 +19,7 @@ use Fabric::Util qw(giveup set_epoch);
 use Fabric::DispatchTable qw(meth_lookup extend_table);
 use Fabric::Methods qw(register_methods);
 use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid silly %msg_table %gvm_table %manifest_table);
-use Fabric::Model qw(dump_complex dump_routing_tables dump_forest msg_sheet);
+use Fabric::Model qw(dump_complex dump_routing_tables dump_forest msg_sheet dump_frames);
 
 # --
 
@@ -70,8 +70,8 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     if ($fname =~ /-epoch=/) { my ($a, $b) = split('=', $fname); $last_epoch = $b; next; }
     print($endl, $fname, $endl);
+    # FIXME : re-open ?
     open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
-    open(FRAMEOUT, '>'.$result_dir.$frames_file) or die $result_dir.$frames_file.': '.$!;
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -86,8 +86,8 @@ dump_schema($result_dir.$schemafile);
 dump_guids($result_dir.$guidfile);
 dump_forest($result_dir.$forestfile);
 msg_sheet($result_dir.$csvfile);
+dump_frames($result_dir.$frames_file);
 
-close(FRAMEOUT);
 close(DBGOUT);
 exit 0;
 
