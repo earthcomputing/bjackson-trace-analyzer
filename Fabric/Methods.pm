@@ -676,7 +676,8 @@ sub meth_hello {
 
 # /body : OBJECT { cell_id msg }
 sub meth_recv {
-    my ($body) = @_;
+    my ($body, $key, $header) = @_;
+    my $epoch = $header->{'epoch'};
     my $cell_id = nametype($body->{'cell_id'});
     my $msg = $body->{'msg'};
     my $rkind = ref($msg);
@@ -685,7 +686,7 @@ sub meth_recv {
     if ($rkind eq '') {
         my $tag = $msg;
         # print(join(' ', $cell_id, 'raw-api', $tag, ';'));
-        pe_api($cell_id, $tag);
+        pe_api($epoch, $cell_id, $tag);
         return;
     }
 
@@ -704,13 +705,13 @@ sub meth_recv {
         # 1 arg
         if ($akind eq 'HASH') {
             # print(join(' ', $cell_id, 'raw-api', $tag, $args, ';'));
-            pe_api($cell_id, $tag, $args);
+            pe_api($epoch, $cell_id, $tag, $args);
             return;
         }
         # multi args
         if ($akind eq 'ARRAY') {
             # print(join(' ', $cell_id, 'raw-api', $tag, @{$args}, ';'));
-            pe_api($cell_id, $tag, @{$args});
+            pe_api($epoch, $cell_id, $tag, @{$args});
             return;
         }
 

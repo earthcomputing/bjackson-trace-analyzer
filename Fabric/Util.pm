@@ -20,14 +20,9 @@ use JSON;
 
 my $epoch_global = 0;
 
-sub get_epoch {
-    return $epoch_global;
-}
-
-sub set_epoch {
-    my ($e) = @_;
-    $epoch_global = $e;
-}
+# unused
+sub get_epoch { return $epoch_global; }
+sub set_epoch { my ($e) = @_; $epoch_global = $e; }
 
 sub epoch_marker {
     print main::DBGOUT (join(' ', 'epoch_marker:', $epoch_global), $endl);

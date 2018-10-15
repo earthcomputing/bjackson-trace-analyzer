@@ -46,7 +46,7 @@ use Data::Dumper;
 use JSON qw(encode_json);
 
 use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name null_uuid);
-use Fabric::Util qw(note_value giveup get_epoch epoch_marker);
+use Fabric::Util qw(note_value giveup epoch_marker);
 
 # --
 
@@ -724,9 +724,10 @@ sub get_worker {
 
 # phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
 sub phy_enqueue {
-    my ($pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame) = @_;
-    print(join(' ', '   ', 'phy enqueue', $pe_id, $outbound, $ait_code, $tree, $msg_type, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
+    my ($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame) = @_;
+    print(join(' ', '   ', 'phy enqueue', $epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, 'msg_id='.$msg_id, substr($frame, 0, 10).'...', ';'));
     my $o = {
+        'epoch' => $epoch,
         'pe_id' => $pe_id,
         'outbound' => $outbound,
         'ait_code' => $ait_code,
@@ -740,20 +741,20 @@ sub phy_enqueue {
 }
 
 sub xmit_tcp_frame {
-    my ($pe_worker, $port_no, $frame) = @_;
+    my ($epoch, $pe_worker, $port_no, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
 
     my $ait_code = 'NORMAL';
     my $tree = null_uuid();
     my $msg_id = 0;
     my $msg_type = 'TCP';
-    phy_enqueue($pe_id, $port_no, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+    phy_enqueue($epoch, $pe_id, $port_no, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     # 'ROOTWARD'
 }
 
 # special processing
 sub eccf_ait {
-    my ($pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my ($epoch, $pe_worker, $tree, $entry, $bitmask, $o, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
 
     # post event to PE at other end of edge
@@ -778,13 +779,13 @@ sub eccf_ait {
     for my $i (0..$maxport) {
         my $bit = 1 << $i;
         next unless $port_mask & $bit;
-        phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+        phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     }
 }
 
 # forward
 sub eccf_normal {
-    my ($pe_worker, $port_no, $tree, $entry, $bitmask, $o, $frame) = @_;
+    my ($epoch, $pe_worker, $port_no, $tree, $entry, $bitmask, $o, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
 
@@ -808,7 +809,7 @@ sub eccf_normal {
             my $bit = 1 << $i;
             next unless $port_mask & $bit;
             my $ait_code = 'NORMAL';
-            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
     # RootWard
@@ -820,7 +821,7 @@ sub eccf_normal {
                 my $bit = 1 << $i;
                 next unless $port_mask & $bit;
                 my $ait_code = 'NORMAL';
-                phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+                phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
             }
         }
         # fallsthru
@@ -830,13 +831,13 @@ sub eccf_normal {
             # ca.enqueue()
             my $i = 0;
             my $ait_code = 'NORMAL';
-            phy_enqueue($pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
 }
 
 sub xmit_eccf_frame {
-    my ($pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
+    my ($epoch, $pe_worker, $real_uuid, $bitmask, $o, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
 
     my $table = $pe_worker->{'table'};
@@ -847,13 +848,13 @@ sub xmit_eccf_frame {
 
     # AIT(04)
     if ($ait_dense eq '04') {
-        eccf_ait($pe_worker, $real_uuid, $entry, $bitmask, $o, $frame);
+        eccf_ait($epoch, $pe_worker, $real_uuid, $entry, $bitmask, $o, $frame);
     }
 
     # NORMAL(40)
     if ($ait_dense eq '40') {
         my $port_no = 0;
-        eccf_normal($pe_worker, $port_no, $real_uuid, $entry, $bitmask, $o, $frame);
+        eccf_normal($epoch, $pe_worker, $port_no, $real_uuid, $entry, $bitmask, $o, $frame);
     }
 }
 
@@ -870,11 +871,10 @@ sub xmit_eccf_frame {
 ## listen_cm_loop C:2 raw-api Packet HASH(0x7fde9b268610) HASH(0x7fde9b268628) ;
 ## listen_cm_loop C:2 raw-api Tcp HASH(0x7fde9a00bf38) ARRAY(0x7fde9a00bf50) ;
 sub pe_api {
-    my ($cell_id, $tag, @args) = @_;
+    my ($epoch, $cell_id, $tag, @args) = @_;
     print(join(' ', $cell_id, 'pe-raw-api', $tag, @args, ';'));
 
-    my $e = get_epoch();
-    print main::DBGOUT (join(' ', 'PE-API', $cell_id, $e, $tag, ''));
+    print main::DBGOUT (join(' ', 'PE-API', $cell_id, $epoch, $tag, ''));
 
     my $pe_worker = get_worker($cell_id);
 
@@ -902,7 +902,7 @@ sub pe_api {
         my $meta = JSON->new->canonical->encode($o);
         my $some = substr($frame, -40).'...';
         print main::DBGOUT (join(' ', $hint, $real_uuid, $bitmask, $meta, 'octets='.$some), $endl);
-        xmit_eccf_frame($pe_worker, $real_uuid, $bitmask, $o, $frame);
+        xmit_eccf_frame($epoch, $pe_worker, $real_uuid, $bitmask, $o, $frame);
         return;
     }
 
@@ -924,7 +924,7 @@ print main::DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{
         my $frame = unpack("H*",  $str); # ascii_to_hex
         my $some = substr($frame, -40).'...';
         print main::DBGOUT (join(' ', $port_no, $some), $endl);
-        xmit_tcp_frame($pe_worker, $port_no, $frame);
+        xmit_tcp_frame($epoch, $pe_worker, $port_no, $frame);
         return;
     }
 
