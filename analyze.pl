@@ -68,8 +68,12 @@ foreach my $fname (@ARGV) {
     if ($fname =~ /-server=/) { my ($a, $b) = split('=', $fname); $server = $b; next; }
     if ($fname =~ /-epoch=/) { my ($a, $b) = split('=', $fname); $last_epoch = $b; next; }
     print($endl, $fname, $endl);
-    # FIXME : re-open ?
-    open(DBGOUT, '>'.$result_dir.$dbg_file) or die $result_dir.$dbg_file.': '.$!;
+
+# FIXME : re-open ?
+{
+    my $path = $result_dir.$dbg_file;
+    open(DBGOUT, '>', $path) or die $path.': '.$!;
+}
     my $href = process_file($fname);
     do_analyze($href);
 }
@@ -97,7 +101,7 @@ sub dump_model_data {
 
 sub dump_msgs {
     my ($path, $href) = @_;
-    open(FD, '>'.$path) or die $path.': '.$!;
+    open(FD, '>', $path) or die $path.': '.$!;
     foreach my $key (sort keys %{$href}) {
         my $hint = substr($href->{$key}, -5);
         print FD (join(' ', $hint, $key), $endl);
@@ -330,7 +334,7 @@ sub kafka_inhale {
             exit;
         }
         else {
-            die $error;
+            die $error; # yes, not giveup
         }
     };
 
@@ -386,7 +390,7 @@ sub order_numseq_smartmatch($$) {
 # UNUSED
 sub snarf {
     my ($path) = @_;
-    open FD, '<'.$path or die $path.': '.$!;
+    open(FD, '<', $path) or die $path.': '.$!;
     my $body = '';
     while (<FD>) {
         chomp;

@@ -42,7 +42,7 @@ dump_frames
 );
 
 use Data::Dumper;
-use JSON qw(encode_json);
+use JSON qw(decode_json encode_json);
 
 use Fabric::TraceData qw(nametype xlate_uuid hint4uuid port_index bytes2dense dump_packet grab_name null_uuid);
 use Fabric::Util qw(note_value giveup epoch_marker);
@@ -78,7 +78,7 @@ sub wirelist {
 # --
 
 my $max_edge = 1; # avoid 0
-my %edges; # map : "Cx:pX->Cy:pY" -> { edge_no - left_cell left_port right_cell right_port }; # plus 'Internet'
+my %edges; # map : 'Cx:pX->Cy:pY' -> { edge_no - left_cell left_port right_cell right_port }; # plus 'Internet'
 
 sub order_edges($$) {
     my ($left, $right) = @_;
@@ -90,6 +90,7 @@ sub order_edges($$) {
 # accelerate with an inverted map
 sub find_edge {
     my ($edge_no) = @_;
+    # while (my ($k, $o) = each %edges) { # doesn't work??
     foreach my $k (keys %edges) {
         my $o = $edges{$k};
         return $o if $o->{'edge_no'} == $edge_no;
@@ -314,7 +315,7 @@ sub pick_color {
 # C1 -> C0:p1 [label="Tree:C0" color=red]
 sub dump_forest {
     my ($path) = @_;
-    open(FOREST, '>'.$path) or die $path.': '.$!;
+    open(FOREST, '>', $path) or die $path.': '.$!;
     print FOREST ('digraph G {', $endl);
     print FOREST ('rankdir=LR', $endl);
 
@@ -394,7 +395,7 @@ sub border_port {
 
 sub dump_complex {
     my ($path) = @_;
-    open(DOT, '>'.$path) or die $path.': '.$!;
+    open(DOT, '>', $path) or die $path.': '.$!;
     print DOT ('digraph G {', $endl);
     print DOT ('rankdir=LR', $endl);
     dump_edges();
@@ -429,16 +430,16 @@ sub update_routing_table {
 
 sub dump_routing_tables {
     my ($path) = @_;
-    open(FD, '>'.$path) or die $path.': '.$!;
+    open(FD, '>', $path) or die $path.': '.$!;
     foreach my $cell_id (sort keys %routing_table) {
         print FD ($endl);
         print FD (join(' ', $cell_id, 'Routing Table'), $endl);
 
-        my $href = $routing_table{$cell_id};
+        my $routes = $routing_table{$cell_id};
         my $order_routes = sub ($$) {
             my ($left, $right) = @_;
-            my $l = $href->{$left};
-            my $r = $href->{$right};
+            my $l = $routes->{$left};
+            my $r = $routes->{$right};
             return $l cmp $r unless $l eq $r;
             return $left cmp $right;
         };
@@ -548,7 +549,7 @@ sub add_msgcode {
 sub ec_fromkey {
     my ($key) = @_;
     my ($l1, $l2, $l3) = split('::', $key);
-    die('ec '.$key) unless defined $l3; # bulletproofing
+    giveup('ec '.$key) unless defined $l3; # bulletproofing
     return $l3; # aka lineno
 }
 
@@ -576,7 +577,7 @@ sub add_msgcode2 {
 # could construct data into a 2 dimensional data structure (fix number of cells, variable length history)
 sub msg_sheet {
     my ($path) = @_;
-    open(CSV, '>'.$path) or die $path.': '.$!;
+    open(CSV, '>', $path) or die $path.': '.$!;
     print CSV (join(',', 'event/cell', 0..9), $endl);
     my @row = ();
 
@@ -673,6 +674,7 @@ sub ait_name {
 sub ait_unname {
     my ($name) = @_;
     return undef unless $name;
+    # FIXME - while?
     foreach my $key (keys %{$ait_code}) {
         my $value = $ait_code->{$key};
         return $value if $name eq $value;
@@ -738,10 +740,56 @@ sub order_frames($$) {
     return $left->{outbound} <=> $right->{outbound};
 }
 
+sub parse_portcode {
+    my ($portcode) = @_;
+    $portcode =~ m/^C(\d+)p(\d+)$/;
+    return ($1, $2);
+}
+
+# FIXME : hardwired blueprint of triangle-demo
+# connectors numbered starting at 1
+my $blueprint_codex = '{"C0p2":"C1p1","C1p3":"C2p2","C2p1":"C0p3","C0p3":"C2p1","C2p2":"C1p3","C1p1":"C0p2"}';
+
+sub chan_remap {
+    my ($blueprint_graph) = @_;
+    my %m;
+    while (my ($key, $value) = each %{$blueprint_graph}) {
+        my ($left_cell, $left_port) = parse_portcode($key);
+        my ($right_cell, $right_port) = parse_portcode($value);
+        my $cell_pair = 'C'.$left_cell.':C'.$right_cell;
+        $m{$cell_pair} = $left_port; # outbound
+    }
+    return \%m;
+}
+
+sub target_cell {
+    my ($c, $p) = @_;
+    my $link_no = get_link_no($c, $p);
+    my $edge_no = int($link_no / 2);
+    my $compass = $link_no % 2;
+    my $e = find_edge($edge_no);
+    my $lc = $e->{'left_cell'};
+    my $lp = $e->{'left_port'};
+    my $rc = $e->{'right_cell'};
+    my $rp = $e->{'right_port'};
+    my $t = ($compass) ? $lc : $rc;
+    return ($t, $compass);
+}
+
 sub dump_frames {
     my ($path) = @_;
+    my $blueprint_graph = decode_json($blueprint_codex);
+    my $channel_remap = chan_remap($blueprint_graph);
     open(FRAMEOUT, '>', $path) or die $path.': '.$!;
     foreach my $o (sort order_frames @frame_seq) {
+        my $c = $o->{pe_id}; $c =~ s/C://;
+        my $p = $o->{outbound};
+        my ($t, $bias) = target_cell($c, $p);
+        giveup('missing target - cell: '.$o->{pe_id}.' port: '.$p) unless defined $t;
+
+        my $cell_pair = 'C'.$c.':C'.$t;
+        my $device_index = $channel_remap->{$cell_pair};
+        $o->{outbound} = $device_index; # patch in place:
         my $meta = JSON->new->canonical->encode($o);
         print FRAMEOUT ($meta, $endl);
     }
@@ -766,14 +814,14 @@ sub phy_enqueue {
 }
 
 sub xmit_tcp_frame {
-    my ($epoch, $pe_worker, $port_no, $frame) = @_;
+    my ($epoch, $pe_worker, $outbound, $frame) = @_;
     my $pe_id = $pe_worker->{'pe_id'};
 
     my $ait_code = 'NORMAL';
     my $tree = null_uuid();
     my $msg_id = 0;
     my $msg_type = 'TCP';
-    phy_enqueue($epoch, $pe_id, $port_no, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+    phy_enqueue($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     # 'ROOTWARD'
 }
 
@@ -801,10 +849,10 @@ sub eccf_ait {
     my $limit_mask = unpack('B*', $bitmask); # ascii_to_binary(numeric)
     my $port_mask = ($limit_mask & $route_mask);
 # FIXME : going up ??
-    for my $i (0..$maxport) {
-        my $bit = 1 << $i;
+    for my $outbound (0..$maxport) {
+        my $bit = 1 << $outbound;
         next unless $port_mask & $bit;
-        phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+        phy_enqueue($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
     }
 }
 
@@ -830,11 +878,11 @@ sub eccf_normal {
     # Leafward
     if ($port_no == $parent) {
 # FIXME : going up ??
-        for my $i (0..$maxport) {
-            my $bit = 1 << $i;
+        for my $outbound (0..$maxport) {
+            my $bit = 1 << $outbound;
             next unless $port_mask & $bit;
             my $ait_code = 'NORMAL';
-            phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
     # RootWard
@@ -842,11 +890,11 @@ sub eccf_normal {
         if ($parent) {
 # FIXME : is 'ports' all ports or just phy-ports?
 # FIXME : going up ??
-            for my $i (0..$maxport) {
-                my $bit = 1 << $i;
+            for my $outbound (0..$maxport) {
+                my $bit = 1 << $outbound;
                 next unless $port_mask & $bit;
                 my $ait_code = 'NORMAL';
-                phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+                phy_enqueue($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
             }
         }
         # fallsthru
@@ -854,9 +902,9 @@ sub eccf_normal {
         if (!$parent || $going_up) {
 # FIXME : going up ??
             # ca.enqueue()
-            my $i = 0;
+            my $outbound = 0;
             my $ait_code = 'NORMAL';
-            phy_enqueue($epoch, $pe_id, $i, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
+            phy_enqueue($epoch, $pe_id, $outbound, $ait_code, $tree, $msg_type, $msg_id, $frame); # if $port_mask & $bit;
         }
     }
 }
@@ -934,7 +982,7 @@ sub pe_api {
     # pub type TCP = (ISAIT, AllowedTree, TcpMsgType, MsgDirection, ByteArray);
     if ($tag eq 'Tcp') {
         my ($port_number, $msg) = @args;
-        my $port_no = $port_number->{'port_no'};
+        my $outbound = $port_number->{'port_no'};
         my @tcpargs = @{$msg}; # $#tcpargs is 4
         my $isAit = $tcpargs[0]; # 'JSON::PP::Boolean'
         my $allowed_tree = $tcpargs[1]; # object
@@ -948,8 +996,8 @@ print main::DBGOUT (join(' ', 'Tcp', $isAit ? 'AIT' : 'NORMAL', $allowed_tree->{
         my $str = JSON->new->canonical->encode($msg);
         my $frame = unpack("H*",  $str); # ascii_to_hex
         my $some = substr($frame, -40).'...';
-        print main::DBGOUT (join(' ', $port_no, $some), $endl);
-        xmit_tcp_frame($epoch, $pe_worker, $port_no, $frame);
+        print main::DBGOUT (join(' ', $outbound, $some), $endl);
+        xmit_tcp_frame($epoch, $pe_worker, $outbound, $frame);
         return;
     }
 

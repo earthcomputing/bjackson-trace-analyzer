@@ -71,7 +71,7 @@ sub dump_guids {
     my $hdr = 'GUIDS:';
     my $href = \%guid_table;
 
-    open(GUIDS, '>'.$path) or die $path.': '.$!;
+    open(GUIDS, '>', $path) or die $path.': '.$!;
     print GUIDS ($endl);
     print GUIDS ($hdr, $endl);
 

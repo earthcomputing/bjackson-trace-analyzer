@@ -16,10 +16,10 @@ use JSON;
 
 # --
 
-my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
-my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
+my %jschema; # map : $xpath.$jtype : ref-count - {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
+my %keyset; # map : field : ref-count - foreach my $tag (keys $json) { $keyset{$tag}++; }
 
-my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
+my %verb; # map : methkey : ref-count : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
 
 sub note_verb {
     my ($key) = @_;
@@ -78,7 +78,7 @@ sub dump_histo {
 
 sub dump_schema {
     my ($path) = @_;
-    open(SCHEMA, '>'.$path) or die $path.': '.$!;
+    open(SCHEMA, '>', $path) or die $path.': '.$!;
     dump_histo('VERBS:', \%verb);
     dump_histo('SCHEMA:', \%jschema);
     dump_histo('KEYSET:', \%keyset);
