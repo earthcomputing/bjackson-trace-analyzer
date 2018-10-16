@@ -145,7 +145,6 @@ sub meth_connect_link {
     ## Complex Entry:
     if (defined $link_id) {
         my ($c1, $lc, $p1, $lp, $c2, $rc, $p2, $rp) = split(/:|\+/, $link_id); # C:0+P:1+C:1+P:1
-epoch_marker();
         activate_edge($lc, $lp, $rc, $rp);
     }
     print(join(' ', $link_id, ';'));
@@ -207,7 +206,6 @@ sub meth_ca_send_msg_port_connected {
     my $port_id = '';
     if (defined $port_no) {
         $port_id = (($is_border) ? 'FX:' : '').$port_no;
-epoch_marker();
         border_port($cell_id, $port_no) if $is_border;
     }
     print(join(' ', $cell_id, $port_id, ';'));
@@ -444,7 +442,7 @@ sub meth_ca_process_manifest_msg {
     my $app_name = $manifest->{'id'};
     my $man_hash = note_value(\%Fabric::TraceData::manifest_table, $manifest);
     my $opt_manifest = defined($man_hash) ? substr($man_hash, -5) : '';
-epoch_marker();
+epoch_marker(); # new behavior (launch)
     print main::DBGOUT (join(' ', 'Launch Application:', $tree_id, $cell_id, $app_name, 'manifest='.$opt_manifest), $endl);
 }
 
@@ -489,7 +487,7 @@ sub meth_ca_update_base_tree_map {
     my $stacked_tree_id = nametype($body->{'stacked_tree_id'});
     print(join(' ', $cell_id, $base_tree_id, $stacked_tree_id, ';'));
 
-epoch_marker();
+epoch_marker(); # new behavior (layer)
     print main::DBGOUT (join(' ', 'Layer Tree:', $base_tree_id, $stacked_tree_id), $endl);
 }
 
@@ -527,7 +525,7 @@ sub meth_ca_got_stack_tree_tcp_msg {
     my $gvm_eqn = $payload->{'gvm_eqn'};
     my $gvm_hash = note_value(\%Fabric::TraceData::gvm_table, $gvm_eqn);
     my $opt_gvm = defined($gvm_hash) ? substr($gvm_hash, -5) : '';
-epoch_marker();
+epoch_marker(); # new behavior (app)
     print main::DBGOUT (join(' ', 'Application Tree:', $new_tree_id, 'gvm='.$opt_gvm), $endl);
 
     ## Spreadsheet Coding:
@@ -575,7 +573,7 @@ sub meth_ca_deploy {
     # my $tree_vm_map_keys = $body->{'tree_vm_map_keys'};
     print(join(' ', $cell_id, $deployment_tree_id, $up_tree_name, ';'));
 
-epoch_marker();
+epoch_marker(); # new behavior (deploy)
     print main::DBGOUT (join(' ', 'Deploy:', $cell_id, $up_tree_name, $deployment_tree_id), $endl);
 }
 
@@ -629,7 +627,7 @@ sub meth_ca_got_tcp_application_msg {
     add_msgcode2($tag, $tree_id, $virt_p, $body, $key);
 
     my $str = decode_octets($body->{'msg'});
-epoch_marker();
+epoch_marker(); # new behavior (tcp)
     print main::DBGOUT (join(' ', 'TCP_APP:', $cell_id, $dquot.$str.$dquot), $endl);
 }
 

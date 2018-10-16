@@ -11,14 +11,12 @@ our @EXPORT_OK = qw(
     wirelist
     order_edges
     find_edge
-    edge_table_entry
     activate_edge
     write_border
     write_edge
     dump_edges
     write_link
     order_forest
-    add_tree_link
     add_overlay
     dump_forest
     dump_complex
@@ -115,9 +113,13 @@ sub edge_table_entry {
         'right_port' => $rp,
         'edge_no' => 0 # illegal value
     };
+
     # not threadsafe: conditionally stores object, then updates it.
+    # FIXME: maybe: //= ??
     $edges{$edge_key} = $edge unless defined $edges{$edge_key};
     my $o = $edges{$edge_key};
+
+    # poor man's lock:
     if ($o->{'edge_no'} == 0) {
         my $edge_no = $max_edge ; $max_edge++; # allocate
         $o->{'edge_no'} = $edge_no;
@@ -125,6 +127,7 @@ sub edge_table_entry {
         my $link_no = $edge_no * 2;
         $link_table{$k1} = $link_no;
         $link_table{$k2} = $link_no + 1;
+epoch_marker(); # new edge
     }
     return $o->{'edge_no'};
 }
@@ -214,7 +217,7 @@ sub write_link {
 # --
 
 my $max_forest = 1;
-my %forest; # map : int -> { span_tree child - parent p }
+my %forest; # map : forext_index -> { span_tree child - parent p root link_no}
 
 # FIXME - not completely correct ??
 sub order_forest($$) {
@@ -243,14 +246,16 @@ sub add_tree_link {
 
     my $o = {
         'span_tree' => $tree_id,
+        'child' => 'C'.$child,
         'parent' => 'C'.$c,
         'p' => $p,
-        'child' => 'C'.$child,
         'root' => $root,
         'link_no' => $link_no
     };
     my $k = $max_forest++;
     $forest{$k} = $o;
+epoch_marker(); # new spanning tree edge
+    return $k; # really: void
 }
 
 sub add_overlay {
@@ -312,6 +317,7 @@ sub dump_forest {
     open(FOREST, '>'.$path) or die $path.': '.$!;
     print FOREST ('digraph G {', $endl);
     print FOREST ('rankdir=LR', $endl);
+
     # print FOREST (join(' ', 'span-tree', 'parent', 'link', 'child'), $endl);
     foreach my $k (sort order_forest keys %forest) {
         my $o = $forest{$k};
@@ -355,15 +361,15 @@ sub dump_forest {
 my $NOT_ALAN;
 
 my $max_cell = -1;
-my %cell_table; # $c => $edge_no
+my %cell_table; # map : "Cx:p0" => $edge_no
 
 sub cell_table_entry {
     my ($c) = @_;
-    $max_cell = $c if $c > $max_cell;
     return $cell_table{$c} if $cell_table{$c};
 
-    my $edge_no = edge_table_entry($c, 0, $c, 0); # virtual port #0
     my $k = 'C'.$c.':p0';
+    my $edge_no = edge_table_entry($c, 0, $c, 0); # virtual port #0
+    $max_cell = $c if $c > $max_cell;
     $cell_table{$c} = $edge_no;
     return $edge_no;
 }
@@ -371,7 +377,8 @@ sub cell_table_entry {
 # unused ?
 sub get_cellagent_port {
     my ($c) = @_;
-    my $edge_no = $cell_table{$c};
+    my $k = 'C'.$c.':p0';
+    my $edge_no = $cell_table{$k};
     return $edge_no;
 }
 
@@ -405,20 +412,19 @@ sub dump_complex {
 
 # --
 
-my %routing_table; # map : {$cell_id}{$entry->{'tree_uuid'}} => $entry
+# or trick : $entry->{'index'};
+my %routing_table; # map : $cell_id -> map $entry{tree_uuid} -> { tree_uuid - inuse may_send parent mask [other_indices] }
 
 sub get_routing_entry {
     my ($cell_id, $key) = @_;
     return $routing_table{$cell_id}->{$key};
 }
 
+# FIXME : should we indicate updates ??
 sub update_routing_table {
     my ($cell_id, $entry) = @_;
-    my $key = $entry->{'tree_uuid'}; # $entry->{'index'};
-    $routing_table{$cell_id} = { } unless defined $routing_table{$cell_id};
-    my $table = $routing_table{$cell_id};
-    $table->{$key} = $entry;
-    # FIXME : should we indicate updates ??
+    my $key = $entry->{'tree_uuid'};
+    $routing_table{$cell_id}->{$key} = $entry; # autovivication
 }
 
 sub dump_routing_tables {
@@ -428,25 +434,24 @@ sub dump_routing_tables {
         print FD ($endl);
         print FD (join(' ', $cell_id, 'Routing Table'), $endl);
 
-        my $routes = $routing_table{$cell_id};
-
+        my $href = $routing_table{$cell_id};
         my $order_routes = sub ($$) {
             my ($left, $right) = @_;
-            my $l = $routes->{$left};
-            my $r = $routes->{$right};
+            my $l = $href->{$left};
+            my $r = $href->{$right};
             return $l cmp $r unless $l eq $r;
             return $left cmp $right;
         };
 
         foreach my $key (sort { $order_routes->($a, $b) } keys %{$routes}) {
             my $entry = $routes->{$key};
-            # my $index = $entry->{'index'};
-            my $hint = hint4uuid($entry->{'tree_uuid'});
             my $inuse = $entry->{'inuse'} ? 'Yes' : 'No';
             my $may_send = $entry->{'may_send'} ? 'Yes' : 'No';
             my $parent = port_index($entry->{'parent'});
             my $mask = sprintf('%016b', $entry->{'mask'}{'mask'});
             # my $other_indices = '['.join(', ', @{$entry->{'other_indices'}}).']';
+
+            my $hint = hint4uuid($entry->{'tree_uuid'});
             my $guid_name = grab_name($entry->{'tree_uuid'});
             print FD (join("\t", $hint, $inuse, $may_send, $parent, $mask, $guid_name), $endl); # $index, $other_indices
         }
@@ -972,7 +977,6 @@ _eor_
 sub do_treelink {
     my ($c, $p, $tree_id, $sender_id) = @_;
     my ($xtag, $cc, $child, $remain) = split(/[\+:]/, $sender_id); # need child from sender_id
-epoch_marker();
     add_tree_link($tree_id, $c, $p, $child);
 }
 
