@@ -20,6 +20,7 @@ use Fabric::DispatchTable qw(meth_lookup extend_table);
 use Fabric::Methods qw(register_methods);
 use Fabric::TraceData qw(dump_guids grab_name hint4uuid nametype port_index portdesc xlate_uuid silly %msg_table %gvm_table %manifest_table);
 use Fabric::Model qw(dump_complex dump_routing_tables dump_forest msg_sheet dump_frames);
+use Fabric::Schema qw(walk_structure dump_schema note_verb);
 
 # --
 
@@ -57,9 +58,6 @@ my $code_filter;
 my $last_epoch;
 my $result_dir = '/tmp/'; # can be blank!?
 
-my %jschema; # map : {$path}++ {$path.$jtype}++; {$path.' : BOOLEAN'}++;
-my %keyset; # map : foreach my $tag (keys $json) { $keyset{$tag}++; }
-my %verb; # map : $verb{join('$', $module, $function)}++; $verb{$methkey}++;
 
 # --
 
@@ -92,15 +90,6 @@ close(DBGOUT);
 exit 0;
 
 # --
-
-sub dump_schema {
-    my ($path) = @_;
-    open(SCHEMA, '>'.$path) or die $path.': '.$!;
-    dump_histo('VERBS:', \%verb);
-    dump_histo('SCHEMA:', \%jschema);
-    dump_histo('KEYSET:', \%keyset);
-    close(SCHEMA);
-}
 
 sub dump_msgs {
     my ($path, $href) = @_;
@@ -176,7 +165,8 @@ if ($last_epoch) {
 set_epoch($epoch);
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
-        $verb{join('$', $module, $function)}++;
+        my $zz = join('$', $module, $function);
+        note_verb($zz);
 
         ## combine all records into one line per thread
         # re-hack key for output
@@ -205,7 +195,7 @@ sub dispatch {
     my $methkey = join('$$', $module, $function, $kind, $format);
     # my $event_code = ec_fromkey($key);
 
-    $verb{$methkey}++;
+    note_verb($methkey);
 
     my $body = $json->{'body'};
     my $header = $json->{'header'};
@@ -221,42 +211,6 @@ sub dispatch {
 
     $m->($body, $key, $header);
 }
-
-my $note1 = << '_eor_';
-
-MANIFEST: C0p2  Sender:C:2+BorderPort+2
-MANIFEST: C1p2  Sender:C:2+BorderPort+2
-MANIFEST: C2p0  Sender:C:2+BorderPort+2
-
-
-    "direction": "Leafward",
-    "tree_map": {
-        "NocAgentMaster": { "name": "Tree:C:2+NocAgentMaster", "uuid": { "uuid": [ 9408345567043698430, 0 ] } },
-        "NocMasterAgent": { "name": "Tree:C:2+NocMasterAgent", "uuid": { "uuid": [ 46690252040399963, 0 ] } }
-    }
-
-    "tree_name": { "name": "NocAgentDeploy" }
-    "deploy_tree_id": { "name": "Tree:C:2+NocAgentDeploy", "uuid": { "uuid": [ 2354389112903126494, 0 ] } },
-    "manifest": {
-        "id": "NocAgent",
-        "cell_config": "Large",
-        "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ],
-        "deployment_tree": { "name": "NocAgentDeploy" },
-        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-        "vms": [ {
-                "id": "vm1",
-                "required_config": "Large",
-                "image": "Ubuntu",
-                "trees": [ { "id": "NocAgent", "parent_list": [ 0 ] } ]
-                "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-                "containers": [ {
-                        "id": "NocAgent", "image": "NocAgent", "params": []
-                        "allowed_trees": [ { "name": "NocMasterAgent" }, { "name": "NocAgentMaster" } ],
-                } ],
-        } ]
-    },
-
-_eor_
 
 # --
 
@@ -391,74 +345,7 @@ sub inhale {
 
 # --
 
-# accumulate $jschema
-# JSON::is_bool
-sub walk_structure {
-    my ($path, $json) = @_;
-    my $rkind = ref($json);
-    $jschema{$path}++ unless $rkind;
-    return unless $rkind;
-    if ($rkind eq 'HASH') {
-        # special case: include type
-        my $jtype = ' : OBJECT { '.join(' ', sort keys %{$json}).' }';
-        $jschema{$path.$jtype}++;
-        foreach my $tag (keys %{$json}) {
-            $keyset{$tag}++;
-            my $nested = $path.'/'.$tag;
-            ## $jschema{$nested}++;
-            walk_structure($nested, $json->{$tag});
-        }
-        return;
-    }
-    if ($rkind eq 'ARRAY') {
-        my @ary = @{$json};
-        # special case: include type
-        my $jtype = ' : ARRAY len='.($#ary+1);
-        $jschema{$path.$jtype}++;
-        foreach my $val (@ary) {
-            my $nested = $path.'[]';
-            ## $jschema{$nested}++;
-            walk_structure($nested, $val);
-        }
-        return;
-    }
-    if ($rkind eq 'JSON::PP::Boolean') {
-        # special case: include type
-        $jschema{$path.' : BOOLEAN'}++;
-        return;
-    }
-
-    giveup(join(' ', 'unknown object type:', $rkind));
-}
-
-# by frequency, descending
-sub dump_histo {
-    my ($hdr, $href) = @_;
-    print SCHEMA ($endl);
-    print SCHEMA ($hdr, $endl);
-    foreach my $item (sort { $href->{$b} <=> $href->{$a} } keys %{$href}) {
-        print SCHEMA (join(' ', $href->{$item}, $item), $endl);
-    }
-}
-
-# --
-
 my $notes = << '_eof_';
-
-# name patterns:
-
-"C:[0-9]*"
-"VM:C:[0-9]*+vm[0-9]*"
-"Sender:C:[0-9]*+VM:C:[0-9]*+vm[0-9]*"
-
-# --
-
-# use JSON::MaybeXS;
-# $json = $json->ascii([$enable])
-# $json = $json->latin1([$enable])
-# $json = $json->utf8([$enable])
-# $json = $json->relaxed([$enable])
-# $json = $json->canonical([$enable])
 
 # --
 
@@ -508,77 +395,10 @@ sub snarf {
 http://www.graphviz.org/doc/info/colors.html
 https://en.wikipedia.org/wiki/Web_colors
 
-"#ffffff", "#ff0000", "#00ff00", "#0000ff", // white(#ffffff), red(#ff0000), green(#00ff00), blue(#0000ff)
-"#000000", "#00ffff", "#ff00ff", "#ffff00", // black(#000000), cyan(#00ffff), magenta(#ff00ff) yellow(#ffff00)
-"#c0c0c0",  // silver(#c0c0c0)
-"#000080", "#008000", "#800000", // navy, green (old), maroon
-"#808000", "#800080", "#008080", // olive, purple, teal
-"#808080", // gray
-// lime=green
-// aqua=cyan
-// fuchsia=magenta
-
 # --
 
-sample-data/multicell-trace-distributed-1533085651118541.json.gz
-sample-data/multicell-trace-triangle-1530634503352636.json.gz
-
-CellAgent$$cellagent.rs$$forward_stack_tree$$ca_forward_stack_tree_msg$$Debug
-
-/ : OBJECT { body header } ;;
-
-/header : OBJECT { epoch event_id format function module repo thread_id trace_type } ;;
-    /header/epoch : SCALAR ;;
-    /header/event_id : SEQ OF ;;
-    /header/event_id[] : SCALAR ;;
-    /header/format : SCALAR ;;
-    /header/function : SCALAR ;;
-    /header/module : SCALAR ;;
-    /header/repo : SCALAR ;;
-    /header/thread_id : SCALAR ;;
-    /header/trace_type : SCALAR
-
-/body : OBJECT { cell_number } ;; /body/cell_number : SCALAR ;;
-/body : OBJECT { schema_version } ;; /body/schema_version : SCALAR ;;
-
---
-
-/body : OBJECT { left_cell left_port link_id rite_cell rite_port }
-
-cell_id:
-
-/body : OBJECT { ait_state entry msg_type port_no tree_id }
-/body : OBJECT { ait_state msg_type port_nos tree_id }
-/body : OBJECT { ait_state msg_type tree_id }
-/body : OBJECT { allowed_tree direction msg_type tcp_msg }
-/body : OBJECT { base_tree_id base_tree_map_keys base_tree_map_values new_tree_id }
-/body : OBJECT { base_tree_id children gvm hops other_index port_number port_status }
-/body : OBJECT { base_tree_id children gvm hops port_number port_status }
-/body : OBJECT { base_tree_id entry }
-/body : OBJECT { base_tree_id stacked_tree_id }
-/body : OBJECT { deploy_tree_id msg }
-/body : OBJECT { deployment_tree_id tree_vm_map_keys up_tree_name }
-/body : OBJECT { entry msg new_tree_id }
-/body : OBJECT { entry msg_type port_no tree_id }
-/body : OBJECT { is_border port_no }
-/body : OBJECT { msg new_tree_id port_no }
-/body : OBJECT { msg no_saved tree_id }
-/body : OBJECT { msg port_no save tree_id }
-/body : OBJECT { msg port_no tree_id }
-/body : OBJECT { msg port_no }
-/body : OBJECT { msg port_nos tree_id }
-/body : OBJECT { msg tree_id }
-/body : OBJECT { msg }
-/body : OBJECT { msg_type port_nos tree_id }
-/body : OBJECT { msg_type port_nos }
-/body : OBJECT { msg_type tree_id }
-/body : OBJECT { no_saved_msgs tree_id }
-/body : OBJECT { sender_id vm_id }
-/body : OBJECT { tree_id }
-/body : OBJECT { }
-
-# my $s = 'Hello World';
-# my $x1 = unpack("H*",  $s); # ascii_to_hex
-# my $s = pack('H*', $x1); # hex_to_ascii
+my $s = 'Hello World';
+my $x1 = unpack("H*",  $s); # ascii_to_hex
+my $s = pack('H*', $x1); # hex_to_ascii
 
 _eof_
