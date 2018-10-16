@@ -51,6 +51,8 @@ use Fabric::Util qw(note_value giveup epoch_marker);
 
 # --
 
+# think unidirectional channel (pair)
+# symmetry broken by neighbor agreement, even is dominant
 my %link_table; # map : 'Cx:py' -> $link_no
 
 # graphviz format (note :pX is magic)
@@ -78,7 +80,7 @@ sub wirelist {
 # --
 
 my $max_edge = 1; # avoid 0
-my %edges; # map : "Cx:pX->Cy:pY" -> { 'left_cell' 'left_port' 'right_cell' 'right_port' 'edge_no' }; # plus 'Internet'
+my %edges; # map : "Cx:pX->Cy:pY" -> { edge_no - left_cell left_port right_cell right_port }; # plus 'Internet'
 
 sub order_edges($$) {
     my ($left, $right) = @_;
@@ -212,7 +214,7 @@ sub write_link {
 # --
 
 my $max_forest = 1;
-my %forest; # map : int -> { span_tree parent p child }
+my %forest; # map : int -> { span_tree child - parent p }
 
 # FIXME - not completely correct ??
 sub order_forest($$) {
@@ -223,7 +225,6 @@ sub order_forest($$) {
 
     my $l = $forest{$left}{'child'};
     my $r = $forest{$right}{'child'};
-    # return $l <=> $r;
     return $l cmp $r;
 }
 
@@ -455,7 +456,23 @@ sub dump_routing_tables {
 
 # --
 
-my @msgqueue; # list : { 'event_code' 'tree_id' 'cell_no' 'link_no' 'code' };
+my @msgqueue; # list : { event_code link_no - tree_id cell_no code };
+
+# ref: "<=>" and "cmp" operators
+# return $left cmp $right; # lexically
+# return $left <=> $right; # numerically
+sub order_msgs($$) {
+    my ($left, $right) = @_;
+    my $l1 = $left->{'event_code'};
+    my $r1 = $right->{'event_code'};
+    return $l1 - $r1 unless $l1 == $r1;
+
+    my $l2 = $left->{'link_no'};
+    my $r2 = $right->{'link_no'};
+    return $l2 - $r2 unless $l2 == $r2;
+
+    giveup(join(' ', 'WARNING: duplicate event/link?', $l1, $l2));
+}
 
 my $arrow_code = {
     'cell-rcv' => '<',
@@ -543,22 +560,6 @@ sub add_msgcode2 {
 
     my $c = $cell_id; $c =~ s/C://;
     add_msgcode($c, $port, $msg_type, $event_code, $tag, $tree_id);
-}
-
-# ref: "<=>" and "cmp" operators
-# return $left cmp $right; # lexically
-# return $left <=> $right; # numerically
-sub order_msgs($$) {
-    my ($left, $right) = @_;
-    my $l1 = $left->{'event_code'};
-    my $r1 = $right->{'event_code'};
-    return $l1 - $r1 unless $l1 == $r1;
-
-    my $l2 = $left->{'link_no'};
-    my $r2 = $right->{'link_no'};
-    return $l2 - $r2 unless $l2 == $r2;
-
-    giveup(join(' ', 'WARNING: duplicate event/link?', $l1, $l2));
 }
 
 # uses the notion that an 'edge' can have 4 pending operations on it simultanously: (left, right) x (xmit rcv).
@@ -723,7 +724,14 @@ sub get_worker {
 
 # --
 
-my @frame_seq;
+my @frame_seq; # list : { epoch pe_id outbound - ait_code tree msg_id msg_type frame }
+
+sub order_frames($$) {
+    my ($left, $right) = @_;
+    return $left->{epoch} <=> $right->{epoch} unless $left->{epoch} == $right->{epoch};
+    return $left->{pe_id} cmp $right->{pe_id} unless $left->{pe_id} eq $right->{pe_id};
+    return $left->{outbound} <=> $right->{outbound};
+}
 
 sub dump_frames {
     my ($path) = @_;
@@ -733,13 +741,6 @@ sub dump_frames {
         print FRAMEOUT ($meta, $endl);
     }
     close(FRAMEOUT);
-}
-
-sub order_frames($$) {
-    my ($left, $right) = @_;
-    return $left->{epoch} <=> $right->{epoch} unless $left->{epoch} == $right->{epoch};
-    return $left->{pe_id} cmp $right->{pe_id} unless $left->{pe_id} eq $right->{pe_id};
-    return $left->{outbound} <=> $right->{outbound};
 }
 
 # phy enqueue C:1 2 TOCK 0x400074367c704351baf6176ffc4e1b6a msg_id=9060533230310021231 7b226d7367... ;
