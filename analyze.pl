@@ -75,19 +75,23 @@ foreach my $fname (@ARGV) {
 }
 
 # ISSUE : one file/report for entire list of inputs
-dump_complex($result_dir.$dotfile);
-dump_routing_tables($result_dir.$routingfile);
-dump_msgs($result_dir.$msgfile, silly());
-dump_msgs($result_dir.$gvmfile, \%gvm_table);
-dump_msgs($result_dir.$manifestfile, \%manifest_table);
+
 dump_schema($result_dir.$schemafile);
-dump_guids($result_dir.$guidfile);
-dump_forest($result_dir.$forestfile);
-msg_sheet($result_dir.$csvfile);
-dump_frames($result_dir.$frames_file);
+dump_trace_tables();
+dump_model_data();
 
 close(DBGOUT);
 exit 0;
+
+# --
+
+sub dump_model_data {
+    dump_complex($result_dir.$dotfile);
+    dump_routing_tables($result_dir.$routingfile);
+    dump_forest($result_dir.$forestfile);
+    dump_frames($result_dir.$frames_file);
+    msg_sheet($result_dir.$csvfile);
+}
 
 # --
 
@@ -100,6 +104,13 @@ sub dump_msgs {
     }
 
     close(FD);
+}
+
+sub dump_trace_tables {
+    dump_msgs($result_dir.$msgfile, silly());
+    dump_msgs($result_dir.$gvmfile, \%gvm_table);
+    dump_msgs($result_dir.$manifestfile, \%manifest_table);
+    dump_guids($result_dir.$guidfile);
 }
 
 # --
@@ -158,11 +169,11 @@ sub do_analyze {
         my $epoch = $header->{'epoch'}; # human domain indicator uses for managing streaming data (think lifetime of data)
         # key contains "basic causal ordering" - thread_id/event_id (and stream position for ties)
 
-# animation filter
-if ($last_epoch) {
-    next if $epoch > $last_epoch;
-}
-set_epoch($epoch);
+        # animation filter
+        if ($last_epoch) {
+            next if $epoch > $last_epoch;
+        }
+        set_epoch($epoch);
 
         ## my $methkey = join('$$', $module, $function, $kind, $format);
         my $zz = join('$', $module, $function);
@@ -229,8 +240,8 @@ sub e_massage {
     my ($event_id) = @_;
     return $event_id unless ref($event_id); # old : scalar / number
 
-    my $xxx = join('.', 'v', @{$event_id}); # new : seq of number (array)
-    return $xxx;
+    my $vector = join('.', 'v', @{$event_id}); # new : seq of number (array)
+    return $vector;
 }
 
 # ref: "<=>" and "cmp" operators
