@@ -748,7 +748,28 @@ sub parse_portcode {
 
 # FIXME : hardwired blueprint of triangle-demo
 # connectors numbered starting at 1
-my $blueprint_codex = '{"C0p2":"C1p1","C1p3":"C2p2","C2p1":"C0p3","C0p3":"C2p1","C2p2":"C1p3","C1p1":"C0p2"}';
+# formula: 'C<N> p<x+1> : C<X> p<n+1>'
+# C2:C-1
+my $blueprint_codex = << '_eor_';
+{
+    "C0p2":"C1p1",
+    "C0p3":"C2p1",
+    "C0p4":"C3p1",
+
+    "C1p1":"C0p2",
+    "C1p3":"C2p2",
+    "C1p4":"C3p2",
+
+    "C2p1":"C0p3",
+    "C2p2":"C1p3",
+    "C2p4":"C3p3",
+
+    "C3p1":"C0p4",
+    "C3p2":"C1p4",
+    "C3p3":"C2p4"
+}
+_eor_
+
 
 sub chan_remap {
     my ($blueprint_graph) = @_;
@@ -787,8 +808,13 @@ sub dump_frames {
         my ($t, $bias) = target_cell($c, $p);
         giveup('missing target - cell: '.$o->{pe_id}.' port: '.$p) unless defined $t;
 
+        next if $t < 0; # write to Internet ??
+        next if $c == $t; # PE to CellAgent ?
+
         my $cell_pair = 'C'.$c.':C'.$t;
         my $device_index = $channel_remap->{$cell_pair};
+        giveup('no wiring: '.$cell_pair) unless defined $device_index;
+
         $o->{outbound} = $device_index; # patch in place:
         my $meta = JSON->new->canonical->encode($o);
         print FRAMEOUT ($meta, $endl);
