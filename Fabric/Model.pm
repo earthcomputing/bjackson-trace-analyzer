@@ -491,6 +491,7 @@ my $op_table = {
     'Application' => 'A',
     'Discover' => 'D',
     'DiscoverD' => 'DD',
+    'Failover' => 'F',
     'Hello' => 'H',
     'Manifest' => 'M',
     'StackTree' => 'S',
@@ -523,6 +524,8 @@ sub add_msgcode {
 
     my $arrow = $arrow_code->{$dir};
     my $crypt = $op_table->{$msg_type}; # FIXME - missing msg_type's here ...
+    print STDERR (join(' ', 'missing msg_type:', $msg_type), $endl) unless defined $crypt;
+
     my $link_code = ($NOT_ALAN) ?  'link#'.$link_no : letters($link_no);
     my $code = $crypt.$arrow.$link_code.' '.'('.$tree_id.')'; # $blank
     my $o = {

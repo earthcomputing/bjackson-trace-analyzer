@@ -2,7 +2,7 @@
 
 # multicell-trace-triangle-1536648431697765.json.gz
 set tag = "triangle-"
-set epoch = 1539405234737631
+set epoch = 1539644788248291
 
 set datafile = "multicell-trace-${tag}${epoch}.json.gz"
 

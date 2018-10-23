@@ -13,7 +13,10 @@ use Data::GUID;
 
 my $endl = "\n";
 my $dquot = '"';
+my $squot = "'";
+my $comma = ',';
 my $blank = ' ';
+my $nest = $blank x 4;
 
 my $codes = {
     'BOOLEAN' => 'Z',
@@ -34,15 +37,54 @@ my $terse = 0;
 
 # --
 
+my %methods;
+
 foreach my $fname (@ARGV) {
     if ($fname =~ /-terse/) { $terse = 1; next; }
     if ($fname =~ /-filter=/) { my ($a, $b) = split('=', $fname); $code_filter = $b; next; }
     print($endl, $fname, $endl);
     my $href = process_file($fname);
     do_analyze($href);
+    dump_methods();
 }
 
 # --
+
+sub mline {
+    my ($mname) = @_;
+    print METH (join($endl.$nest,
+        "sub $mname {",
+        'my ($body, $key) = @_;',
+        'my @body_attr = keys %{$body};',
+        'my $alist = join(", ", @body_attr);',
+        'print($aslist, " ;");'),
+        $endl, '}', $endl, $endl # 2nd endl separates methods
+    );
+}
+
+sub dump_methods {
+    my $mpath = '/tmp/methods.pl';
+    open(METH, '>', $mpath) or die $mpath.': '.$!;
+
+    my %mcount;
+    print METH ('#!/usr/bin/perl -w', $endl);
+    print METH ($endl);
+    foreach my $key (sort keys %methods) {
+        my $mname = $methods{$key};
+        mline($mname) unless $mcount{$mname};
+        $mcount{$mname}++;
+    }
+
+    print METH ($endl);
+    print METH ('my $dispatch = {', $endl);
+    foreach my $key (sort keys %methods) {
+        my $mname = $methods{$key};
+        print METH ('    ', $squot, $key, $squot, ' => \\&', $mname, $comma, $endl);
+    }
+    print METH ('};', $endl);
+
+    close(METH);
+}
 
 my %dedup;
 my %bodies;
@@ -65,6 +107,11 @@ sub do_analyze {
         my $header = $json->{'header'};
         my $tag = methkey($header);
         my $entry = join(' = ', $tag, $hash);
+
+        my $format = $header->{'format'}; # arbitrary tag (think unique emitter)
+        my $mname = join('', 'meth_', $format, '_', $hash);
+        $methods{$tag} = $mname unless defined $dedup{$entry};
+
         # print($entry, $endl) unless $dedup{$entry};
         $dedup{$entry}++;
     }
