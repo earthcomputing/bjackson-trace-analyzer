@@ -759,20 +759,34 @@ my $blueprint_codex = << '_eor_';
     "C0p3":"C2p1",
     "C0p4":"C3p1",
 
-    "C1p1":"C0p2",
     "C1p3":"C2p2",
     "C1p4":"C3p2",
 
-    "C2p1":"C0p3",
-    "C2p2":"C1p3",
     "C2p4":"C3p3",
 
-    "C3p1":"C0p4",
-    "C3p2":"C1p4",
-    "C3p3":"C2p4"
+    "C0p6":"C5p1",
+    "C1p7":"C6p2",
+    "C2p8":"C7p3",
+    "C3p5":"C4p4",
+    "C3p9":"C8p4",
+    "C4p10":"C9p5",
+    "C5p7":"C6p6",
+    "C6p8":"C7p7",
+    "C7p9":"C8p8",
+    "C8p10":"C9p9"
 }
 _eor_
 
+my $backlinks = << '_eor_';
+{
+    "C1p1":"C0p2",
+    "C2p1":"C0p3",
+    "C2p2":"C1p3",
+    "C3p1":"C0p4",
+    "C3p2":"C1p4",
+    "C3p3":"C2p4",
+}
+_eor_
 
 sub chan_remap {
     my ($blueprint_graph) = @_;
@@ -813,6 +827,8 @@ sub dump_frames {
 
         next if $t < 0; # write to Internet ??
         next if $c == $t; # PE to CellAgent ?
+
+        ($c, $t) = ($t, $c) if $c > $t; # gotta swap ??
 
         my $cell_pair = 'C'.$c.':C'.$t;
         my $device_index = $channel_remap->{$cell_pair};
