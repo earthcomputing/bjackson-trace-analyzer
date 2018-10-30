@@ -18,6 +18,9 @@ sub meth_lookup {
 }
 
 my $dispatch_table = {
+};
+
+my $all_dispatch_table = {
     'CellAgent$$src/cellagent.rs$$add_saved_discover$$ca_save_discover_msg$$279$$Debug' => \&meth_ca_save_discover_msg_ff6df,
     'CellAgent$$src/cellagent.rs$$add_saved_msg$$ca_add_saved_msg$$248$$Debug' => \&meth_ca_add_saved_msg_8d6a2,
     'CellAgent$$src/cellagent.rs$$add_saved_stack_tree$$ca_save_stack_tree_msg$$268$$Debug' => \&meth_ca_save_stack_tree_msg_295f4,
