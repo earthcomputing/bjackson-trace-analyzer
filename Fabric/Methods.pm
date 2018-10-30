@@ -50,6 +50,7 @@ sub register_methods {
         'cellagent.rs$$listen_cm$$Debug$$ca_listen_cm' => \&meth_ca_listen_cm,
         'cellagent.rs$$listen_cm$$Debug$$ca_listen_pe' => \&meth_ca_listen_pe_cmodel,
         'cellagent.rs$$listen_cm_loop$$Debug$$ca_got_msg' => \&meth_ca_got_msg_cmodel,
+        'cellagent.rs$$listen_cm_loop$$Trace$$ca_from_cm' => \&meth_ca_from_cm,
         'cellagent.rs$$listen_pe$$Debug$$ca_listen_pe' => \&meth_ca_listen_pe,
         'cellagent.rs$$listen_pe_loop$$Debug$$ca_got_msg' => \&meth_ca_got_msg,
         'cellagent.rs$$listen_uptree$$Debug$$ca_listen_vm' => \&meth_ca_listen_vm,
@@ -859,6 +860,31 @@ sub meth_ca_got_msg_cmodel {
     do_treelink($c, $p, $tree_id, $sender_id) if $msg_type eq 'StackTreeD';
     do_application($c, $p, $tree_id, $sender_id) if $msg_type eq 'Application';
     do_manifest($c, $p, $tree_id, $sender_id) if $msg_type eq 'Manifest';
+}
+
+# /body : OBJECT { cell_id msg }
+sub meth_ca_from_cm {
+    my ($body, $key) = @_;
+    my $cell_id = nametype($body->{'cell_id'});
+    my $msg = $body->{'msg'};
+
+if (ref($msg) ne 'HASH') {
+    print STDERR (Dumper $msg, $endl);
+    return;
+}
+
+    print(join(' ', 'ca_from_cm:', $cell_id, keys %{$msg}, ''));
+
+    # Bytes((PortNo, bool, Uuid, ByteArray))
+    # Status((PortNo, bool, PortStatus))
+    # Tcp((PortNo, TCP))
+if (defined $msg->{'Status'}) {
+    my @sary = @{$msg->{'Status'}};
+    my ($portno, $boo, $portstatus) = @sary;
+    print(join(' ', $portno, $boo, $portstatus));
+}
+# FIXME : else ...;
+    print(' ;');
 }
 
 # /body : OBJECT { cell_id msg_type port_nos }
