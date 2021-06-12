@@ -1,4 +1,8 @@
 #!/bin/csh -fx
+#---------------------------------------------------------------------------------------------
+ #  Copyright © 2016-present Earth Computing Corporation. All rights reserved.
+ #  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
+#---------------------------------------------------------------------------------------------
 
 # sample-data/multicell-trace-triangle-1530634503352636.json.gz
 # sample-data/multicell-trace-square-1530635880772557.json.gz

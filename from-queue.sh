@@ -1,4 +1,8 @@
 #!/bin/csh -fx
+#---------------------------------------------------------------------------------------------
+ #  Copyright © 2016-present Earth Computing Corporation. All rights reserved.
+ #  Licensed under the MIT License. See LICENSE.txt in the project root for license information.
+#---------------------------------------------------------------------------------------------
 
 set advert_host = 'localhost'
 set advert_host = '192.168.0.71'
